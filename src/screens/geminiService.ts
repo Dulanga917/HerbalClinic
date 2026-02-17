@@ -1,0 +1,202 @@
+
+
+const API_KEY  = 'AIzaSyApNNHaFvHPWAVbCIswFtB42h-6kCDPak8';
+const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const MODEL    = 'gemini-1.5-flash';
+
+// ── Helper: call Gemini text model ───────────────────────────
+async function callGemini(prompt: string): Promise<string> {
+  const url = `${BASE_URL}/${MODEL}:generateContent?key=${API_KEY}`;
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+  };
+
+  const res  = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+
+  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
+}
+
+// ── Helper: call Gemini vision model (image + text) ──────────
+async function callGeminiVision(prompt: string, base64Image: string, mimeType = 'image/jpeg'): Promise<string> {
+  const url = `${BASE_URL}/${MODEL}:generateContent?key=${API_KEY}`;
+  const body = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64Image } },
+      ],
+    }],
+    generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
+  };
+
+  const res  = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+
+  if (!res.ok) throw new Error(`Gemini Vision API error: ${res.status}`);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 1. SKIN ANALYSIS FROM PHOTO
+// ═══════════════════════════════════════════════════════════════
+export async function analyzeSkinFromPhoto(base64Image: string): Promise<{
+  conditions: string;
+  dosha: string;
+  severity: string;
+  herbs: string;
+  routine: string;
+}> {
+  const prompt = `You are an expert Ayurvedic dermatologist. Analyze this facial photo and provide:
+
+1. SKIN CONDITIONS: List visible skin conditions (acne, dryness, oiliness, redness, pigmentation, etc.)
+2. AYURVEDIC DOSHA: Based on skin appearance, identify the dominant dosha (Vata/Pitta/Kapha) and explain why
+3. SEVERITY: Rate overall skin concern as Mild / Moderate / Severe
+4. HERBAL REMEDIES: Recommend 3 specific Ayurvedic herbs with how to use them
+5. DAILY ROUTINE: Give a simple 3-step Ayurvedic skincare routine
+
+Format your response EXACTLY like this:
+CONDITIONS: [your answer]
+DOSHA: [your answer]
+SEVERITY: [your answer]
+HERBS: [your answer]
+ROUTINE: [your answer]
+
+Be concise, specific, and helpful. Focus on natural Ayurvedic solutions.`;
+
+  const raw = await callGeminiVision(prompt, base64Image);
+
+  // Parse sections
+  const get = (key: string) => {
+    const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
+    return match?.[1]?.trim() ?? 'Analysis not available';
+  };
+
+  return {
+    conditions: get('CONDITIONS'),
+    dosha:      get('DOSHA'),
+    severity:   get('SEVERITY'),
+    herbs:      get('HERBS'),
+    routine:    get('ROUTINE'),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 2. PERSONALIZED HERB RECOMMENDATIONS
+// ═══════════════════════════════════════════════════════════════
+export async function getHerbRecommendations(params: {
+  dosha: string;
+  skinConcerns: string[];
+  stressLevel: number;
+}): Promise<string> {
+  const { dosha, skinConcerns, stressLevel } = params;
+  const prompt = `You are an expert Ayurvedic herbalist. A patient has:
+- Ayurvedic Dosha: ${dosha || 'Unknown'}
+- Skin Concerns: ${skinConcerns.join(', ') || 'General skin health'}
+- Stress Level: ${stressLevel}/10
+
+Recommend exactly 4 Ayurvedic herbs personalized for this patient. For each herb provide:
+- Name and Sanskrit name
+- Why it specifically helps this patient's dosha and concerns
+- Simple preparation method (face pack, tea, oil, etc.)
+- Best time to use
+
+Keep each herb recommendation to 3-4 sentences. Be practical and specific.`;
+
+  return callGemini(prompt);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3. AI CHATBOT FOR SKIN QUESTIONS
+// ═══════════════════════════════════════════════════════════════
+export async function chatWithHerbalAI(
+  userMessage: string,
+  chatHistory: { role: 'user' | 'ai'; text: string }[],
+  userDosha?: string,
+): Promise<string> {
+  // Build conversation context
+  const historyText = chatHistory
+    .slice(-6) // last 6 messages for context
+    .map(m => `${m.role === 'user' ? 'Patient' : 'HerbalClinic AI'}: ${m.text}`)
+    .join('\n');
+
+  const prompt = `You are HerbalClinic AI, a friendly expert in Ayurvedic skin care and herbal medicine. 
+You help users understand their skin concerns and recommend natural herbal solutions.
+${userDosha ? `The patient's Ayurvedic dosha is ${userDosha}.` : ''}
+
+Previous conversation:
+${historyText}
+
+Patient's new message: "${userMessage}"
+
+Respond as HerbalClinic AI. Be:
+- Warm and supportive
+- Specific with herbal recommendations  
+- Brief (2-4 sentences max)
+- Always suggest consulting a doctor for serious conditions
+- Focus on Ayurvedic and natural solutions`;
+
+  return callGemini(prompt);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 4. DOSHA DETECTION FROM QUIZ ANSWERS
+// ═══════════════════════════════════════════════════════════════
+export async function detectDoshaWithAI(answers: {
+  question: string;
+  answer: string;
+}[]): Promise<{
+  dosha: string;
+  score: { vata: number; pitta: number; kapha: number };
+  explanation: string;
+  skinCare: string;
+  meditation: string;
+}> {
+  const answerText = answers
+    .map((a, i) => `Q${i+1}: ${a.question}\nAnswer: ${a.answer}`)
+    .join('\n\n');
+
+  const prompt = `You are an expert Ayurvedic practitioner. Based on these answers, determine the patient's Ayurvedic dosha for skin health:
+
+${answerText}
+
+Analyze and respond EXACTLY in this format:
+DOSHA: [Vata OR Pitta OR Kapha]
+VATA_SCORE: [0-100]
+PITTA_SCORE: [0-100]
+KAPHA_SCORE: [0-100]
+EXPLANATION: [2-3 sentences explaining why this dosha was identified based on the answers]
+SKIN_CARE: [2-3 specific Ayurvedic skincare tips for this dosha]
+MEDITATION: [1 specific meditation or breathing practice for this dosha]`;
+
+  const raw = await callGemini(prompt);
+
+  const get     = (key: string) => raw.match(new RegExp(`${key}:\\s*([^\\n]+)`))?.[1]?.trim() ?? '';
+  const getNum  = (key: string) => parseInt(get(key)) || 0;
+  const getLong = (key: string) => {
+    const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z_]+:|$)`));
+    return match?.[1]?.trim() ?? '';
+  };
+
+  return {
+    dosha:       get('DOSHA') as string || 'Vata',
+    score: {
+      vata:  getNum('VATA_SCORE'),
+      pitta: getNum('PITTA_SCORE'),
+      kapha: getNum('KAPHA_SCORE'),
+    },
+    explanation: getLong('EXPLANATION'),
+    skinCare:    getLong('SKIN_CARE'),
+    meditation:  getLong('MEDITATION'),
+  };
+}
