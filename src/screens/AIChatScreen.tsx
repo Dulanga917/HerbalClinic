@@ -7,10 +7,11 @@ import {
 } from 'react-native';
 import { chatWithHerbalAI } from '../services/geminiService';
 import C from '../styles/colors';
+import { Dosha } from '../data/appData';
 
 interface Message { id: string; role: 'user' | 'ai'; text: string; }
 
-interface Props { onBack: () => void; dosha: string | null; }
+interface Props { onBack: () => void; dosha: Dosha; }
 
 export default function AIChatScreen({ onBack, dosha }: Props) {
   const [messages, setMessages] = useState<Message[]>([

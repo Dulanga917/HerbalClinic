@@ -39,7 +39,7 @@ export default function HerbsScreen({ onBack, dosha }: Props) {
               {filters.map(f => (
                 <AnimatedButton key={f} onPress={() => setFilter(f)}
                   color={filter===f ? C.accentDim : C.surface}
-                  style={[styles.tab, filter===f && styles.tabActive]}>
+                  style={{...styles.tab, ...(filter===f && styles.tabActive)}}>
                   <Text style={[styles.tabTxt, filter===f && styles.tabActiveTxt]}>{f}</Text>
                 </AnimatedButton>
               ))}

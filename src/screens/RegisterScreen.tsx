@@ -7,22 +7,22 @@ import {
 } from 'react-native';
 import { FadeIn, ScaleIn, AnimatedButton } from '../components/Animations';
 
+// ── BACKGROUND IMAGE ─────────────────────────────────────────
+const BG_IMAGE = require('../assets/03.png');
+
 interface Props {
   onRegister: (name: string) => void;
   onLogin:    () => void;
 }
 
-// Different background — soft nature/flowers for register
-const BG_IMAGE = { uri: 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800&q=80' };
-
 export default function RegisterScreen({ onRegister, onLogin }: Props) {
-  const [fullName,   setFullName]   = useState('');
-  const [email,      setEmail]      = useState('');
-  const [password,   setPassword]   = useState('');
-  const [confirmPass,setConfirmPass]= useState('');
-  const [loading,    setLoading]    = useState(false);
-  const [showPass,   setShowPass]   = useState(false);
-  const [showConfirm,setShowConfirm]= useState(false);
+  const [fullName,    setFullName]    = useState('');
+  const [email,       setEmail]       = useState('');
+  const [password,    setPassword]    = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [showPass,    setShowPass]    = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const cardY     = useRef(new Animated.Value(140)).current;
   const cardOp    = useRef(new Animated.Value(0)).current;
@@ -39,12 +39,12 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
   const handleRegister = () => {
-    if (!fullName.trim())  { Alert.alert('Missing Field', 'Please enter your full name.'); return; }
-    if (!email.trim())     { Alert.alert('Missing Field', 'Please enter your email.'); return; }
-    if (!validateEmail(email)) { Alert.alert('Invalid Email', 'Please enter a valid email address.'); return; }
-    if (!password.trim())  { Alert.alert('Missing Field', 'Please enter a password.'); return; }
-    if (password.length < 6) { Alert.alert('Weak Password', 'Password must be at least 6 characters.'); return; }
-    if (password !== confirmPass) { Alert.alert('Password Mismatch', 'Passwords do not match.'); return; }
+    if (!fullName.trim())        { Alert.alert('Missing Field',   'Please enter your full name.'); return; }
+    if (!email.trim())           { Alert.alert('Missing Field',   'Please enter your email.'); return; }
+    if (!validateEmail(email))   { Alert.alert('Invalid Email',   'Please enter a valid email address.'); return; }
+    if (!password.trim())        { Alert.alert('Missing Field',   'Please enter a password.'); return; }
+    if (password.length < 6)     { Alert.alert('Weak Password',   'Password must be at least 6 characters.'); return; }
+    if (password !== confirmPass){ Alert.alert('Password Mismatch','Passwords do not match.'); return; }
 
     setLoading(true);
     setTimeout(() => {
@@ -52,17 +52,17 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
       Alert.alert(
         '🌿 Welcome!',
         `Account created for ${fullName}!\nYou can now sign in.`,
-        [{ text: 'Sign In', onPress: onLogin }]
+        [{ text:'Sign In', onPress:onLogin }]
       );
     }, 1400);
   };
 
-  // Password strength indicator
+  // Password strength
   const getStrength = () => {
-    if (password.length === 0) return { label:'', color:'transparent', width:'0%' };
-    if (password.length < 4)   return { label:'Weak',   color:'#f87171', width:'30%' };
-    if (password.length < 7)   return { label:'Fair',   color:'#f59e0b', width:'60%' };
-    return                            { label:'Strong',  color:'#4ade80', width:'100%' };
+    if (password.length === 0) return { label:'',       color:'transparent', width:'0%'   };
+    if (password.length < 4)   return { label:'Weak',   color:'#f87171',     width:'30%'  };
+    if (password.length < 7)   return { label:'Fair',   color:'#f59e0b',     width:'60%'  };
+    return                            { label:'Strong',  color:'#4ade80',     width:'100%' };
   };
   const strength = getStrength();
 
@@ -70,6 +70,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
     <KeyboardAvoidingView style={{ flex:1 }} behavior={Platform.OS==='ios'?'padding':undefined}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
+      {/* ── Local image background ─────────────────────── */}
       <ImageBackground source={BG_IMAGE} style={styles.bgImage} resizeMode="cover">
         <Animated.View style={[styles.overlay, { opacity:overlayOp }]} />
         <View style={styles.bottomGradient} />
@@ -77,7 +78,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
         <SafeAreaView style={styles.safe}>
           <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-            {/* Back to login */}
+            {/* Back button */}
             <FadeIn delay={100}>
               <TouchableOpacity style={styles.backBtn} onPress={onLogin} activeOpacity={0.8}>
                 <Text style={styles.backTxt}>← Back to Login</Text>
@@ -115,7 +116,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your full name"
-                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    placeholderTextColor="rgba(0,0,0,0.3)"
                     value={fullName}
                     onChangeText={setFullName}
                     autoCapitalize="words"
@@ -131,7 +132,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your email"
-                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    placeholderTextColor="rgba(0,0,0,0.3)"
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -151,7 +152,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
                   <TextInput
                     style={styles.input}
                     placeholder="Min. 6 characters"
-                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    placeholderTextColor="rgba(0,0,0,0.3)"
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPass}
@@ -160,7 +161,6 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
                     <Text style={styles.eyeTxt}>{showPass ? '🙈' : '👁️'}</Text>
                   </TouchableOpacity>
                 </View>
-                {/* Password strength bar */}
                 {password.length > 0 && (
                   <View style={styles.strengthWrap}>
                     <View style={styles.strengthBg}>
@@ -179,7 +179,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
                   <TextInput
                     style={styles.input}
                     placeholder="Re-enter your password"
-                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    placeholderTextColor="rgb(255, 254, 254)"
                     value={confirmPass}
                     onChangeText={setConfirmPass}
                     secureTextEntry={!showConfirm}
@@ -195,7 +195,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
 
               {/* Register button */}
               <FadeIn delay={900}>
-                <AnimatedButton onPress={handleRegister} style={styles.registerBtn} color="rgb(125, 158, 7)">
+                <AnimatedButton onPress={handleRegister} style={styles.registerBtn} color="#347005e6">
                   {loading
                     ? <View style={styles.loadingRow}>
                         <Text style={styles.registerBtnTxt}>Creating account</Text>
@@ -203,16 +203,13 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
                           {[0,1,2].map(i => <BounceDot key={i} delay={i*150} />)}
                         </View>
                       </View>
-                    : <Text style={styles.registerBtnTxt}> Create My Account</Text>
+                    : <Text style={styles.registerBtnTxt}>  Create My Account</Text>
                   }
                 </AnimatedButton>
               </FadeIn>
 
-              {/* Terms note */}
               <FadeIn delay={1000}>
-                <Text style={styles.termsTxt}>
-                  By registering you agree to our natural wellness journey 🌿
-                </Text>
+                <Text style={styles.termsTxt}>By registering you agree to our natural wellness journey </Text>
               </FadeIn>
 
               {/* Divider */}
@@ -237,7 +234,7 @@ export default function RegisterScreen({ onRegister, onLogin }: Props) {
             </Animated.View>
 
             <FadeIn delay={1200}>
-              <Text style={styles.bottomTxt}>🌿 Natural healing · Ancient wisdom · Modern care</Text>
+              <Text style={styles.bottomTxt}>Natural healing · Ancient wisdom · Modern care</Text>
             </FadeIn>
 
           </ScrollView>
@@ -263,43 +260,43 @@ function BounceDot({ delay }: { delay: number }) {
 
 const styles = StyleSheet.create({
   bgImage:        { flex:1, width:'100%', height:'100%' },
-  overlay:        { ...StyleSheet.absoluteFillObject, backgroundColor:'rgba(24, 18, 34, 0.75)' },
-  bottomGradient: { position:'absolute', bottom:0, left:0, right:0, height:200, backgroundColor:'rgba(30, 25, 35, 0.5)' },
+  overlay:        { ...StyleSheet.absoluteFillObject,},// backgroundColor:'rgba(240,245,235,0.82)' },
+  bottomGradient: { position:'absolute', bottom:0, left:0, right:0, height:800, backgroundColor:'rgba(76, 85, 76, 0.61)' },
   safe:           { flex:1 },
   container:      { flexGrow:1, alignItems:'center', justifyContent:'center', paddingHorizontal:24, paddingTop:50, paddingBottom:30 },
   backBtn:        { alignSelf:'flex-start', marginBottom:10, paddingVertical:6, paddingHorizontal:4 },
-  backTxt:        { color:'rgba(255,255,255,0.6)', fontSize:14, fontWeight:'600' },
-  logoWrap:       { width:90, height:90, borderRadius:45, backgroundColor:'rgba(72, 223, 70, 0.3)', borderWidth:2, borderColor:'rgba(76, 242, 128, 0.6)', alignItems:'center', justifyContent:'center', marginBottom:14, alignSelf:'center', shadowColor:'#835fd6', shadowOpacity:0.8, shadowRadius:20, elevation:12 },
+  backTxt:        { color:'#0bd700', fontSize:14, fontWeight:'900',left:-100 },
+  logoWrap:       { width:90, height:90, borderRadius:45, backgroundColor:'rgba(41, 180, 31, 0.2)', borderWidth:2, borderColor:'rgba(248, 248, 248, 0.5)', alignItems:'center', justifyContent:'center', marginBottom:14, alignSelf:'center', shadowColor:'#2e9526', shadowOpacity:0.4, shadowRadius:20, elevation:12 },
   logoEmoji:      { fontSize:46 },
-  appName:        { fontSize:32, fontWeight:'800', color:'#ffffff', textAlign:'center', letterSpacing:1.5, textShadowColor:'rgba(92, 246, 120, 0.8)', textShadowOffset:{width:0,height:0}, textShadowRadius:20 },
-  tagline:        { fontSize:13, color:'rgba(255,255,255,0.6)', textAlign:'center', marginBottom:24, letterSpacing:0.5 },
-  card:           { width:'100%', backgroundColor:'rgba(6, 49, 15, 0.88)', borderRadius:28, padding:26, borderWidth:1, borderColor:'rgba(92, 246, 95, 0.35)', shadowColor:'#69f65c', shadowOpacity:0.3, shadowRadius:20, elevation:12, overflow:'hidden' },
-  flowerLeft:     { position:'absolute', top:12, left:16, fontSize:22, opacity:0.5 },
-  flowerRight:    { position:'absolute', top:12, right:16, fontSize:22, opacity:0.5 },
-  cardTitle:      { fontSize:22, fontWeight:'800', color:'#ffffff', textAlign:'center', marginBottom:4 },
-  cardSub:        { fontSize:12, color:'rgba(255,255,255,0.4)', textAlign:'center', marginBottom:18 },
-  label:          { fontSize:13, fontWeight:'600', color:'rgba(255,255,255,0.6)', marginBottom:6, marginTop:8 },
-  inputWrap:      { flexDirection:'row', alignItems:'center', backgroundColor:'rgba(255,255,255,0.07)', borderRadius:14, borderWidth:1, borderColor:'rgba(82, 223, 75, 0.3)', marginBottom:4, paddingHorizontal:14 },
+  appName:        { fontSize:46, fontWeight:'900', color:'#fbfbfb', textAlign:'center', letterSpacing:1.5 },
+  tagline:        { fontSize:15, color:'#fffefe', textAlign:'center', marginBottom:24, letterSpacing:0.5,fontWeight:'800' },
+  card:           { width:'100%', backgroundColor:'rgba(80, 78, 78, 0.4)', borderRadius:28, padding:26, borderWidth:1, borderColor:'rgba(255, 255, 255, 0.4)', shadowColor:'#e9e9e9ad', shadowOpacity:0.15, shadowRadius:20, elevation:12, overflow:'hidden' },
+  flowerLeft:     { position:'absolute', top:12, left:16, fontSize:22, opacity:0.4 },
+  flowerRight:    { position:'absolute', top:12, right:16, fontSize:22, opacity:0.4 },
+  cardTitle:      { fontSize:22, fontWeight:'800', color:'#f1f3f1', textAlign:'center', marginBottom:4 },
+  cardSub:        { fontSize:12, color:'#fcfffc', textAlign:'center', marginBottom:18 },
+  label:          { fontSize:13, fontWeight:'600', color:'#f8f8f8', marginBottom:6, marginTop:8 },
+  inputWrap:      { flexDirection:'row', alignItems:'center', backgroundColor:'rgba(60, 58, 58, 0.17)', borderRadius:14, borderWidth:1, borderColor:'rgba(5, 5, 5, 0.98)', marginBottom:4, paddingHorizontal:14 },
   inputIcon:      { fontSize:15, marginRight:10 },
-  input:          { flex:1, paddingVertical:13, color:'#ffffff', fontSize:14 },
+  input:          { flex:1, paddingVertical:13, color:'#000000', fontSize:14 },
   eyeBtn:         { padding:8 },
   eyeTxt:         { fontSize:15 },
   validIcon:      { fontSize:14, marginLeft:6 },
   strengthWrap:   { flexDirection:'row', alignItems:'center', gap:8, marginTop:4, marginBottom:2 },
-  strengthBg:     { flex:1, height:4, backgroundColor:'rgba(255,255,255,0.1)', borderRadius:2, overflow:'hidden' },
+  strengthBg:     { flex:1, height:4, backgroundColor:'rgba(78, 76, 76, 0.79)', borderRadius:2, overflow:'hidden' },
   strengthFill:   { height:4, borderRadius:2 },
   strengthTxt:    { fontSize:11, fontWeight:'700', width:46 },
-  registerBtn:    { borderRadius:16, paddingVertical:16, marginTop:16 },
-  registerBtnTxt: { color:'#ffffff', fontSize:16, fontWeight:'800', letterSpacing:0.5 },
+  registerBtn:    { borderRadius:50, paddingVertical:16, marginTop:16, backgroundColor:'#347005e6' },
+  registerBtnTxt: { color:'#302e2e', fontSize:18, fontWeight:'900', letterSpacing:0.5 },
   loadingRow:     { flexDirection:'row', alignItems:'center', gap:10 },
   dotRow:         { flexDirection:'row', gap:5 },
   dot:            { width:7, height:7, borderRadius:4, backgroundColor:'#fff' },
-  termsTxt:       { fontSize:11, color:'rgba(255,255,255,0.3)', textAlign:'center', marginTop:10 },
+  termsTxt:       { fontSize:11, color:'#ffffff', textAlign:'center', marginTop:10 },
   divider:        { flexDirection:'row', alignItems:'center', marginVertical:14, gap:10 },
-  dividerLine:    { flex:1, height:1, backgroundColor:'rgba(255,255,255,0.12)' },
-  dividerTxt:     { fontSize:12, color:'rgba(255,255,255,0.4)', fontWeight:'600' },
+  dividerLine:    { flex:1, height:1, backgroundColor:'rgb(255, 255, 255)' },
+  dividerTxt:     { fontSize:12, color:'#ffffff', fontWeight:'600' },
   loginLink:      { alignItems:'center', paddingVertical:4 },
-  loginLinkTxt:   { fontSize:14, color:'rgba(255,255,255,0.5)' },
-  loginLinkBold:  { color:'#1866b4', fontWeight:'700' },
-  bottomTxt:      { fontSize:12, color:'rgba(255,255,255,0.35)', textAlign:'center', marginTop:20, letterSpacing:0.5 },
+  loginLinkTxt:   { fontSize:14, color:'#ffffff' },
+  loginLinkBold:  { color:'#2bec12', fontWeight:'700' },
+  bottomTxt:      { fontSize:12, color:'#ffffff', textAlign:'center', marginTop:20, letterSpacing:0.5 },
 });

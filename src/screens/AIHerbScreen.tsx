@@ -6,8 +6,9 @@ import {
 } from 'react-native';
 import { getHerbRecommendations } from '../services/geminiService';
 import C from '../styles/colors';
+import { Dosha } from '../data/appData';
 
-interface Props { onBack: () => void; dosha: string | null; stressLevel: number; }
+interface Props { onBack: () => void; dosha: Dosha; stressLevel: number; }
 
 const SKIN_CONCERNS = ['Acne', 'Dryness', 'Redness', 'Pigmentation', 'Oily skin', 'Sensitivity', 'Dark spots', 'Wrinkles'];
 

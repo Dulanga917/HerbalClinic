@@ -5,9 +5,9 @@
 // https://aistudio.google.com/app/apikey
 // ─────────────────────────────────────────────────────────────
 
-const API_KEY  = 'AIzaSyCfxf6GXBVZY_MxF9fHknTfme2q4V07OTs';  // ← PASTE YOUR KEY HERE
+const API_KEY  = 'AIzaSyDMfxZohSaSFiWZQiZanC27hOsgw8NE6WM';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const MODEL    = 'gemini-1.5-flash';     // free & fast model
+const MODEL    = 'gemini-1.5-flash-latest';     // Updated model name
 
 // ── Helper: call Gemini text model ───────────────────────────
 async function callGemini(prompt: string): Promise<string> {
@@ -17,15 +17,39 @@ async function callGemini(prompt: string): Promise<string> {
     generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
   };
 
-  const res  = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  });
+  try {
+    const res = await fetch(url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
 
-  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error('Gemini API Error:', {
+        status: res.status,
+        statusText: res.statusText,
+        error: errorData,
+      });
+      
+      // Better error messages
+      if (res.status === 429) {
+        throw new Error('API quota exceeded. Please get your own API key at aistudio.google.com');
+      } else if (res.status === 401 || res.status === 403) {
+        throw new Error('Invalid API key. Please check your key at aistudio.google.com');
+      } else if (res.status === 404) {
+        throw new Error('Model not found. The AI model may have been updated.');
+      } else {
+        throw new Error(`Gemini API error: ${res.status} - ${res.statusText}`);
+      }
+    }
+    
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
+  } catch (error) {
+    console.error('Gemini API Call Failed:', error);
+    throw error;
+  }
 }
 
 // ── Helper: call Gemini vision model (image + text) ──────────
@@ -203,5 +227,72 @@ MEDITATION: [1 specific meditation or breathing practice for this dosha]`;
     explanation: getLong('EXPLANATION'),
     skinCare:    getLong('SKIN_CARE'),
     meditation:  getLong('MEDITATION'),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. SRI LANKAN AYURVEDIC TREATMENT
+// ═══════════════════════════════════════════════════════════════
+export async function getSriLankanAyurvedicTreatment(params: {
+  category:    string;
+  answers:     { question: string; answer: string }[];
+  symptoms:    string;
+  language:    'en' | 'si';
+}): Promise<{
+  diagnosis:   string;
+  herbs:       string;
+  preparation: string;
+  lifestyle:   string;
+  diet:        string;
+  warning:     string;
+}> {
+  const { category, answers, symptoms, language } = params;
+
+  const answerText = answers
+    .map(a => `- ${a.question}: ${a.answer}`)
+    .join('\n');
+
+  const isSinhala = language === 'si';
+
+  const prompt = `You are an expert Sri Lankan Ayurvedic physician (Ayurveda Vaidya) with deep knowledge of traditional Sri Lankan herbal medicine (Deshiya Chikitsa).
+
+Patient category: ${category}
+Patient answers:
+${answerText}
+Additional symptoms: ${symptoms || 'None mentioned'}
+
+${isSinhala
+  ? `Please provide a complete Sri Lankan Ayurvedic treatment plan in SINHALA language. Use traditional Sri Lankan herb names (both Sinhala and scientific names).`
+  : `Please provide a complete Sri Lankan Ayurvedic treatment plan in ENGLISH. Include traditional Sri Lankan herb names with their Sinhala names in brackets.`
+}
+
+Focus ONLY on:
+- Traditional Sri Lankan Ayurvedic herbs (like Kohomba, Ranawara, Iramusu, Beli, Neem, Turmeric/Kaha, Gotukola, Polpala, Hathawariya etc.)
+- Traditional Sri Lankan remedies passed down through generations
+- Natural preparations that can be made at home in Sri Lanka
+- Sri Lankan dietary advice based on local foods
+
+Respond EXACTLY in this format:
+DIAGNOSIS: [2-3 sentences about the condition based on Sri Lankan Ayurveda]
+HERBS: [List 3-4 specific Sri Lankan herbs with Sinhala names and why they help]
+PREPARATION: [Step by step how to prepare the herbal remedy at home]
+LIFESTYLE: [3-4 daily lifestyle tips based on Sri Lankan Ayurvedic tradition]
+DIET: [Specific Sri Lankan foods to eat and avoid]
+WARNING: [When to see a doctor - important safety note]`;
+
+  const raw = await callGemini(prompt);
+
+  const getLong = (key: string) => {
+    const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
+    return match?.[1]?.trim() ?? '';
+  };
+
+  return {
+    diagnosis:   getLong('DIAGNOSIS'),
+    herbs:       getLong('HERBS'),
+    preparation: getLong('PREPARATION'),
+    lifestyle:   getLong('LIFESTYLE'),
+    diet:        getLong('DIET'),
+    warning:     getLong('WARNING'),
   };
 }

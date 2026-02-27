@@ -21,8 +21,8 @@ export default function SkinAnalysisScreen({ onBack, onDoshaResult }: Props) {
 
   const animateBar = (s: number) => {
     Animated.spring(barW, {
-      toValue: (s / DOSHA_QUIZ.length) * 200,
-      speed: 20, bounciness: 8, useNativeDriver: false,
+      toValue: (s / DOSHA_QUIZ.length) * 100,
+      speed: 14, bounciness: 4, useNativeDriver: false,
     }).start();
   };
 
@@ -72,7 +72,7 @@ export default function SkinAnalysisScreen({ onBack, onDoshaResult }: Props) {
               <Text style={styles.introDesc}>
                 Answer 3 questions to identify your Ayurvedic skin type and receive personalised herbal and meditation recommendations.
               </Text>
-              <AnimatedButton onPress={() => setStep(1)} style={{ width:'500%', height:50, borderRadius:25 }} color={C.accent}>
+              <AnimatedButton onPress={() => setStep(1)} style={{ width:'100%' }}>
                 <Text style={styles.btnTxt}>Start Quiz →</Text>
               </AnimatedButton>
             </View>

@@ -15,6 +15,7 @@ import StressScreen         from './src/screens/StressScreen';
 import AIChatScreen         from './src/screens/AIChatScreen';
 import AISkinAnalysisScreen from './src/screens/AISkinAnalysisScreen';
 import AIHerbScreen         from './src/screens/AIHerbScreen';
+import AyurvedicTreatmentScreen from './src/screens/AyurvedicTreatmentScreen';
 
 // ── All screen names ──────────────────────────────────────────
 type FullScreen =
@@ -28,7 +29,8 @@ type FullScreen =
   | 'stress'
   | 'aiChat'
   | 'aiSkin'
-  | 'aiHerbs';
+  | 'aiHerbs'
+  | 'ayurvedic';
 
 // ── Root App ──────────────────────────────────────────────────
 export default function App() {
@@ -51,7 +53,6 @@ export default function App() {
       case 'splash':
         return <SplashScreen onFinish={() => goTo('login')} />;
 
-      // ── Login ────────────────────────────────────────────────
       case 'login':
         return (
           <LoginScreen
@@ -59,8 +60,7 @@ export default function App() {
             onRegister={() => goTo('register')}
           />
         );
-
-      // ── Register ─────────────────────────────────────────────
+    //
       case 'register':
         return (
           <RegisterScreen
@@ -68,8 +68,7 @@ export default function App() {
             onLogin={() => goTo('login')}
           />
         );
-
-      // ── Skin Analysis ────────────────────────────────────────
+//
       case 'skinAnalysis':
         return (
           <SkinAnalysisScreen
@@ -77,33 +76,27 @@ export default function App() {
             onDoshaResult={d => { setDosha(d); goTo('home'); }}
           />
         );
-
-      // ── Meditation ───────────────────────────────────────────
+//
       case 'meditation':
         return <MeditationScreen onBack={() => goTo('home')} dosha={dosha} />;
-
-      // ── Herbs ────────────────────────────────────────────────
+//
       case 'herbs':
         return <HerbsScreen onBack={() => goTo('home')} dosha={dosha} />;
-
-      // ── Stress ───────────────────────────────────────────────
+//
       case 'stress':
         return <StressScreen onBack={() => goTo('home')} />;
-
-      // ── AI Chat ──────────────────────────────────────────────
+//
       case 'aiChat':
         return <AIChatScreen onBack={() => goTo('home')} dosha={dosha} />;
-
-      // ── AI Skin Scan ─────────────────────────────────────────
+//
       case 'aiSkin':
         return (
           <AISkinAnalysisScreen
             onBack={() => goTo('home')}
-            onDoshaDetected={d => setDosha(d as Dosha)}
+            onDoshaDetected={d => setDosha(d)}
           />
         );
-
-      // ── AI Herb Advisor ──────────────────────────────────────
+//
       case 'aiHerbs':
         return (
           <AIHerbScreen
@@ -113,7 +106,9 @@ export default function App() {
           />
         );
 
-      // ── Home (default) ───────────────────────────────────────
+      case 'ayurvedic':
+        return <AyurvedicTreatmentScreen onBack={() => goTo('home')} />;
+
       default:
         return (
           <HomeScreen

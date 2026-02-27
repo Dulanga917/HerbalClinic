@@ -7,8 +7,9 @@ import {
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { analyzeSkinFromPhoto } from '../services/geminiService';
 import C from '../styles/colors';
+import { Dosha } from '../data/appData';
 
-interface Props { onBack: () => void; onDoshaDetected: (d: string) => void; }
+interface Props { onBack: () => void; onDoshaDetected: (d: Dosha) => void; }
 
 export default function AISkinAnalysisScreen({ onBack, onDoshaDetected }: Props) {
   const [photo,    setPhoto]    = useState<string | null>(null);
@@ -42,7 +43,7 @@ export default function AISkinAnalysisScreen({ onBack, onDoshaDetected }: Props)
       setStep('result');
       // Extract dosha and pass up
       const doshaMatch = analysis.dosha.match(/Vata|Pitta|Kapha/i);
-      if (doshaMatch) onDoshaDetected(doshaMatch[0]);
+      if (doshaMatch) onDoshaDetected(doshaMatch[0] as Dosha);
     } catch (e) {
       Alert.alert('Error', 'Could not analyse photo. Check your API key and internet connection.');
       setStep('pick');
