@@ -1,15 +1,11 @@
 // src/services/geminiService.ts
-// ─────────────────────────────────────────────────────────────
-// ALL Gemini AI calls live here.
-// Replace YOUR_GEMINI_API_KEY with your key from:
-// https://aistudio.google.com/app/apikey
-// ─────────────────────────────────────────────────────────────
+// Updated with working Gemini models as of March 2026
 
-const API_KEY  = 'AIzaSyDMfxZohSaSFiWZQiZanC27hOsgw8NE6WM';
+const API_KEY  = 'AIzaSyBauwHZgPrOVPGz5rd5_2iTQhvFGAzs1n0';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const MODEL    = 'gemini-1.5-flash-latest';     // Updated model name
 
-// ── Helper: call Gemini text model ───────────────────────────
+
+const MODEL = 'gemini-pro';
 async function callGemini(prompt: string): Promise<string> {
   const url = `${BASE_URL}/${MODEL}:generateContent?key=${API_KEY}`;
   const body = {
@@ -18,6 +14,8 @@ async function callGemini(prompt: string): Promise<string> {
   };
 
   try {
+    console.log('🔄 Calling Gemini API...', { model: MODEL });
+
     const res = await fetch(url, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -26,33 +24,35 @@ async function callGemini(prompt: string): Promise<string> {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      console.error('Gemini API Error:', {
+      console.error('❌ Gemini API Error:', {
         status: res.status,
         statusText: res.statusText,
         error: errorData,
+        url: url.replace(API_KEY, 'API_KEY_HIDDEN'),
       });
-      
-      // Better error messages
+
       if (res.status === 429) {
-        throw new Error('API quota exceeded. Please get your own API key at aistudio.google.com');
+        throw new Error('❌ API quota exceeded (1,500 requests/day limit). Get your own key at: aistudio.google.com');
       } else if (res.status === 401 || res.status === 403) {
-        throw new Error('Invalid API key. Please check your key at aistudio.google.com');
+        throw new Error('❌ Invalid API key. Check your key at: aistudio.google.com');
       } else if (res.status === 404) {
-        throw new Error('Model not found. The AI model may have been updated.');
+        throw new Error('❌ Model not found. Try changing MODEL to "gemini-pro" in geminiService.ts line 10');
+      } else if (res.status === 400) {
+        throw new Error(`❌ Bad request: ${JSON.stringify(errorData)}`);
       } else {
-        throw new Error(`Gemini API error: ${res.status} - ${res.statusText}`);
+        throw new Error(`❌ API error ${res.status}: ${res.statusText}`);
       }
     }
     
     const data = await res.json();
+    console.log(' Gemini response received');
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
-  } catch (error) {
-    console.error('Gemini API Call Failed:', error);
+  } catch (error: any) {
+    console.error('❌ Gemini API Call Failed:', error.message || error);
     throw error;
   }
 }
 
-// ── Helper: call Gemini vision model (image + text) ──────────
 async function callGeminiVision(prompt: string, base64Image: string, mimeType = 'image/jpeg'): Promise<string> {
   const url = `${BASE_URL}/${MODEL}:generateContent?key=${API_KEY}`;
   const body = {
@@ -76,9 +76,7 @@ async function callGeminiVision(prompt: string, base64Image: string, mimeType = 
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 1. SKIN ANALYSIS FROM PHOTO
-// ═══════════════════════════════════════════════════════════════
+
 export async function analyzeSkinFromPhoto(base64Image: string): Promise<{
   conditions: string;
   dosha: string;
@@ -105,7 +103,7 @@ Be concise, specific, and helpful. Focus on natural Ayurvedic solutions.`;
 
   const raw = await callGeminiVision(prompt, base64Image);
 
-  // Parse sections
+
   const get = (key: string) => {
     const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
     return match?.[1]?.trim() ?? 'Analysis not available';
@@ -120,9 +118,7 @@ Be concise, specific, and helpful. Focus on natural Ayurvedic solutions.`;
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 2. PERSONALIZED HERB RECOMMENDATIONS
-// ═══════════════════════════════════════════════════════════════
+
 export async function getHerbRecommendations(params: {
   dosha: string;
   skinConcerns: string[];
@@ -145,17 +141,15 @@ Keep each herb recommendation to 3-4 sentences. Be practical and specific.`;
   return callGemini(prompt);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 3. AI CHATBOT FOR SKIN QUESTIONS
-// ═══════════════════════════════════════════════════════════════
+
 export async function chatWithHerbalAI(
   userMessage: string,
   chatHistory: { role: 'user' | 'ai'; text: string }[],
   userDosha?: string,
 ): Promise<string> {
-  // Build conversation context
+
   const historyText = chatHistory
-    .slice(-6) // last 6 messages for context
+    .slice(-6)
     .map(m => `${m.role === 'user' ? 'Patient' : 'HerbalClinic AI'}: ${m.text}`)
     .join('\n');
 
@@ -178,9 +172,7 @@ Respond as HerbalClinic AI. Be:
   return callGemini(prompt);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 4. DOSHA DETECTION FROM QUIZ ANSWERS
-// ═══════════════════════════════════════════════════════════════
+
 export async function detectDoshaWithAI(answers: {
   question: string;
   answer: string;
@@ -230,9 +222,7 @@ MEDITATION: [1 specific meditation or breathing practice for this dosha]`;
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 5. SRI LANKAN AYURVEDIC TREATMENT
-// ═══════════════════════════════════════════════════════════════
+
 export async function getSriLankanAyurvedicTreatment(params: {
   category:    string;
   answers:     { question: string; answer: string }[];

@@ -1,5 +1,4 @@
-// src/screens/AyurvedicTreatmentScreen.tsx
-// Sri Lankan Ayurvedic Treatment — Questions + Symptoms + AI Solution
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
@@ -39,7 +38,7 @@ export default function AyurvedicTreatmentScreen({ onBack }: Props) {
 
   const L = (en: string, si: string) => language === 'si' ? si : en;
 
-  // ── Handlers ─────────────────────────────────────────────────
+  // Handlers
   const selectCategory = (cat: CategoryInfo) => {
     setCategory(cat);
     setStep('language');

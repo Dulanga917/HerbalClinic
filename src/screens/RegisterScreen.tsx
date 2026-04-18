@@ -1,4 +1,4 @@
-// src/screens/RegisterScreen.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, StyleSheet, SafeAreaView,
@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { FadeIn, ScaleIn, AnimatedButton } from '../components/Animations';
 
-// ── BACKGROUND IMAGE ─────────────────────────────────────────
+// BACKGROUND IMAGE
 const BG_IMAGE = require('../assets/03.png');
 
 interface Props {

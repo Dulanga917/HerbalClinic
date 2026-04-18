@@ -1,4 +1,4 @@
-// src/screens/HomeScreen.tsx
+
 import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView,
@@ -10,9 +10,7 @@ import { FadeIn, SlideInLeft, SlideInRight, AnimatedButton } from '../components
 import FloatingLeaves from '../components/FloatingLeaves';
 import { Dosha } from '../data/appData';
 
-// ── YOUR LOCAL IMAGE ──────────────────────────────────────────
-// Copy your image to:
-// D:\dulanga\app\HerbalClinic\src\assets\home_bg.jpg
+
 const BG_IMAGE = require('../assets/home_bg.jpg');
 
 type FullScreen = 'login'|'home'|'skinAnalysis'|'meditation'|'herbs'|'stress'|'aiChat'|'aiSkin'|'aiHerbs';
@@ -58,13 +56,13 @@ export default function HomeScreen({ username, dosha, onNav, onLogout }: Props) 
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* ── Local image background ───────────────────────── */}
+
       <ImageBackground source={BG_IMAGE} style={styles.bgImage} resizeMode="cover">
 
-        {/* Dark overlay so text is readable */}
+
         <View style={styles.overlay} />
 
-        {/* ── Floating leaves on top of your image ────────── */}
+
         <FloatingLeaves />
 
         <SafeAreaView style={styles.safe}>

@@ -13,9 +13,7 @@ interface Props {
   onRegister: () => void;
 }
 
-// Background image
-//const BG_IMAGE = { uri: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80' };
-// ── OR your local image ───────────────────────────────────────
+
 const BG_IMAGE = require('../assets/02.png');
 
 export default function LoginScreen({ onLogin, onRegister }: Props) {
@@ -63,15 +61,15 @@ export default function LoginScreen({ onLogin, onRegister }: Props) {
 
       <ImageBackground source={BG_IMAGE} style={styles.bgImage} resizeMode="cover">
 
-        {/* ── Dark tinted overlay ──────────────────────────── */}
+        {/*Dark tinted overlay  */}
         <Animated.View style={[styles.overlay, { opacity:overlayOp }]} />
 
-        {/* ── Colored glow blobs (fake blur effect) ────────── */}
+        {/* Colored glow blobs (fake blur effect)  */}
         <View style={[styles.blob, styles.blobTopLeft]}  />
         <View style={[styles.blob, styles.blobTopRight]} />
         <View style={[styles.blob, styles.blobBottom]}   />
 
-        {/* ── Bottom gradient ──────────────────────────────── */}
+        {/*  Bottom gradient */}
         <View style={styles.bottomGradient} />
 
         <SafeAreaView style={styles.safe}>
@@ -93,7 +91,7 @@ export default function LoginScreen({ onLogin, onRegister }: Props) {
               <Text style={styles.tagline}>Ayurvedic Skin & Wellness</Text>
             </FadeIn>
 
-            {/* ── Glass card (pure RN) ─────────────────────── */}
+            {/* ── Glass card (pure RN)  */}
             <Animated.View style={[styles.cardOuter, { opacity:cardOp, transform:[{ translateY:cardY }] }]}>
 
               {/* Glass layers stacked for depth */}
@@ -205,7 +203,7 @@ export default function LoginScreen({ onLogin, onRegister }: Props) {
   );
 }
 
-// ── Bouncing dots ─────────────────────────────────────────────
+//Bouncing dots
 function BounceDot({ delay }: { delay: number }) {
   const y = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -220,17 +218,17 @@ function BounceDot({ delay }: { delay: number }) {
   return <Animated.View style={[styles.dot, { transform:[{ translateY:y }] }]} />;
 }
 
-// ── Styles ────────────────────────────────────────────────────
+//  Styles
 const styles = StyleSheet.create({
 
-  // ── Background ──────────────────────────────────────────────
+  // Background
   bgImage:        { flex:1, width:'100%', height:'100%' },
   overlay:        { ...StyleSheet.absoluteFillObject},
   bottomGradient: { position:'absolute', bottom:0, left:0, right:0, height:0, backgroundColor:'rgba(4,16,8,0.45)' },
   safe:           { flex:1 },
   container:      { flexGrow:1, alignItems:'center', justifyContent:'center', paddingHorizontal:24, paddingTop:60, paddingBottom:30 },
 
-  // ── Color blobs (fake depth/glow) ───────────────────────────
+  // Color blobs (fake depth/glow)
   blob: {
     position:     'absolute',
     borderRadius: 999,
@@ -251,7 +249,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(9, 9, 9, 0.08)',
   },
 
-  // ── Logo ────────────────────────────────────────────────────
+  // Logo
   logoWrap: {
     width:80, height:80, borderRadius:40,
     backgroundColor:'rgba(46,204,113,0.20)',
@@ -262,7 +260,7 @@ const styles = StyleSheet.create({
   },
   logoEmoji: { fontSize:44 },
 
-  // ── Title ───────────────────────────────────────────────────
+  //  Title
   appName: {
     fontSize:36, fontWeight:'800', color:'#ffffff', textAlign:'center',
     letterSpacing:2,
@@ -271,7 +269,7 @@ const styles = StyleSheet.create({
   },
   tagline: { fontSize:13, color:'rgba(255, 255, 255, 0.99)', textAlign:'center', marginBottom:26, letterSpacing:1 },
 
-  // ── Glass card ──────────────────────────────────────────────
+  // Glass card
   cardOuter: {
     width:        '100%',
     borderRadius: 28,
@@ -375,5 +373,5 @@ const styles = StyleSheet.create({
 
   // Bottom
   bottomTxt: { fontSize:12, color:'rgb(255, 255, 255)', textAlign:'center', marginTop:20, letterSpacing:0.5 },
-  
+
 });
