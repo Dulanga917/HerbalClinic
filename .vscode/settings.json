@@ -4,5 +4,6 @@
         "Kapha",
         "Personalised",
         "Vata"
-    ]
+    ],
+    "java.compile.nullAnalysis.mode": "automatic"
 }

@@ -16,6 +16,7 @@ import AIChatScreen         from './src/screens/AIChatScreen';
 import AISkinAnalysisScreen from './src/screens/AISkinAnalysisScreen';
 import AIHerbScreen         from './src/screens/AIHerbScreen';
 import AyurvedicTreatmentScreen from './src/screens/AyurvedicTreatmentScreen';
+import { getLoggedInUser, logoutUser as dbLogout, UserProfile } from './src/services/dbService';
 
 // ── All screen names ──────────────────────────────────────────
 type FullScreen =
@@ -36,13 +37,26 @@ type FullScreen =
 export default function App() {
   const [screen,      setScreen]      = useState<FullScreen>('splash');
   const [username,    setUsername]    = useState('');
+  const [userEmail,   setUserEmail]   = useState('');
   const [dosha,       setDosha]       = useState<Dosha>(null);
   const [stressLevel, setStressLevel] = useState(5);
 
   const goTo = (s: FullScreen) => setScreen(s);
 
-  const handleLogin  = (name: string) => { setUsername(name); goTo('home'); };
-  const handleLogout = ()             => { setUsername(''); setDosha(null); goTo('login'); };
+  const handleLogin  = (profile: UserProfile) => { 
+    setUsername(profile.fullName);
+    setUserEmail(profile.email);
+    if (profile.dosha) setDosha(profile.dosha);
+    goTo('home'); 
+  };
+  
+  const handleLogout = async () => { 
+    await dbLogout();
+    setUsername(''); 
+    setUserEmail('');
+    setDosha(null); 
+    goTo('login'); 
+  };
 
   // Direction — going deeper = right, going back = left
   const isBack = ['home', 'login', 'splash', 'register'].includes(screen);
@@ -51,7 +65,14 @@ export default function App() {
     switch (screen) {
 
       case 'splash':
-        return <SplashScreen onFinish={() => goTo('login')} />;
+        return <SplashScreen onFinish={async () => {
+          const user = await getLoggedInUser();
+          if (user) {
+            handleLogin(user);
+          } else {
+            goTo('login');
+          }
+        }} />;
 
       case 'login':
         return (
@@ -73,7 +94,7 @@ export default function App() {
         return (
           <SkinAnalysisScreen
             onBack={() => goTo('home')}
-            onDoshaResult={d => { setDosha(d); goTo('home'); }}
+            onDoshaResult={d => setDosha(d)}
           />
         );
 //

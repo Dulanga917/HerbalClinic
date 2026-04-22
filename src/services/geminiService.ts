@@ -1,80 +1,93 @@
 // src/services/geminiService.ts
 // Updated with working Gemini models as of March 2026
+import { getFallbackChat, getFallbackHerbs, getFallbackTreatment, getFallbackSkinAnalysis } from './offlineFallbacks';
 
-const API_KEY  = 'AIzaSyBauwHZgPrOVPGz5rd5_2iTQhvFGAzs1n0';
+const API_KEY = 'AIzaSyDYMSxKuAp2vQroH255Qe9cIDqQiR-7dk0';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Primary model: gemini-2.0-flash (best free-tier model as of 2026)
+// Fallback model: gemini-2.0-flash-lite (lighter, higher quota)
+const MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
-
-const MODEL = 'gemini-pro';
-async function callGemini(prompt: string): Promise<string> {
-  const url = `${BASE_URL}/${MODEL}:generateContent?key=${API_KEY}`;
+async function callGeminiWithModel(prompt: string, model: string): Promise<string> {
+  const url = `${BASE_URL}/${model}:generateContent?key=${API_KEY}`;
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
   };
-
-  try {
-    console.log('🔄 Calling Gemini API...', { model: MODEL });
-
-    const res = await fetch(url, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      console.error('❌ Gemini API Error:', {
-        status: res.status,
-        statusText: res.statusText,
-        error: errorData,
-        url: url.replace(API_KEY, 'API_KEY_HIDDEN'),
-      });
-
-      if (res.status === 429) {
-        throw new Error('❌ API quota exceeded (1,500 requests/day limit). Get your own key at: aistudio.google.com');
-      } else if (res.status === 401 || res.status === 403) {
-        throw new Error('❌ Invalid API key. Check your key at: aistudio.google.com');
-      } else if (res.status === 404) {
-        throw new Error('❌ Model not found. Try changing MODEL to "gemini-pro" in geminiService.ts line 10');
-      } else if (res.status === 400) {
-        throw new Error(`❌ Bad request: ${JSON.stringify(errorData)}`);
-      } else {
-        throw new Error(`❌ API error ${res.status}: ${res.statusText}`);
-      }
-    }
-    
-    const data = await res.json();
-    console.log(' Gemini response received');
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
-  } catch (error: any) {
-    console.error('❌ Gemini API Call Failed:', error.message || error);
-    throw error;
-  }
-}
-
-async function callGeminiVision(prompt: string, base64Image: string, mimeType = 'image/jpeg'): Promise<string> {
-  const url = `${BASE_URL}/${MODEL}:generateContent?key=${API_KEY}`;
-  const body = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inline_data: { mime_type: mimeType, data: base64Image } },
-      ],
-    }],
-    generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
-  };
-
-  const res  = await fetch(url, {
+  const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(body),
   });
-
-  if (!res.ok) throw new Error(`Gemini Vision API error: ${res.status}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const status = res.status;
+    if (status === 429) throw Object.assign(new Error('QUOTA'), { code: 429 });
+    if (status === 401 || status === 403) throw new Error('Invalid API key. Please get a new key at aistudio.google.com');
+    if (status === 404) throw Object.assign(new Error('MODEL_NOT_FOUND'), { code: 404 });
+    throw new Error(`API error ${status}: ${JSON.stringify(errorData)}`);
+  }
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
 }
+
+async function callGemini(prompt: string): Promise<string> {
+  let lastError: any;
+  for (const model of MODELS) {
+    try {
+      console.log(`🔄 Trying model: ${model}`);
+      const result = await callGeminiWithModel(prompt, model);
+      console.log(`✅ Success with model: ${model}`);
+      return result;
+    } catch (err: any) {
+      console.warn(`⚠️ Model ${model} failed:`, err.message);
+      lastError = err;
+      // Only retry next model on quota/not-found errors
+      if (err.code !== 429 && err.code !== 404) break;
+    }
+  }
+  // Provide clearer error messages
+  if (lastError?.code === 429) {
+    throw new Error('API quota exceeded. The free-tier daily limit has been reached. Please wait a few minutes and try again, or use a new API key from aistudio.google.com');
+  }
+  throw lastError;
+}
+
+async function callGeminiVision(prompt: string, base64Image: string, mimeType = 'image/jpeg'): Promise<string> {
+  let lastError: any;
+  for (const model of MODELS) {
+    try {
+      const url  = `${BASE_URL}/${model}:generateContent?key=${API_KEY}`;
+      const body = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: base64Image } },
+          ],
+        }],
+        generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
+      };
+      const res = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const status = res.status;
+        if (status === 429) throw Object.assign(new Error('QUOTA'), { code: 429 });
+        if (status === 404) throw Object.assign(new Error('MODEL_NOT_FOUND'), { code: 404 });
+        throw new Error(`Vision API error: ${status}`);
+      }
+      const data = await res.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response received.';
+    } catch (err: any) {
+      lastError = err;
+      if (err.code !== 429 && err.code !== 404) break;
+    }
+  }
+  throw lastError;
+}
+
 
 
 export async function analyzeSkinFromPhoto(base64Image: string): Promise<{
@@ -101,21 +114,23 @@ ROUTINE: [your answer]
 
 Be concise, specific, and helpful. Focus on natural Ayurvedic solutions.`;
 
-  const raw = await callGeminiVision(prompt, base64Image);
-
-
-  const get = (key: string) => {
-    const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
-    return match?.[1]?.trim() ?? 'Analysis not available';
-  };
-
-  return {
-    conditions: get('CONDITIONS'),
-    dosha:      get('DOSHA'),
-    severity:   get('SEVERITY'),
-    herbs:      get('HERBS'),
-    routine:    get('ROUTINE'),
-  };
+  try {
+    const raw = await callGeminiVision(prompt, base64Image);
+    const get = (key: string) => {
+      const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
+      return match?.[1]?.trim() ?? 'Analysis not available';
+    };
+    return {
+      conditions: get('CONDITIONS'),
+      dosha: get('DOSHA'),
+      severity: get('SEVERITY'),
+      herbs: get('HERBS'),
+      routine: get('ROUTINE'),
+    };
+  } catch (e) {
+    console.warn('⚠️ API failed, using offline skin analysis fallback');
+    return getFallbackSkinAnalysis();
+  }
 }
 
 
@@ -138,7 +153,12 @@ Recommend exactly 4 Ayurvedic herbs personalized for this patient. For each herb
 
 Keep each herb recommendation to 3-4 sentences. Be practical and specific.`;
 
-  return callGemini(prompt);
+  try {
+    return await callGemini(prompt);
+  } catch (e) {
+    console.warn('⚠️ API failed, using offline herb recommendations');
+    return getFallbackHerbs(dosha || 'Pitta', skinConcerns);
+  }
 }
 
 
@@ -169,7 +189,12 @@ Respond as HerbalClinic AI. Be:
 - Always suggest consulting a doctor for serious conditions
 - Focus on Ayurvedic and natural solutions`;
 
-  return callGemini(prompt);
+  try {
+    return await callGemini(prompt);
+  } catch (e) {
+    console.warn('⚠️ API failed, using offline chat fallback');
+    return getFallbackChat(userMessage);
+  }
 }
 
 
@@ -184,7 +209,7 @@ export async function detectDoshaWithAI(answers: {
   meditation: string;
 }> {
   const answerText = answers
-    .map((a, i) => `Q${i+1}: ${a.question}\nAnswer: ${a.answer}`)
+    .map((a, i) => `Q${i + 1}: ${a.question}\nAnswer: ${a.answer}`)
     .join('\n\n');
 
   const prompt = `You are an expert Ayurvedic practitioner. Based on these answers, determine the patient's Ayurvedic dosha for skin health:
@@ -202,39 +227,39 @@ MEDITATION: [1 specific meditation or breathing practice for this dosha]`;
 
   const raw = await callGemini(prompt);
 
-  const get     = (key: string) => raw.match(new RegExp(`${key}:\\s*([^\\n]+)`))?.[1]?.trim() ?? '';
-  const getNum  = (key: string) => parseInt(get(key)) || 0;
+  const get = (key: string) => raw.match(new RegExp(`${key}:\\s*([^\\n]+)`))?.[1]?.trim() ?? '';
+  const getNum = (key: string) => parseInt(get(key)) || 0;
   const getLong = (key: string) => {
     const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z_]+:|$)`));
     return match?.[1]?.trim() ?? '';
   };
 
   return {
-    dosha:       get('DOSHA') as string || 'Vata',
+    dosha: get('DOSHA') as string || 'Vata',
     score: {
-      vata:  getNum('VATA_SCORE'),
+      vata: getNum('VATA_SCORE'),
       pitta: getNum('PITTA_SCORE'),
       kapha: getNum('KAPHA_SCORE'),
     },
     explanation: getLong('EXPLANATION'),
-    skinCare:    getLong('SKIN_CARE'),
-    meditation:  getLong('MEDITATION'),
+    skinCare: getLong('SKIN_CARE'),
+    meditation: getLong('MEDITATION'),
   };
 }
 
 
 export async function getSriLankanAyurvedicTreatment(params: {
-  category:    string;
-  answers:     { question: string; answer: string }[];
-  symptoms:    string;
-  language:    'en' | 'si';
+  category: string;
+  answers: { question: string; answer: string }[];
+  symptoms: string;
+  language: 'en' | 'si';
 }): Promise<{
-  diagnosis:   string;
-  herbs:       string;
+  diagnosis: string;
+  herbs: string;
   preparation: string;
-  lifestyle:   string;
-  diet:        string;
-  warning:     string;
+  lifestyle: string;
+  diet: string;
+  warning: string;
 }> {
   const { category, answers, symptoms, language } = params;
 
@@ -252,9 +277,9 @@ ${answerText}
 Additional symptoms: ${symptoms || 'None mentioned'}
 
 ${isSinhala
-  ? `Please provide a complete Sri Lankan Ayurvedic treatment plan in SINHALA language. Use traditional Sri Lankan herb names (both Sinhala and scientific names).`
-  : `Please provide a complete Sri Lankan Ayurvedic treatment plan in ENGLISH. Include traditional Sri Lankan herb names with their Sinhala names in brackets.`
-}
+      ? `Please provide a complete Sri Lankan Ayurvedic treatment plan in SINHALA language. Use traditional Sri Lankan herb names (both Sinhala and scientific names).`
+      : `Please provide a complete Sri Lankan Ayurvedic treatment plan in ENGLISH. Include traditional Sri Lankan herb names with their Sinhala names in brackets.`
+    }
 
 Focus ONLY on:
 - Traditional Sri Lankan Ayurvedic herbs (like Kohomba, Ranawara, Iramusu, Beli, Neem, Turmeric/Kaha, Gotukola, Polpala, Hathawariya etc.)
@@ -270,19 +295,22 @@ LIFESTYLE: [3-4 daily lifestyle tips based on Sri Lankan Ayurvedic tradition]
 DIET: [Specific Sri Lankan foods to eat and avoid]
 WARNING: [When to see a doctor - important safety note]`;
 
-  const raw = await callGemini(prompt);
-
-  const getLong = (key: string) => {
-    const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
-    return match?.[1]?.trim() ?? '';
-  };
-
-  return {
-    diagnosis:   getLong('DIAGNOSIS'),
-    herbs:       getLong('HERBS'),
-    preparation: getLong('PREPARATION'),
-    lifestyle:   getLong('LIFESTYLE'),
-    diet:        getLong('DIET'),
-    warning:     getLong('WARNING'),
-  };
+  try {
+    const raw = await callGemini(prompt);
+    const getLong = (key: string) => {
+      const match = raw.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=\\n[A-Z]+:|$)`));
+      return match?.[1]?.trim() ?? '';
+    };
+    return {
+      diagnosis: getLong('DIAGNOSIS'),
+      herbs: getLong('HERBS'),
+      preparation: getLong('PREPARATION'),
+      lifestyle: getLong('LIFESTYLE'),
+      diet: getLong('DIET'),
+      warning: getLong('WARNING'),
+    };
+  } catch (e) {
+    console.warn('⚠️ API failed, using offline Ayurvedic treatment fallback');
+    return getFallbackTreatment(category, language);
+  }
 }
