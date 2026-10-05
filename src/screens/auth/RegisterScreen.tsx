@@ -27,7 +27,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const { register, error, clearError } = useAuth();
+  const { register, error, clearError, loading } = useAuth();
 
   const handleRegister = async () => {
     clearError();
@@ -127,13 +127,15 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             {/* Register Button */}
-            <TouchableOpacity style={styles.registerBtnWrapper} onPress={handleRegister}>
+            <TouchableOpacity style={styles.registerBtnWrapper} onPress={handleRegister} disabled={loading}>
               <LinearGradient
                 colors={Colors.gradientGreen}
                 style={styles.registerBtn}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}>
-                <Text style={styles.registerBtnText}>Create Account</Text>
+                <Text style={styles.registerBtnText}>
+                  {loading ? 'Creating account…' : 'Create Account'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

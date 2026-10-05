@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { HomeTabParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
+import geminiService from '../../services/geminiService';
 
 type Props = BottomTabScreenProps<HomeTabParamList, 'Home'>;
 
@@ -46,6 +48,26 @@ const features = [
 ];
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { user } = useAuth();
+  const [dailyTip, setDailyTip] = useState(
+    'Start your day with warm water infused with tulsi and ginger to boost immunity and balance your doshas.',
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    geminiService
+      .getDailyTip(user?.dosha || undefined)
+      .then(tip => {
+        if (!cancelled && tip) {
+          setDailyTip(tip);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.dosha]);
+
   const handleFeaturePress = (featureId: string) => {
     switch (featureId) {
       case 'skin-type':
@@ -80,7 +102,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}>
-          <Text style={styles.greeting}>Good Morning 🌅</Text>
+          <Text style={styles.greeting}>
+            {user?.name ? `Hello, ${user.name.split(' ')[0]} 🌿` : 'Good day 🌿'}
+          </Text>
           <Text style={styles.heroTitle}>HerbalClinic</Text>
           <Text style={styles.heroSubtitle}>Your AI-powered Ayurvedic companion</Text>
         </LinearGradient>
@@ -116,10 +140,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Daily Ayurveda Tip</Text>
           <View style={styles.tipCard}>
             <Text style={styles.tipEmoji}>💡</Text>
-            <Text style={styles.tipText}>
-              Start your day with warm water infused with tulsi and ginger to boost immunity and
-              balance your doshas.
-            </Text>
+            <Text style={styles.tipText}>{dailyTip}</Text>
           </View>
         </View>
 

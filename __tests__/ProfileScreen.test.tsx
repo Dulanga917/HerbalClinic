@@ -26,7 +26,8 @@ jest.mock('../src/context/AuthContext', () => ({
 }));
 
 it('renders the authenticated user name and email', () => {
-  const root = renderer.create(<ProfileScreen />);
+  const navigation = { navigate: jest.fn() } as never;
+  const root = renderer.create(<ProfileScreen navigation={navigation} route={{} as never} />);
   const labels = root.root.findAllByType(Text).map(node => node.props.children);
   expect(labels).toContain('Ada Lovelace');
   expect(labels).toContain('ada@example.com');

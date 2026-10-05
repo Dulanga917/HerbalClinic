@@ -97,7 +97,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <TouchableOpacity style={styles.forgotBtn}>
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Password reset unavailable',
+                  'This build does not reset passwords. Create a new account from Sign Up, or sign in with the account you already registered.',
+                )
+              }>
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
 

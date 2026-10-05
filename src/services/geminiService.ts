@@ -4,6 +4,12 @@ import {
   fetchDailyTip,
   fetchHerbalRecommendations,
 } from './apiClient';
+import {
+  isGeminiUnavailable,
+  offlineDailyTip,
+  offlineHerbalRecommendations,
+  offlineSkinIssue,
+} from './offlineFallbacks';
 import { getSessionToken } from './sessionStorage';
 
 export type SkinAnalysisType = 'type' | 'issue';
@@ -51,25 +57,46 @@ const imageUriToBase64 = async (imageUri: string): Promise<string> => {
 
 class GeminiService {
   async analyseSkinIssue(imageUri: string): Promise<SkinIssueResult> {
-    const token = await requireToken();
-    const imageBase64 = await imageUriToBase64(imageUri);
-    const { analysis } = await analyseSkinIssueRemote(token, imageBase64);
-    return analysis as SkinIssueResult;
+    try {
+      const token = await requireToken();
+      const imageBase64 = await imageUriToBase64(imageUri);
+      const { analysis } = await analyseSkinIssueRemote(token, imageBase64);
+      return analysis as SkinIssueResult;
+    } catch (error) {
+      if (isGeminiUnavailable(error)) {
+        return offlineSkinIssue();
+      }
+      throw error;
+    }
   }
 
   async getHerbalRecommendations(
     condition: string,
     dosha?: string,
   ): Promise<HerbRecommendation[]> {
-    const token = await requireToken();
-    const { herbs } = await fetchHerbalRecommendations(token, condition, dosha);
-    return herbs as HerbRecommendation[];
+    try {
+      const token = await requireToken();
+      const { herbs } = await fetchHerbalRecommendations(token, condition, dosha);
+      return herbs as HerbRecommendation[];
+    } catch (error) {
+      if (isGeminiUnavailable(error)) {
+        return offlineHerbalRecommendations(condition, dosha);
+      }
+      throw error;
+    }
   }
 
   async getDailyTip(dosha?: string): Promise<string> {
-    const token = await requireToken();
-    const { tip } = await fetchDailyTip(token, dosha);
-    return tip;
+    try {
+      const token = await requireToken();
+      const { tip } = await fetchDailyTip(token, dosha);
+      return tip;
+    } catch (error) {
+      if (isGeminiUnavailable(error)) {
+        return offlineDailyTip(dosha);
+      }
+      throw error;
+    }
   }
 }
 

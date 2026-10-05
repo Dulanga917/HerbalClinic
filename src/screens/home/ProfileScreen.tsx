@@ -9,8 +9,13 @@ import {
   Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { HomeTabParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import Config from '../../constants/config';
+
+type Props = BottomTabScreenProps<HomeTabParamList, 'Profile'>;
 
 const menuItems = [
   { id: 'history', emoji: '📋', title: 'Scan History', description: 'View past skin analyses' },
@@ -20,7 +25,7 @@ const menuItems = [
   { id: 'about', emoji: 'ℹ️', title: 'About HerbalClinic', description: 'Version 1.0.0 — Final Year Project' },
 ];
 
-const ProfileScreen: React.FC = () => {
+const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
   const displayName = user?.name?.trim() || 'HerbalClinic member';
   const displayEmail = user?.email?.trim() || 'No email on file';
@@ -32,6 +37,41 @@ const ProfileScreen: React.FC = () => {
       await logout();
     } catch {
       Alert.alert('Sign out failed', 'Could not sign out. Please try again.');
+    }
+  };
+
+  const handleMenuPress = (id: string) => {
+    switch (id) {
+      case 'history':
+        Alert.alert(
+          'Scan History',
+          `${scanCount} saved scan${scanCount === '1' ? '' : 's'}. ${doshaLabel}. Open Skin to run another analysis.`,
+          [
+            { text: 'Open Skin', onPress: () => navigation.navigate('SkinAnalysis', { screen: 'SkinHome' }) },
+            { text: 'Close', style: 'cancel' },
+          ],
+        );
+        break;
+      case 'treatments':
+        navigation.navigate('HerbalTreatment');
+        break;
+      case 'meditation':
+        navigation.navigate('Meditation');
+        break;
+      case 'settings':
+        Alert.alert(
+          'Settings',
+          `Signed in as ${displayEmail}.\nAPI: ${Config.API_BASE_URL || 'not configured'}\nNotifications are not available in this build.`,
+        );
+        break;
+      case 'about':
+        Alert.alert(
+          'About HerbalClinic',
+          `${Config.APP_NAME} ${Config.VERSION}. Informational Ayurvedic self-care only — not a medical diagnosis. Gemini keys stay on the API server.`,
+        );
+        break;
+      default:
+        break;
     }
   };
 
@@ -69,7 +109,13 @@ const ProfileScreen: React.FC = () => {
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map(item => (
-            <TouchableOpacity key={item.id} style={styles.menuItem} activeOpacity={0.75}>
+            <TouchableOpacity
+              key={item.id}
+              style={styles.menuItem}
+              activeOpacity={0.75}
+              onPress={() => handleMenuPress(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={item.title}>
               <Text style={styles.menuEmoji}>{item.emoji}</Text>
               <View style={styles.menuText}>
                 <Text style={styles.menuTitle}>{item.title}</Text>
