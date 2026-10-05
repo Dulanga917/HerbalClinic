@@ -52,7 +52,9 @@ export const scoreQuestionnaire = (answers: QuestionnaireAnswers) => {
 
   const max = Math.max(counts.vata, counts.pitta, counts.kapha);
   const leaders = (Object.keys(counts) as SupportedDoshaKey[]).filter(key => counts[key] === max);
-  const hasClearTendency = scored >= 3 && max >= 2 && leaders.length === 1;
+  // Require a unique leader and a strict majority of scored answers.
+  // A 2-1-1 split is not enough evidence to name a Dosha tendency.
+  const hasClearTendency = scored >= 3 && max * 2 > scored && leaders.length === 1;
   const tendency = hasClearTendency ? leaders[0] : null;
   const skippedWomens = answers.womens === 'skip' || answers.womens == null;
 

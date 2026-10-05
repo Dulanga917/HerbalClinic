@@ -173,8 +173,8 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
             ) : (
               <>
                 <Text style={styles.sectionTitle}>{t('lifestyle')}</Text>
-                <Text style={styles.bullet}>• Warm water, regular sleep, and a simple herbal routine.</Text>
-                <Text style={styles.bullet}>• Open the Herb Library or Meditation tabs for more self-care ideas.</Text>
+                <Text style={styles.bullet}>• {t('generalLifestyleOne')}</Text>
+                <Text style={styles.bullet}>• {t('generalLifestyleTwo')}</Text>
               </>
             )}
           </View>

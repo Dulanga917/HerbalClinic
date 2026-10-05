@@ -62,6 +62,14 @@ export const QUESTIONNAIRE_COPY = {
     en: 'Your answers do not point to one clear pattern. Here is general Ayurvedic self-care guidance.',
     si: "ඔබේ පිළිතුරු එක් රටාවකට පැහැදිලිව නොයයි. පහත සාමාන්‍ය ආයුර්වේද ස්වයං-රැකවරණ මගපෙන්වීම බලන්න.",
   },
+  generalLifestyleOne: {
+    en: 'Warm water, regular sleep, and a simple herbal routine.',
+    si: 'උණුසුම් ජලය, නිතිපතා නින්ද, සහ සරල ඔසු චර්යාවක්.',
+  },
+  generalLifestyleTwo: {
+    en: 'Open the Herb Library or Meditation tabs for more self-care ideas.',
+    si: 'තවත් ස්වයං-රැකවරණ අදහස් සඳහා Herb Library හෝ Meditation ටැබ් විවෘත කරන්න.',
+  },
   skincare: { en: 'Skincare', si: "සම රැකවරණය" },
   herbs: { en: 'Recommended herbs', si: "නිර්දේශිත ඔසු" },
   lifestyle: { en: 'Lifestyle / self-care', si: "ජීවන රටාව / ස්වයං-රැකවරණය" },
