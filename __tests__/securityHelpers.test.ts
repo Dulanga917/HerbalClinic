@@ -21,6 +21,18 @@ it('maps labels in dosha-labels.json order', () => {
   expect(result.confidence).toBe(85);
 });
 
+it('fails safely on invalid model output instead of mapping the wrong Dosha', () => {
+  expect(() => predictionFromScores([0.2, Number.NaN, 0.4], ['Kapha', 'Pitta', 'Vata'])).toThrow(
+    /invalid class scores/,
+  );
+  expect(() => predictionFromScores([1, 2, 3, 4], ['Kapha', 'Pitta', 'Vata'])).toThrow(
+    /3 labels are configured/,
+  );
+  expect(() =>
+    predictionFromScores([0.25, 0.25, 0.25, 0.25], ['Balanced', 'Kapha', 'Pitta', 'Vata']),
+  ).toThrow(/Balanced is not supported/);
+});
+
 it('rejects passwords shorter than 8 characters', () => {
   const result = validatePassword('1234567');
   expect(result.ok).toBe(false);

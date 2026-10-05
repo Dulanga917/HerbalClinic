@@ -78,6 +78,14 @@ export const logoutAccount = (token: string | null) =>
 export const fetchCurrentUser = (token: string) =>
   apiRequest<{ user: AuthUser }>('/api/v1/me', { token });
 
+export interface ScanRecord {
+  id: number;
+  dosha: string | null;
+  confidence: number | null;
+  imageReference: string | null;
+  createdAt: string;
+}
+
 export const saveScan = (
   token: string,
   input: { dosha?: string; confidence?: number; imageReference?: string },
@@ -87,6 +95,9 @@ export const saveScan = (
     token,
     body: input,
   });
+
+export const fetchScanHistory = (token: string) =>
+  apiRequest<{ scans: ScanRecord[] }>('/api/v1/scans', { token });
 
 export const analyseSkinIssueRemote = (
   token: string,

@@ -9,22 +9,30 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
-import { HERBS } from '../../constants/ayurveda';
 import { useAuth } from '../../context/AuthContext';
 import geminiService, { HerbRecommendation } from '../../services/geminiService';
+import { filterHerbs, listHerbs, HerbDoshaFilter, HerbRecord } from '../../utils/herbLibrary';
 
-type Herb = (typeof HERBS)[keyof typeof HERBS];
-
-const herbList = Object.values(HERBS);
+const DOSHA_FILTERS: { id: HerbDoshaFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'vata', label: 'Vata' },
+  { id: 'pitta', label: 'Pitta' },
+  { id: 'kapha', label: 'Kapha' },
+];
 
 const HerbalTreatmentScreen: React.FC = () => {
   const { user } = useAuth();
-  const [selectedHerb, setSelectedHerb] = useState<Herb | null>(null);
+  const [query, setQuery] = useState('');
+  const [doshaFilter, setDoshaFilter] = useState<HerbDoshaFilter>('all');
+  const [selectedHerb, setSelectedHerb] = useState<HerbRecord | null>(null);
   const [aiHerbs, setAiHerbs] = useState<HerbRecommendation[] | null>(null);
+  const [aiOffline, setAiOffline] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const visibleHerbs = filterHerbs(listHerbs(), query, doshaFilter);
 
   const handleAiRecommendation = async () => {
     setAiLoading(true);
@@ -32,8 +40,9 @@ const HerbalTreatmentScreen: React.FC = () => {
       const condition = user?.dosha
         ? `${user.dosha} dosha skin wellness`
         : 'general skin wellness';
-      const herbs = await geminiService.getHerbalRecommendations(condition, user?.dosha || undefined);
-      setAiHerbs(herbs);
+      const result = await geminiService.getHerbalRecommendations(condition, user?.dosha || undefined);
+      setAiHerbs(result.herbs);
+      setAiOffline(result.offline);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not load herbal recommendations.';
       Alert.alert('Recommendation failed', message);
@@ -48,8 +57,8 @@ const HerbalTreatmentScreen: React.FC = () => {
 
       <LinearGradient colors={Colors.gradientKapha} style={styles.header}>
         <Text style={styles.headerEmoji}>🌿</Text>
-        <Text style={styles.headerTitle}>Herbal Treatments</Text>
-        <Text style={styles.headerSubtitle}>Personalized Ayurvedic herb recommendations</Text>
+        <Text style={styles.headerTitle}>Herb Library</Text>
+        <Text style={styles.headerSubtitle}>Search Ayurvedic herbs and filter by Dosha</Text>
       </LinearGradient>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
@@ -83,9 +92,32 @@ const HerbalTreatmentScreen: React.FC = () => {
           </LinearGradient>
         </TouchableOpacity>
 
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search herbs, properties, or uses"
+          placeholderTextColor={Colors.textMuted}
+          value={query}
+          onChangeText={setQuery}
+          accessibilityLabel="Search herbs"
+        />
+        <View style={styles.filterRow}>
+          {DOSHA_FILTERS.map(filter => (
+            <TouchableOpacity
+              key={filter.id}
+              style={[styles.filterChip, doshaFilter === filter.id && styles.filterChipActive]}
+              onPress={() => setDoshaFilter(filter.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter ${filter.label}`}>
+              <Text style={[styles.filterText, doshaFilter === filter.id && styles.filterTextActive]}>
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <Text style={styles.sectionTitle}>Popular Herbs</Text>
         <View style={styles.herbGrid}>
-          {herbList.map(herb => (
+          {visibleHerbs.map(herb => (
             <TouchableOpacity
               key={herb.id}
               style={styles.herbCard}
@@ -102,6 +134,9 @@ const HerbalTreatmentScreen: React.FC = () => {
             </TouchableOpacity>
           ))}
         </View>
+        {visibleHerbs.length === 0 ? (
+          <Text style={styles.emptyText}>No herbs match that search and Dosha filter.</Text>
+        ) : null}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -132,6 +167,11 @@ const HerbalTreatmentScreen: React.FC = () => {
             <Text style={styles.modalSub}>
               {user?.dosha ? `For ${user.dosha}` : 'General Ayurvedic guidance'}
             </Text>
+            {aiOffline ? (
+              <Text style={styles.offlineLabel}>
+                Offline library guidance — not a live Gemini response
+              </Text>
+            ) : null}
             {(aiHerbs || []).map(herb => (
               <View key={herb.name} style={styles.aiHerbRow}>
                 <Text style={styles.herbEmoji}>{herb.emoji}</Text>
@@ -143,7 +183,9 @@ const HerbalTreatmentScreen: React.FC = () => {
               </View>
             ))}
             <Text style={styles.disclaimer}>
-              If Gemini is offline, this plan uses the in-app herb library. Not a medical diagnosis.
+              {aiOffline
+                ? 'Static herb-library guidance while Gemini is unavailable. Not a medical diagnosis.'
+                : 'Informational herbal guidance only. Not a medical diagnosis.'}
             </Text>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setAiHerbs(null)}>
               <Text style={styles.closeText}>Close</Text>
@@ -180,7 +222,40 @@ const styles = StyleSheet.create({
   aiTitle: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
   aiDesc: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 2 },
   arrowIcon: { fontSize: 32, color: Colors.textSecondary },
+  searchInput: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    color: Colors.textPrimary,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.xl },
+  filterChip: {
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    backgroundColor: Colors.card,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.primaryDark,
+    borderColor: Colors.primaryLight,
+  },
+  filterText: { color: Colors.textSecondary, fontWeight: '600' },
+  filterTextActive: { color: Colors.primaryLight },
+  offlineLabel: {
+    fontSize: Typography.sm,
+    color: Colors.accent,
+    fontWeight: '700',
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
   sectionTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.base },
+  emptyText: { color: Colors.textSecondary, marginBottom: Spacing.xl },
   herbGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

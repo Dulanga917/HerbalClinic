@@ -16,6 +16,7 @@ type SkinIssueResult = {
   herbs: HerbRecommendation[];
   lifestyle: string[];
   disclaimer: string;
+  offline?: boolean;
 };
 
 const herbToRecommendation = (herb: (typeof HERBS)[keyof typeof HERBS]): HerbRecommendation => ({
@@ -64,6 +65,7 @@ export const offlineSkinIssue = (): SkinIssueResult => ({
   ],
   disclaimer:
     'Offline herbal guidance only. This is not a medical diagnosis. Consult a qualified clinician for skin conditions.',
+  offline: true,
 });
 
 export const offlineHerbalRecommendations = (

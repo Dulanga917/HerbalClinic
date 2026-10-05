@@ -27,9 +27,9 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.logoContainer}>
         <Text style={styles.emoji}>🌿</Text>
         <Text style={styles.appName}>HerbalClinic</Text>
-        <Text style={styles.tagline}>AI-Powered Ayurvedic Healing</Text>
+        <Text style={styles.tagline}>Ayurvedic self-care companion</Text>
       </View>
-      <Text style={styles.footer}>Powered by Gemini AI</Text>
+      <Text style={styles.footer}>Informational guidance — not a medical diagnosis</Text>
     </LinearGradient>
   );
 };

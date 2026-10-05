@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from './types';
 import AuthNavigator from './AuthNavigator';
-import MainTabNavigator from './MainTabNavigator';
+import MainStackNavigator from './MainStackNavigator';
 import { useAuth } from '../context/AuthContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -48,7 +48,7 @@ const AppNavigator: React.FC = () => {
       <Stack.Screen name="Auth" component={AuthNavigator} />
       <Stack.Screen
         name="Main"
-        component={MainTabNavigator}
+        component={MainStackNavigator}
         options={{ animation: 'fade' }}
       />
     </Stack.Navigator>

@@ -21,8 +21,13 @@ jest.mock('../src/context/AuthContext', () => ({
       doshaConfidence: 82,
       scanCount: 3,
     },
+    sessionToken: 'test-session',
     logout: mockLogout,
   }),
+}));
+
+jest.mock('../src/services/apiClient', () => ({
+  fetchScanHistory: jest.fn(async () => ({ scans: [] })),
 }));
 
 it('renders the authenticated user name and email', () => {
@@ -33,4 +38,8 @@ it('renders the authenticated user name and email', () => {
   expect(labels).toContain('ada@example.com');
   expect(labels).not.toContain('Herbal User');
   expect(labels).not.toContain('user@herbalclinic.com');
+  expect(labels).not.toContain('Sessions');
+  expect(labels).not.toContain('Plans');
+  expect(labels).toContain('Meditation Sessions');
+  expect(labels).not.toContain('Meditation History');
 });

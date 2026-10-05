@@ -16,6 +16,11 @@ export type HomeTabParamList = {
   Profile: undefined;
 };
 
+export type MainStackParamList = {
+  Tabs: undefined;
+  AyurvedicTreatment: undefined;
+};
+
 export type SkinStackParamList = {
   SkinHome: undefined;
   SkinCamera: { analysisType: 'type' | 'issue' };

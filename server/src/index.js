@@ -20,6 +20,7 @@ const {
   getUserByToken,
   logoutToken,
   saveScanRecord,
+  getScanRecordsForUser,
 } = require('./db');
 const defaultGemini = require('./gemini');
 const { loadConfig } = require('./config');
@@ -159,6 +160,17 @@ function createApp({ config = loadConfig(), gemini = defaultGemini, rateLimits }
     } catch (error) {
       handleError(res, error);
     }
+  });
+
+  app.get('/api/v1/scans', requireAuth, (req, res) => {
+    const scans = getScanRecordsForUser(Number(req.user.id)).map(row => ({
+      id: row.id,
+      dosha: row.dosha,
+      confidence: row.confidence,
+      imageReference: row.image_reference,
+      createdAt: row.created_at,
+    }));
+    res.json({ scans });
   });
 
   app.post('/api/v1/skin-issue', requireAuth, limiters.ai, async (req, res) => {

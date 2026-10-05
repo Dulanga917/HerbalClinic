@@ -1,7 +1,6 @@
 {
-  "labels": [
-    "Kapha",
-    "Pitta",
-    "Vata"
-  ]
+  "labels": ["Kapha", "Pitta", "Vata"],
+  "provenance": "unverified",
+  "balancedSupported": false,
+  "notes": "Configured output order for the shipped 3-class TFLite model. Training preprocess for this file is unproven. Balanced is unsupported."
 }

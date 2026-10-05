@@ -39,6 +39,7 @@ local.properties
 .env
 .env.*
 !.env.example
+server/.env
 
 # Local API database
 server/data/*.sqlite

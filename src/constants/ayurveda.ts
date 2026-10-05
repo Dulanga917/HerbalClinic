@@ -140,6 +140,32 @@ export const HERBS = {
     caution: 'Avoid long-term internal use without guidance.',
     description: 'Nature\'s skin brightener that fades dark spots and evens skin tone.',
   },
+  ashwagandha: {
+    id: 'ashwagandha',
+    name: 'Ashwagandha',
+    sanskrit: 'अश्वगन्धा',
+    emoji: '🌾',
+    color: '#C4A35A',
+    benefits: ['Adaptogen', 'Stress support', 'Skin vitality'],
+    doshas: ['vata', 'kapha'],
+    skinIssues: ['dullness', 'dryness'],
+    usage: 'Traditionally taken as a powder or tea. Follow product guidance and a qualified practitioner.',
+    caution: 'Informational only. Avoid during pregnancy unless a clinician advises otherwise.',
+    description: 'An Ayurvedic root used in self-care routines for resilience and skin vitality.',
+  },
+  jojoba: {
+    id: 'jojoba',
+    name: 'Jojoba Oil',
+    sanskrit: 'Simmondsia chinensis',
+    emoji: '🫒',
+    color: '#D4C483',
+    benefits: ['Moisturising', 'Barrier support', 'Gentle oil'],
+    doshas: ['vata', 'pitta'],
+    skinIssues: ['dryness', 'irritation'],
+    usage: 'Warm a few drops between palms and press onto damp skin.',
+    caution: 'Patch test first. This is self-care information, not a medical treatment.',
+    description: 'A light plant oil used to soften dry skin without a heavy residue.',
+  },
 };
 
 export const SKIN_ISSUES = {

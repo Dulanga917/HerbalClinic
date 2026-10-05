@@ -8,58 +8,74 @@ import {
   StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { HomeTabParamList } from '../../navigation/types';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { HomeTabParamList, MainStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import geminiService from '../../services/geminiService';
+import { homeDoshaState } from '../../utils/homeDashboard';
 
-type Props = BottomTabScreenProps<HomeTabParamList, 'Home'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<HomeTabParamList, 'Home'>,
+  NativeStackScreenProps<MainStackParamList>
+>;
 
 const features = [
   {
     id: 'skin-type',
     emoji: '🔬',
-    title: 'Dosha Image Classifier',
-    description: 'Experimental image classification as Vata, Pitta, or Kapha',
+    title: 'Skin Type Assessment',
+    description: 'On-device Dosha prediction: Vata, Pitta, or Kapha',
     gradient: Colors.gradientGreen,
   },
   {
     id: 'skin-issue',
     emoji: '🩺',
-    title: 'Skin Issue Scanner',
-    description: 'Detect skin conditions with Gemini Vision AI',
+    title: 'AI Skin Scan',
+    description: 'Gemini-assisted skin-issue guidance — not a diagnosis',
     gradient: Colors.gradientVata,
   },
   {
     id: 'herbal',
     emoji: '🌿',
-    title: 'Herbal Treatments',
-    description: 'Personalized Ayurvedic herbal recommendations',
+    title: 'Herb Library',
+    description: 'Ayurvedic herbs and personalized recommendations',
     gradient: Colors.gradientKapha,
   },
   {
     id: 'meditation',
     emoji: '🧘',
-    title: 'Meditation & Wellness',
+    title: 'Meditation',
     description: 'Guided sessions for mind-body balance',
     gradient: Colors.gradientAccent,
+  },
+  {
+    id: 'ayurveda-treatment',
+    emoji: '📋',
+    title: 'Ayurvedic Treatment',
+    description: 'Bilingual self-care questionnaire (EN / සිංහල)',
+    gradient: Colors.gradientGreen,
   },
 ];
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
+  const doshaCard = homeDoshaState(user);
   const [dailyTip, setDailyTip] = useState(
-    'Start your day with warm water infused with tulsi and ginger to boost immunity and balance your doshas.',
+    'Start the day with warm water and a simple herbal routine. This tip is local guidance, not a Gemini response.',
   );
+  const [tipOffline, setTipOffline] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     geminiService
       .getDailyTip(user?.dosha || undefined)
-      .then(tip => {
-        if (!cancelled && tip) {
-          setDailyTip(tip);
+      .then(result => {
+        if (!cancelled && result?.tip) {
+          setDailyTip(result.tip);
+          setTipOffline(Boolean(result.offline));
         }
       })
       .catch(() => undefined);
@@ -88,6 +104,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       case 'meditation':
         navigation.navigate('Meditation');
         break;
+      case 'ayurveda-treatment':
+        navigation.navigate('AyurvedicTreatment');
+        break;
     }
   };
 
@@ -102,12 +121,34 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}>
-          <Text style={styles.greeting}>
-            {user?.name ? `Hello, ${user.name.split(' ')[0]} 🌿` : 'Good day 🌿'}
-          </Text>
+          <Text style={styles.greeting}>{doshaCard.greeting} 🌿</Text>
           <Text style={styles.heroTitle}>HerbalClinic</Text>
-          <Text style={styles.heroSubtitle}>Your AI-powered Ayurvedic companion</Text>
+          <Text style={styles.heroSubtitle}>Your Ayurvedic self-care companion</Text>
         </LinearGradient>
+
+        <View style={styles.section}>
+          <View style={styles.doshaCard}>
+            <Text style={styles.doshaEyebrow}>
+              {doshaCard.hasDosha ? 'Your Ayurvedic Dosha' : 'Your Dosha'}
+            </Text>
+            <Text style={styles.doshaValue}>{doshaCard.doshaLabel}</Text>
+            <Text style={styles.doshaSubtitle}>{doshaCard.subtitle}</Text>
+            {!doshaCard.hasDosha ? (
+              <TouchableOpacity
+                style={styles.assessBtn}
+                onPress={() =>
+                  navigation.navigate('SkinAnalysis', {
+                    screen: 'SkinCamera',
+                    params: { analysisType: 'type' },
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Take Assessment">
+                <Text style={styles.assessBtnText}>Take Assessment</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
 
         {/* Features */}
         <View style={styles.section}>
@@ -140,9 +181,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Daily Ayurveda Tip</Text>
           <View style={styles.tipCard}>
             <Text style={styles.tipEmoji}>💡</Text>
-            <Text style={styles.tipText}>{dailyTip}</Text>
+            <View style={styles.tipCopy}>
+              {tipOffline ? (
+                <Text style={styles.offlineLabel}>Offline guidance — not a live Gemini response</Text>
+              ) : null}
+              <Text style={styles.tipText}>{dailyTip}</Text>
+            </View>
           </View>
         </View>
+
+        <Text style={styles.homeDisclaimer}>
+          Informational Ayurvedic self-care only. Not a medical diagnosis.
+        </Text>
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -166,6 +216,57 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: { fontSize: Typography.md, color: Colors.textSecondary, marginTop: Spacing.xs },
   section: { padding: Spacing.xl, paddingTop: Spacing['2xl'] },
+  doshaCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    marginTop: -Spacing['3xl'],
+  },
+  doshaEyebrow: {
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+  },
+  doshaValue: {
+    fontSize: Typography['3xl'],
+    fontWeight: '800',
+    color: Colors.primaryLight,
+    marginTop: Spacing.xs,
+  },
+  doshaSubtitle: {
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    lineHeight: 20,
+  },
+  assessBtn: {
+    marginTop: Spacing.base,
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.primaryDark,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  assessBtnText: { color: Colors.textPrimary, fontWeight: '700' },
+  tipCopy: { flex: 1 },
+  offlineLabel: {
+    fontSize: Typography.xs,
+    color: Colors.accent,
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
+  },
+  homeDisclaimer: {
+    fontSize: Typography.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.base,
+  },
   sectionTitle: {
     fontSize: Typography.xl,
     fontWeight: '700',

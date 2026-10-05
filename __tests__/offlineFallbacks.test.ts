@@ -12,6 +12,8 @@ describe('offlineFallbacks', () => {
     expect(result.confidence).toBe(0);
     expect(result.issue).toMatch(/guidance/i);
     expect(result.description).toMatch(/not an analysis/i);
+    expect(result.description).toMatch(/Gemini is not available/i);
+    expect(result.disclaimer).toMatch(/not a medical diagnosis/i);
     expect(result.herbs.length).toBeGreaterThan(0);
   });
 
@@ -22,6 +24,7 @@ describe('offlineFallbacks', () => {
 
   it('uses dosha lifestyle text for a daily tip', () => {
     expect(offlineDailyTip('Vata')).toMatch(/sleep|warm/i);
+    expect(offlineDailyTip()).toMatch(/not a Gemini response/i);
   });
 
   it('detects Gemini and API outages', () => {

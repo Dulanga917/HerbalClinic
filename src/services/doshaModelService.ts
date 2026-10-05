@@ -4,10 +4,17 @@ import RNFS from 'react-native-fs';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
 import { loadTensorflowModel, TensorflowModel } from 'react-native-fast-tflite';
 import doshaLabels from '../assets/dosha-labels.json';
-import { predictionFromScores } from '../utils/doshaScores';
+import {
+  SHIPPED_DOSHA_LABELS,
+  SHIPPED_PIXEL_SCALE,
+  flattenClassScores,
+  predictionFromScores,
+} from '../utils/doshaScores';
 
 const IMAGE_SIZE = 224;
 const LABELS = doshaLabels.labels;
+
+export { SHIPPED_PIXEL_SCALE };
 
 export type DoshaLabel = (typeof LABELS)[number];
 
@@ -44,6 +51,10 @@ const getModel = async (): Promise<TensorflowModel> => {
     throw new Error(
       `The bundled model must accept one float32 RGB image with shape [1, ${IMAGE_SIZE}, ${IMAGE_SIZE}, 3].`,
     );
+  }
+
+  if (LABELS.length !== SHIPPED_DOSHA_LABELS.length) {
+    throw new Error('The shipped dosha model must use three labels: Kapha, Pitta, Vata.');
   }
 
   if (
@@ -98,7 +109,14 @@ export const analyseDosha = async (
     throw new Error('The model did not return any class predictions.');
   }
 
-  const prediction = predictionFromScores(output, LABELS);
+  const scores = flattenClassScores(output);
+  if (scores.length !== LABELS.length) {
+    throw new Error(
+      `The model returned ${scores.length} scores, but ${LABELS.length} labels are configured.`,
+    );
+  }
+
+  const prediction = predictionFromScores(scores, LABELS);
   return {
     dosha: prediction.dosha,
     confidence: prediction.confidence,

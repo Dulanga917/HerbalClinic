@@ -181,7 +181,12 @@ function rawGet(p, origin) {
   rec('A never sees B scans (A rows are all A)', aScans.length === 2 && aScans.every(s => ['Vata', 'Kapha'].includes(s.dosha)));
   rec('B only sees B scans', bScans.length === 1 && bScans[0].dosha === 'Pitta');
   rec('Client-supplied userId in body is ignored (no impersonation)', !bScans.some(s => s.dosha === 'Kapha'));
-  rec('No HTTP endpoint exposes scan records (read path is DB-function only)', !fs.readFileSync(SRC + 'index.js', 'utf8').match(/app\.get\(['"]\/api\/v1\/scans/));
+  r = await call('GET', '/api/v1/scans');
+  rec('GET /api/v1/scans requires auth (401 without token)', r.status === 401);
+  r = await call('GET', '/api/v1/scans', undefined, tA);
+  rec('GET /scans is isolated to user A', r.status === 200 && r.json?.scans?.length === 2 && r.json.scans.every(s => ['Vata', 'Kapha'].includes(s.dosha)));
+  r = await call('GET', '/api/v1/scans', undefined, tB);
+  rec('GET /scans is isolated to user B', r.status === 200 && r.json?.scans?.length === 1 && r.json.scans[0].dosha === 'Pitta');
   r = await call('GET', '/api/v1/me', undefined, tB);
   rec('/me scanCount is per-user (B=1)', r.json?.user?.scanCount === 1);
 

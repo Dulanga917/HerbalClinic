@@ -33,6 +33,7 @@ export interface SkinIssueResult {
   herbs: HerbRecommendation[];
   lifestyle: string[];
   disclaimer: string;
+  offline?: boolean;
 }
 
 export interface HerbRecommendation {
@@ -40,6 +41,16 @@ export interface HerbRecommendation {
   emoji: string;
   benefit: string;
   usage: string;
+}
+
+export interface HerbalRecommendationResult {
+  herbs: HerbRecommendation[];
+  offline: boolean;
+}
+
+export interface DailyTipResult {
+  tip: string;
+  offline: boolean;
 }
 
 const requireToken = async (): Promise<string> => {
@@ -61,10 +72,10 @@ class GeminiService {
       const token = await requireToken();
       const imageBase64 = await imageUriToBase64(imageUri);
       const { analysis } = await analyseSkinIssueRemote(token, imageBase64);
-      return analysis as SkinIssueResult;
+      return { ...(analysis as SkinIssueResult), offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return offlineSkinIssue();
+        return { ...offlineSkinIssue(), offline: true };
       }
       throw error;
     }
@@ -73,27 +84,27 @@ class GeminiService {
   async getHerbalRecommendations(
     condition: string,
     dosha?: string,
-  ): Promise<HerbRecommendation[]> {
+  ): Promise<HerbalRecommendationResult> {
     try {
       const token = await requireToken();
       const { herbs } = await fetchHerbalRecommendations(token, condition, dosha);
-      return herbs as HerbRecommendation[];
+      return { herbs: herbs as HerbRecommendation[], offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return offlineHerbalRecommendations(condition, dosha);
+        return { herbs: offlineHerbalRecommendations(condition, dosha), offline: true };
       }
       throw error;
     }
   }
 
-  async getDailyTip(dosha?: string): Promise<string> {
+  async getDailyTip(dosha?: string): Promise<DailyTipResult> {
     try {
       const token = await requireToken();
       const { tip } = await fetchDailyTip(token, dosha);
-      return tip;
+      return { tip, offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return offlineDailyTip(dosha);
+        return { tip: offlineDailyTip(dosha), offline: true };
       }
       throw error;
     }

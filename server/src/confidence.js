@@ -1,3 +1,50 @@
+const SHIPPED_DOSHA_LABELS = ['Kapha', 'Pitta', 'Vata'];
+const SUPPORTED_LABELS = new Set(SHIPPED_DOSHA_LABELS);
+
+function flattenClassScores(scores) {
+  if (scores == null || typeof scores.length !== 'number') {
+    throw new Error('The model returned an unexpected tensor shape.');
+  }
+
+  const values = Array.from(scores, Number);
+  if (!values.length) {
+    throw new Error('The model returned no class scores.');
+  }
+  if (values.length > 16) {
+    throw new Error('The model returned an unexpected tensor shape.');
+  }
+  if (!values.every(Number.isFinite)) {
+    throw new Error('The model returned invalid class scores.');
+  }
+
+  return values;
+}
+
+function assertCompatibleDoshaLabels(labels) {
+  if (!labels.length) {
+    throw new Error('No dosha labels are configured.');
+  }
+
+  const unique = new Set(labels);
+  if (unique.size !== labels.length) {
+    throw new Error('Dosha labels must be unique.');
+  }
+
+  if (labels.some(label => String(label).toLowerCase() === 'balanced')) {
+    throw new Error('Balanced is not supported until a verified 4-class model is shipped.');
+  }
+
+  for (const label of labels) {
+    if (!SUPPORTED_LABELS.has(label)) {
+      throw new Error(
+        `Unsupported dosha label "${label}". The shipped model only maps Kapha, Pitta, and Vata.`,
+      );
+    }
+  }
+
+  return labels;
+}
+
 function softmax(values) {
   const max = Math.max(...values);
   const exps = values.map(value => Math.exp(value - max));
@@ -9,10 +56,7 @@ function softmax(values) {
 }
 
 function scoresToProbabilities(scores) {
-  const values = Array.from(scores, Number);
-  if (!values.length || !values.every(Number.isFinite)) {
-    throw new Error('The model returned invalid class scores.');
-  }
+  const values = flattenClassScores(scores);
 
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -31,10 +75,19 @@ function scoresToProbabilities(scores) {
 }
 
 function predictionFromScores(scores, labels) {
-  const probabilities = scoresToProbabilities(scores);
-  if (probabilities.length !== labels.length) {
+  const compatibleLabels = assertCompatibleDoshaLabels(labels);
+  const values = flattenClassScores(scores);
+
+  if (values.length !== compatibleLabels.length) {
     throw new Error(
-      `The model returned ${probabilities.length} scores, but ${labels.length} labels are configured.`,
+      `The model returned ${values.length} scores, but ${compatibleLabels.length} labels are configured.`,
+    );
+  }
+
+  const probabilities = scoresToProbabilities(values);
+  if (probabilities.length !== compatibleLabels.length) {
+    throw new Error(
+      `The model returned ${probabilities.length} scores, but ${compatibleLabels.length} labels are configured.`,
     );
   }
 
@@ -45,14 +98,22 @@ function predictionFromScores(scores, labels) {
     }
   }
 
+  const dosha = compatibleLabels[bestIndex];
+  if (!dosha) {
+    throw new Error('The model result could not be mapped to a Dosha label.');
+  }
+
   return {
-    dosha: labels[bestIndex],
+    dosha,
     confidence: Math.max(0, Math.min(100, Math.round(probabilities[bestIndex] * 100))),
     probabilities,
   };
 }
 
 module.exports = {
+  SHIPPED_DOSHA_LABELS,
+  flattenClassScores,
+  assertCompatibleDoshaLabels,
   softmax,
   scoresToProbabilities,
   predictionFromScores,

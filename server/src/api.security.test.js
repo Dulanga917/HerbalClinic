@@ -369,6 +369,21 @@ test('scan input is validated server-side', async () => {
       body: { dosha: 'Vata', confidence: 50 },
     });
     assert.equal(unauthenticated.status, 401);
+
+    const other = await newSession();
+    await api.request('POST', '/api/v1/scans', {
+      token: other.token,
+      body: { dosha: 'Kapha', confidence: 40, imageReference: 'other.jpg' },
+    });
+    const ownHistory = await api.request('GET', '/api/v1/scans', { token });
+    assert.equal(ownHistory.status, 200);
+    assert.equal(ownHistory.json.scans.length, 2);
+    assert.ok(ownHistory.json.scans.every(scan => scan.dosha !== 'Kapha'));
+    const otherHistory = await api.request('GET', '/api/v1/scans', { token: other.token });
+    assert.equal(otherHistory.json.scans.length, 1);
+    assert.equal(otherHistory.json.scans[0].dosha, 'Kapha');
+    const noToken = await api.request('GET', '/api/v1/scans');
+    assert.equal(noToken.status, 401);
   } finally {
     await api.close();
   }

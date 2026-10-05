@@ -21,6 +21,7 @@ import geminiService, {
 import { analyseDosha, DoshaPrediction } from '../../services/doshaModelService';
 import { saveScan } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { getDoshaGuidance } from '../../utils/doshaGuidance';
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinResult'>;
@@ -96,7 +97,7 @@ const ConfidenceBar: React.FC<{ value: number }> = ({ value }) => (
         end={{ x: 1, y: 0 }}
       />
     </View>
-    <Text style={confStyles.label}>{value}% AI prediction confidence</Text>
+    <Text style={confStyles.label}>{value}% model confidence</Text>
   </View>
 );
 
@@ -172,6 +173,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const isSkinType = analysisType === 'type';
   const doshaResult = isSkinType ? (result as DoshaPrediction | null) : null;
   const skinIssueResult = !isSkinType ? (result as SkinIssueResult) : null;
+  const guidance = doshaResult ? getDoshaGuidance(doshaResult.dosha) : null;
 
   const severityColor = (s?: string) => {
     if (s === 'Mild') return Colors.success;
@@ -233,16 +235,61 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
                 <View>
-                  <Text style={styles.resultLabel}>Predicted Dosha</Text>
+                  <Text style={styles.resultLabel}>Dosha prediction</Text>
                   <Text style={styles.resultValue}>{doshaResult.dosha}</Text>
                 </View>
               </View>
               <ConfidenceBar value={doshaResult.confidence} />
             </View>
+            {guidance ? (
+              <>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>{guidance.emoji} About {guidance.name}</Text>
+                  <Text style={styles.descText}>{guidance.explanation}</Text>
+                </View>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>🌿 Personalized skincare</Text>
+                  {guidance.skincare.map(item => (
+                    <View key={item} style={styles.bulletRow}>
+                      <Text style={styles.bulletDot}>•</Text>
+                      <Text style={styles.bulletText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>🌱 Recommended herbs</Text>
+                  {guidance.herbs.map(herb => (
+                    <View key={herb.id} style={styles.bulletRow}>
+                      <Text style={styles.bulletDot}>{herb.emoji}</Text>
+                      <Text style={styles.bulletText}>
+                        {herb.name} — {herb.benefits[0]}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>💚 Lifestyle / self-care</Text>
+                  {guidance.lifestyle.map(item => (
+                    <View key={item} style={styles.bulletRow}>
+                      <Text style={styles.bulletDot}>•</Text>
+                      <Text style={styles.bulletText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+                {guidance.meditation ? (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>🧘 Recommended meditation</Text>
+                    <Text style={styles.descText}>
+                      {guidance.meditation.title} ({guidance.meditation.duration}) — {guidance.meditation.subtitle}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
             <View style={styles.disclaimerCard}>
               <Text style={styles.disclaimerText}>
-                This is an experimental image classification, not a medical diagnosis.
-                The percentage is AI prediction confidence, not medical accuracy.
+                This is an experimental Dosha prediction for informational self-care only.
+                Model confidence is not medical accuracy and this is not a diagnosis.
               </Text>
             </View>
           </>
@@ -251,6 +298,13 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Skin ISSUE Result */}
         {!loading && skinIssueResult && (
           <>
+            {skinIssueResult.offline ? (
+              <View style={styles.offlineBanner}>
+                <Text style={styles.offlineBannerText}>
+                  Offline guidance — Gemini is unavailable. This is not an analysis of your photo.
+                </Text>
+              </View>
+            ) : null}
             {/* Issue Badge */}
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
@@ -403,6 +457,15 @@ const styles = StyleSheet.create({
   doshaLabel: { fontSize: Typography.xs, color: Colors.textSecondary },
   doshaValue: { fontSize: Typography.base, fontWeight: '700', color: Colors.primaryLight },
   descText: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20, marginTop: Spacing.md },
+  offlineBanner: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    marginBottom: Spacing.xl,
+  },
+  offlineBannerText: { fontSize: Typography.sm, color: Colors.accent, lineHeight: 20, fontWeight: '600' },
 
   // Section
   section: { marginBottom: Spacing.xl },

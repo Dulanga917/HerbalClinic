@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -14,23 +16,27 @@ import { HomeTabParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import Config from '../../constants/config';
+import { fetchScanHistory, ScanRecord } from '../../services/apiClient';
 
 type Props = BottomTabScreenProps<HomeTabParamList, 'Profile'>;
 
 const menuItems = [
-  { id: 'history', emoji: '📋', title: 'Scan History', description: 'View past skin analyses' },
-  { id: 'treatments', emoji: '🌿', title: 'My Treatments', description: 'Saved herbal treatment plans' },
-  { id: 'meditation', emoji: '🧘', title: 'Meditation History', description: 'Completed sessions log' },
-  { id: 'settings', emoji: '⚙️', title: 'Settings', description: 'App preferences & notifications' },
+  { id: 'history', emoji: '📋', title: 'Scan History', description: 'Saved assessments for this account' },
+  { id: 'treatments', emoji: '🌿', title: 'Herb Library', description: 'Open Ayurvedic herb recommendations' },
+  { id: 'meditation', emoji: '🧘', title: 'Meditation Sessions', description: 'Open guided meditation sessions' },
+  { id: 'settings', emoji: '⚙️', title: 'Settings', description: 'Account and API details for this build' },
   { id: 'about', emoji: 'ℹ️', title: 'About HerbalClinic', description: 'Version 1.0.0 — Final Year Project' },
 ];
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, sessionToken } = useAuth();
   const displayName = user?.name?.trim() || 'HerbalClinic member';
   const displayEmail = user?.email?.trim() || 'No email on file';
   const doshaLabel = user?.dosha ? `Dosha: ${user.dosha}` : 'Dosha: Not analyzed yet';
   const scanCount = String(user?.scanCount ?? 0);
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [scans, setScans] = useState<ScanRecord[]>([]);
 
   const handleSignOut = async () => {
     try {
@@ -40,17 +46,29 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const openScanHistory = async () => {
+    if (!sessionToken) {
+      Alert.alert('Sign in required', 'Please sign in again to view scan history.');
+      return;
+    }
+    setHistoryVisible(true);
+    setHistoryLoading(true);
+    try {
+      const result = await fetchScanHistory(sessionToken);
+      setScans(result.scans);
+    } catch (error) {
+      setHistoryVisible(false);
+      const message = error instanceof Error ? error.message : 'Could not load scan history.';
+      Alert.alert('Scan History', message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleMenuPress = (id: string) => {
     switch (id) {
       case 'history':
-        Alert.alert(
-          'Scan History',
-          `${scanCount} saved scan${scanCount === '1' ? '' : 's'}. ${doshaLabel}. Open Skin to run another analysis.`,
-          [
-            { text: 'Open Skin', onPress: () => navigation.navigate('SkinAnalysis', { screen: 'SkinHome' }) },
-            { text: 'Close', style: 'cancel' },
-          ],
-        );
+        openScanHistory();
         break;
       case 'treatments':
         navigation.navigate('HerbalTreatment');
@@ -80,7 +98,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Profile Header */}
         <LinearGradient colors={Colors.gradientDark} style={styles.header}>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarEmoji}>🌿</Text>
@@ -92,21 +109,13 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </LinearGradient>
 
-        {/* Stats Row */}
         <View style={styles.statsRow}>
-          {[
-            { label: 'Scans', value: scanCount },
-            { label: 'Sessions', value: '0' },
-            { label: 'Plans', value: '0' },
-          ].map((stat, i) => (
-            <View key={i} style={styles.statCard}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{scanCount}</Text>
+            <Text style={styles.statLabel}>Saved scans</Text>
+          </View>
         </View>
 
-        {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map(item => (
             <TouchableOpacity
@@ -126,7 +135,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Sign Out */}
         <TouchableOpacity style={styles.signOutWrapper} onPress={handleSignOut}>
           <LinearGradient
             colors={['#7A2010', '#FA5252']}
@@ -139,6 +147,36 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+
+      <Modal
+        visible={historyVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setHistoryVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Scan History</Text>
+            {historyLoading ? (
+              <ActivityIndicator color={Colors.primaryLight} />
+            ) : scans.length === 0 ? (
+              <Text style={styles.menuDesc}>No saved scans for this account yet.</Text>
+            ) : (
+              scans.map(scan => (
+                <View key={scan.id} style={styles.historyRow}>
+                  <Text style={styles.menuTitle}>{scan.dosha || 'Skin-issue scan'}</Text>
+                  <Text style={styles.menuDesc}>
+                    {scan.confidence != null ? `${scan.confidence}% model confidence` : 'No confidence stored'}
+                    {scan.createdAt ? ` · ${scan.createdAt.slice(0, 10)}` : ''}
+                  </Text>
+                </View>
+              ))
+            )}
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setHistoryVisible(false)}>
+              <Text style={styles.closeText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -176,13 +214,10 @@ const styles = StyleSheet.create({
   },
   doshaText: { fontSize: Typography.sm, color: Colors.primaryLight, fontWeight: '600' },
   statsRow: {
-    flexDirection: 'row',
     marginHorizontal: Spacing.xl,
     marginTop: -Spacing.lg,
-    gap: Spacing.md,
   },
   statCard: {
-    flex: 1,
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.base,
@@ -212,6 +247,40 @@ const styles = StyleSheet.create({
   signOutBtn: { paddingVertical: Spacing.base + 2, alignItems: 'center', borderRadius: BorderRadius.lg },
   signOutText: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
   bottomPad: { height: Spacing['3xl'] },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: Typography.xl,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: Spacing.base,
+  },
+  historyRow: {
+    marginBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.cardBorder,
+    paddingBottom: Spacing.sm,
+  },
+  closeBtn: {
+    marginTop: Spacing.base,
+    backgroundColor: Colors.primaryDark,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  closeText: { color: Colors.textPrimary, fontWeight: '700' },
 });
 
 export default ProfileScreen;
