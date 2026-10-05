@@ -25,7 +25,7 @@ type Props = {
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, error, clearError } = useAuth();
+  const { login, error, clearError, loading } = useAuth();
 
   const handleLogin = async () => {
     clearError();
@@ -102,13 +102,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
 
             {/* Login Button */}
-            <TouchableOpacity style={styles.loginBtnWrapper} onPress={handleLogin}>
+            <TouchableOpacity
+              style={styles.loginBtnWrapper}
+              onPress={handleLogin}
+              disabled={loading}>
               <LinearGradient
                 colors={Colors.gradientGreen}
                 style={styles.loginBtn}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}>
-                <Text style={styles.loginBtnText}>Sign In</Text>
+                <Text style={styles.loginBtnText}>{loading ? 'Signing in…' : 'Sign In'}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

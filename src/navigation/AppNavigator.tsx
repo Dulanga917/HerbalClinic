@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from './types';
@@ -11,15 +11,30 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const AppNavigator: React.FC = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, loading } = useAuth();
+  const previousUserId = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (loading) {
       return;
     }
 
+    const userId = user?.id ?? null;
+    if (previousUserId.current === userId) {
+      return;
+    }
+
+    // First restore with no session: stay on the Auth stack (Splash → Login).
+    if (previousUserId.current === undefined && !user) {
+      previousUserId.current = null;
+      return;
+    }
+
+    previousUserId.current = userId;
     navigation.reset({
       index: 0,
-      routes: [{ name: user ? 'Main' : 'Auth' }],
+      routes: user
+        ? [{ name: 'Main' }]
+        : [{ name: 'Auth', state: { routes: [{ name: 'Login' }], index: 0 } }],
     });
   }, [user, loading, navigation]);
 
