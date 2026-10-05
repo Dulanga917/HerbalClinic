@@ -72,6 +72,13 @@ yarn-error.log
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
 
+# Local ML training outputs and dataset (not the shipped TFLite model)
+ml_backend/dosha_model.keras
+ml_backend/history.json
+ml_backend/class_names.json
+ml_backend/__pycache__/
+ai_dataset/
+
 # testing
 /coverage
 
