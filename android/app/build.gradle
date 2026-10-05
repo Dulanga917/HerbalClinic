@@ -72,6 +72,22 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+/**
+ * Release signing values come from Gradle properties (for example ~/.gradle/gradle.properties)
+ * or environment variables. Keystores and passwords must never be committed.
+ */
+def releaseSigningValue = { String name ->
+    def value = project.findProperty(name) ?: System.getenv(name)
+    return value ? value.toString() : null
+}
+def releaseSigningKeys = [
+    'HERBALCLINIC_RELEASE_STORE_FILE',
+    'HERBALCLINIC_RELEASE_STORE_PASSWORD',
+    'HERBALCLINIC_RELEASE_KEY_ALIAS',
+    'HERBALCLINIC_RELEASE_KEY_PASSWORD',
+]
+def releaseSigningConfigured = releaseSigningKeys.every { releaseSigningValue(it) }
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -92,18 +108,41 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseSigningValue('HERBALCLINIC_RELEASE_STORE_FILE'))
+                storePassword releaseSigningValue('HERBALCLINIC_RELEASE_STORE_PASSWORD')
+                keyAlias releaseSigningValue('HERBALCLINIC_RELEASE_KEY_ALIAS')
+                keyPassword releaseSigningValue('HERBALCLINIC_RELEASE_KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Release builds are never signed with the debug keystore. If the release
+            // signing values are missing, packaging fails (see the check at the end of this file).
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def signsRelease = graph.allTasks.any {
+        it.project == project &&
+            ['assembleRelease', 'packageRelease', 'bundleRelease', 'signReleaseBundle'].contains(it.name)
+    }
+    if (signsRelease && !releaseSigningConfigured) {
+        throw new GradleException(
+            'Release signing is not configured. Provide ' + releaseSigningKeys.join(', ') +
+            ' as Gradle properties or environment variables. Release builds are never signed with the debug keystore.'
+        )
     }
 }
 

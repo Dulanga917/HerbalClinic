@@ -1,0 +1,24 @@
+{
+  "name": "herbalclinic-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure backend for HerbalClinic authentication, persistence, and Gemini proxy",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --experimental-sqlite src/index.js",
+    "verify:e2e": "node --experimental-sqlite scripts/e2e-security-check.js",
+    "test": "node --experimental-sqlite --test src/passwordPolicy.test.js src/confidence.test.js src/db.auth.test.js src/api.security.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0"
+  }
+}

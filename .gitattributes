@@ -1,0 +1,3 @@
+*.tflite binary
+*.keystore binary
+*.jks binary
