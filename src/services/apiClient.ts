@@ -20,6 +20,21 @@ type RequestOptions = {
   body?: unknown;
 };
 
+export const GEMINI_UNAVAILABLE = 'GEMINI_UNAVAILABLE';
+export const API_UNREACHABLE = 'API_UNREACHABLE';
+
+export class ApiError extends Error {
+  readonly status: number | null;
+  readonly code: string | null;
+
+  constructor(message: string, status: number | null, code: string | null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -43,15 +58,19 @@ const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promis
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
-    throw new Error(
+    throw new ApiError(
       'Could not reach the HerbalClinic API. Start the local server, then try again.',
+      null,
+      API_UNREACHABLE,
     );
   }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(
+    throw new ApiError(
       typeof payload.error === 'string' ? payload.error : 'Request failed. Please try again.',
+      response.status,
+      typeof payload.code === 'string' ? payload.code : null,
     );
   }
   return payload as T;

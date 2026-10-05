@@ -8,33 +8,14 @@ import {
   isGeminiUnavailable,
   offlineDailyTip,
   offlineHerbalRecommendations,
-  offlineSkinIssue,
+  offlineSkinGuidance,
 } from './offlineFallbacks';
 import { getSessionToken } from './sessionStorage';
+import { parseSkinGuidance, SkinGuidanceResult } from '../utils/skinGuidance';
+
+export type { SkinGuidanceResult } from '../utils/skinGuidance';
 
 export type SkinAnalysisType = 'type' | 'issue';
-
-export interface SkinTypeResult {
-  skinType: 'Oily' | 'Dry' | 'Combination' | 'Normal' | 'Unknown';
-  confidence: number;
-  dosha: 'Vata' | 'Pitta' | 'Kapha' | 'Vata-Pitta' | 'Pitta-Kapha' | 'Vata-Kapha';
-  description: string;
-  characteristics: string[];
-  recommendations: string[];
-  herbs: HerbRecommendation[];
-}
-
-export interface SkinIssueResult {
-  issue: string;
-  severity: 'Mild' | 'Moderate' | 'Severe';
-  confidence: number;
-  description: string;
-  causes: string[];
-  herbs: HerbRecommendation[];
-  lifestyle: string[];
-  disclaimer: string;
-  offline?: boolean;
-}
 
 export interface HerbRecommendation {
   name: string;
@@ -66,19 +47,34 @@ const imageUriToBase64 = async (imageUri: string): Promise<string> => {
   return RNFS.readFile(filePath, 'base64');
 };
 
+const isHerbRecommendation = (value: unknown): value is HerbRecommendation => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const herb = value as Record<string, unknown>;
+  return (
+    typeof herb.name === 'string' &&
+    herb.name.trim().length > 0 &&
+    typeof herb.emoji === 'string' &&
+    typeof herb.benefit === 'string' &&
+    typeof herb.usage === 'string'
+  );
+};
+
 class GeminiService {
-  async analyseSkinIssue(imageUri: string): Promise<SkinIssueResult> {
+  async analyseSkinIssue(imageUri: string): Promise<SkinGuidanceResult> {
+    let analysis: unknown;
     try {
       const token = await requireToken();
       const imageBase64 = await imageUriToBase64(imageUri);
-      const { analysis } = await analyseSkinIssueRemote(token, imageBase64);
-      return { ...(analysis as SkinIssueResult), offline: false };
+      ({ analysis } = await analyseSkinIssueRemote(token, imageBase64));
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return { ...offlineSkinIssue(), offline: true };
+        return offlineSkinGuidance();
       }
       throw error;
     }
+    return parseSkinGuidance(analysis) ?? offlineSkinGuidance();
   }
 
   async getHerbalRecommendations(
@@ -88,7 +84,11 @@ class GeminiService {
     try {
       const token = await requireToken();
       const { herbs } = await fetchHerbalRecommendations(token, condition, dosha);
-      return { herbs: herbs as HerbRecommendation[], offline: false };
+      const valid = Array.isArray(herbs) ? herbs.filter(isHerbRecommendation) : [];
+      if (valid.length === 0) {
+        return { herbs: offlineHerbalRecommendations(condition, dosha), offline: true };
+      }
+      return { herbs: valid, offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {
         return { herbs: offlineHerbalRecommendations(condition, dosha), offline: true };
@@ -101,6 +101,9 @@ class GeminiService {
     try {
       const token = await requireToken();
       const { tip } = await fetchDailyTip(token, dosha);
+      if (typeof tip !== 'string' || !tip.trim()) {
+        return { tip: offlineDailyTip(dosha), offline: true };
+      }
       return { tip, offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {

@@ -26,17 +26,17 @@ const scanOptions = [
   },
   {
     id: 'issue' as const,
-    emoji: '🩺',
-    title: 'Detect Skin Issue',
-    description: 'Identify acne, pigmentation, rashes and more',
+    emoji: '🌿',
+    title: 'AI Skin Guidance',
+    description: 'General Ayurvedic self-care suggestions from a photo (not a diagnosis)',
     gradient: Colors.gradientVata,
   },
 ];
 
 const workflowSteps = [
-  'Choose dosha classification or skin-issue analysis',
+  'Choose dosha classification or AI skin guidance',
   'Take or select a clear photo',
-  'Dosha classification runs on-device; skin-issue scans use Gemini',
+  'Dosha classification runs on-device; AI skin guidance uses Gemini',
 ];
 
 const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
@@ -49,7 +49,7 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.headerEmoji}>🔬</Text>
         <Text style={styles.headerTitle}>Image Analysis</Text>
         <Text style={styles.headerSubtitle}>
-          On-device dosha model and Gemini skin-issue analysis
+          On-device dosha model and Gemini AI skin guidance
         </Text>
       </LinearGradient>
 

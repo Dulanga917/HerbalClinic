@@ -15,30 +15,47 @@ import { RouteProp } from '@react-navigation/native';
 import { SkinStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import geminiService, {
-  SkinIssueResult,
+  SkinGuidanceResult,
   HerbRecommendation,
 } from '../../services/geminiService';
 import { analyseDosha, DoshaPrediction } from '../../services/doshaModelService';
 import { saveScan } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { getDoshaGuidance } from '../../utils/doshaGuidance';
+import { LiveSkinGuidance, SKIN_GUIDANCE_DISCLAIMER } from '../../utils/skinGuidance';
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinResult'>;
   route: RouteProp<SkinStackParamList, 'SkinResult'>;
 };
 
-type AnalysisResult = DoshaPrediction | SkinIssueResult | null;
+type AnalysisResult = DoshaPrediction | SkinGuidanceResult | null;
 
 const getAnalysisErrorMessage = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
-
-  if (/API_KEY_INVALID|API key not valid|Gemini is not configured/i.test(message)) {
-    return 'Skin-issue analysis is unavailable because the server Gemini key is missing or invalid. Ask the project maintainer to set GEMINI_API_KEY on the API server, then try again.';
-  }
-
   return message || 'Analysis failed. Please try again.';
 };
+
+const liveGuidanceHeading = (guidance: LiveSkinGuidance): { label: string; value: string } => {
+  if (guidance.status === 'possible_concern' && guidance.concern) {
+    return { label: 'Possible skin concern', value: guidance.concern };
+  }
+  if (guidance.status === 'no_clear_concern') {
+    return { label: 'General observations', value: 'No clear concern noted in this photo' };
+  }
+  return { label: 'General observations', value: 'This photo could not be assessed' };
+};
+
+const BulletList: React.FC<{ items: string[]; bullet?: string }> = ({ items, bullet = '•' }) => (
+  <>
+    {items.map((item, i) => (
+      <View key={i} style={styles.bulletRow}>
+        <Text style={styles.bulletDot}>{bullet}</Text>
+        <Text style={styles.bulletText}>{item}</Text>
+      </View>
+    ))}
+  </>
+);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -151,10 +168,10 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       } else {
         const res = await geminiService.analyseSkinIssue(imageUri);
         setResult(res);
-        if (sessionToken) {
+        // Offline guidance did not look at the photo, so it is never recorded as a scan.
+        if (sessionToken && res.kind === 'live') {
           try {
             await saveScan(sessionToken, {
-              confidence: res.confidence,
               imageReference: imageUri.split('/').pop(),
             });
             await refreshUser();
@@ -172,15 +189,11 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const isSkinType = analysisType === 'type';
   const doshaResult = isSkinType ? (result as DoshaPrediction | null) : null;
-  const skinIssueResult = !isSkinType ? (result as SkinIssueResult) : null;
+  const skinGuidance = !isSkinType ? (result as SkinGuidanceResult | null) : null;
+  const liveGuidance = skinGuidance?.kind === 'live' ? skinGuidance : null;
+  const offlineGuidance = skinGuidance?.kind === 'offline' ? skinGuidance : null;
+  const liveHeading = liveGuidance ? liveGuidanceHeading(liveGuidance) : null;
   const guidance = doshaResult ? getDoshaGuidance(doshaResult.dosha) : null;
-
-  const severityColor = (s?: string) => {
-    if (s === 'Mild') return Colors.success;
-    if (s === 'Moderate') return Colors.warning;
-    if (s === 'Severe') return Colors.error;
-    return Colors.textSecondary;
-  };
 
   return (
     <View style={styles.container}>
@@ -194,7 +207,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isSkinType ? '🌿 Dosha Analysis' : '🩺 Scan Result'}
+          {isSkinType ? '🌿 Dosha Analysis' : '🌿 AI Skin Guidance'}
         </Text>
       </LinearGradient>
 
@@ -207,12 +220,12 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={Colors.primaryLight} />
             <Text style={styles.loadingTitle}>
-              {isSkinType ? 'Analyzing with your on-device model...' : 'Analyzing with Gemini AI...'}
+              {isSkinType ? 'Analyzing with your on-device model...' : 'Requesting AI skin guidance...'}
             </Text>
             <Text style={styles.loadingSubtitle}>
               {isSkinType
                 ? 'Classifying the image as Vata, Pitta, or Kapha'
-                : 'Identifying skin condition and causes'}
+                : 'Preparing general Ayurvedic self-care suggestions'}
             </Text>
           </View>
         )}
@@ -295,71 +308,78 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           </>
         )}
 
-        {/* Skin ISSUE Result */}
-        {!loading && skinIssueResult && (
+        {/* Offline general guidance (photo not analysed) */}
+        {!loading && offlineGuidance && (
           <>
-            {skinIssueResult.offline ? (
-              <View style={styles.offlineBanner}>
-                <Text style={styles.offlineBannerText}>
-                  Offline guidance — Gemini is unavailable. This is not an analysis of your photo.
-                </Text>
-              </View>
-            ) : null}
-            {/* Issue Badge */}
+            <View style={styles.offlineBanner}>
+              <Text style={styles.offlineBannerText}>
+                Offline general guidance — your photo was not analysed.
+              </Text>
+            </View>
             <View style={styles.resultCard}>
-              <View style={styles.resultHeader}>
-                <View>
-                  <Text style={styles.resultLabel}>Detected Condition</Text>
-                  <Text style={styles.resultValue}>{skinIssueResult.issue}</Text>
-                </View>
-                <View style={[styles.doshaBadge, { borderColor: severityColor(skinIssueResult.severity) }]}>
-                  <Text style={styles.doshaLabel}>Severity</Text>
-                  <Text style={[styles.doshaValue, { color: severityColor(skinIssueResult.severity) }]}>
-                    {skinIssueResult.severity}
-                  </Text>
-                </View>
-              </View>
-              <ConfidenceBar value={skinIssueResult.confidence} />
-              <Text style={styles.descText}>{skinIssueResult.description}</Text>
+              <Text style={styles.resultLabel}>General skincare guidance</Text>
+              <Text style={styles.descText}>{offlineGuidance.summary}</Text>
             </View>
-
-            {/* Causes */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🔍 Possible Causes</Text>
-              {skinIssueResult.causes.map((c, i) => (
-                <View key={i} style={styles.bulletRow}>
-                  <Text style={styles.bulletDot}>•</Text>
-                  <Text style={styles.bulletText}>{c}</Text>
-                </View>
-              ))}
+              <Text style={styles.sectionTitle}>💚 Self-care suggestions</Text>
+              <BulletList items={offlineGuidance.tips} />
             </View>
-
-            {/* Herbal Remedies */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🌿 Herbal Remedies</Text>
+              <Text style={styles.sectionTitle}>🌿 Herbs used in Ayurvedic skincare</Text>
               <View style={styles.herbGrid}>
-                {skinIssueResult.herbs.map((h, i) => (
+                {offlineGuidance.herbs.map((h, i) => (
                   <HerbCard key={i} herb={h} index={i} />
                 ))}
               </View>
             </View>
-
-            {/* Lifestyle */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🧘 Lifestyle Tips</Text>
-              {skinIssueResult.lifestyle.map((l, i) => (
-                <View key={i} style={styles.bulletRow}>
-                  <Text style={styles.bulletDot}>💚</Text>
-                  <Text style={styles.bulletText}>{l}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Disclaimer */}
-            <View style={styles.disclaimerCard}>
-              <Text style={styles.disclaimerText}>⚕️ {skinIssueResult.disclaimer}</Text>
-            </View>
           </>
+        )}
+
+        {/* Live AI skin guidance */}
+        {!loading && liveGuidance && liveHeading && (
+          <>
+            <View style={styles.resultCard}>
+              <Text style={styles.resultLabel}>{liveHeading.label}</Text>
+              <Text style={styles.guidanceValue}>{liveHeading.value}</Text>
+              {liveGuidance.observations ? (
+                <Text style={styles.descText}>{liveGuidance.observations}</Text>
+              ) : null}
+              {liveGuidance.status === 'unable_to_assess' ? (
+                <Text style={styles.descText}>Try a clear, well-lit close-up photo of the skin.</Text>
+              ) : null}
+              <Text style={styles.aiNote}>
+                Generated by Gemini AI. It can be inaccurate and does not replace an examination.
+              </Text>
+            </View>
+            {liveGuidance.factors.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🔍 Possible contributing factors</Text>
+                <BulletList items={liveGuidance.factors} />
+              </View>
+            ) : null}
+            {liveGuidance.herbs.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🌿 Herbs used in Ayurvedic skincare</Text>
+                <View style={styles.herbGrid}>
+                  {liveGuidance.herbs.map((h, i) => (
+                    <HerbCard key={i} herb={h} index={i} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+            {liveGuidance.selfCare.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>💚 Self-care suggestions</Text>
+                <BulletList items={liveGuidance.selfCare} />
+              </View>
+            ) : null}
+          </>
+        )}
+
+        {!loading && skinGuidance && (
+          <View style={styles.disclaimerCard}>
+            <Text style={styles.disclaimerText}>⚕️ {SKIN_GUIDANCE_DISCLAIMER}</Text>
+          </View>
         )}
 
         {/* Scan Again */}
@@ -457,6 +477,8 @@ const styles = StyleSheet.create({
   doshaLabel: { fontSize: Typography.xs, color: Colors.textSecondary },
   doshaValue: { fontSize: Typography.base, fontWeight: '700', color: Colors.primaryLight },
   descText: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20, marginTop: Spacing.md },
+  guidanceValue: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary, marginTop: 2 },
+  aiNote: { fontSize: Typography.xs, color: Colors.textMuted, lineHeight: 16, marginTop: Spacing.md },
   offlineBanner: {
     backgroundColor: Colors.surfaceElevated,
     borderRadius: BorderRadius.lg,

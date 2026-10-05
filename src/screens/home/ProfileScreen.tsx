@@ -163,9 +163,13 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             ) : (
               scans.map(scan => (
                 <View key={scan.id} style={styles.historyRow}>
-                  <Text style={styles.menuTitle}>{scan.dosha || 'Skin-issue scan'}</Text>
+                  <Text style={styles.menuTitle}>{scan.dosha || 'AI skin guidance'}</Text>
                   <Text style={styles.menuDesc}>
-                    {scan.confidence != null ? `${scan.confidence}% model confidence` : 'No confidence stored'}
+                    {!scan.dosha
+                      ? 'General guidance, no confidence score'
+                      : scan.confidence != null
+                        ? `${scan.confidence}% model confidence`
+                        : 'No confidence stored'}
                     {scan.createdAt ? ` · ${scan.createdAt.slice(0, 10)}` : ''}
                   </Text>
                 </View>

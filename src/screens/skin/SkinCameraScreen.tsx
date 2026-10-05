@@ -27,11 +27,11 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const title = analysisType === 'type' ? 'Dosha Image Classifier' : 'Detect Skin Issue';
+  const title = analysisType === 'type' ? 'Dosha Image Classifier' : 'AI Skin Guidance';
   const subtitle =
     analysisType === 'type'
       ? 'Experimental classification as Vata, Pitta, or Kapha'
-      : 'Take a photo of the affected skin area';
+      : 'Take a photo of the skin area you want guidance on';
   const tips =
     analysisType === 'type'
       ? [
@@ -43,8 +43,8 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
       : [
           'Use natural lighting — avoid flash',
           'Keep the camera steady and focused',
-          'Show the affected area clearly',
-          'This AI scan is not a medical diagnosis',
+          'Show the skin area clearly',
+          'AI guidance is general information, not a medical diagnosis',
         ];
 
   const handleCamera = async () => {
@@ -152,7 +152,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
               <ActivityIndicator color={Colors.textPrimary} />
             ) : (
               <Text style={styles.analyseBtnText}>
-                ✨  {analysisType === 'type' ? 'Classify on Device' : 'Analyze with Gemini AI'}
+                ✨  {analysisType === 'type' ? 'Classify on Device' : 'Get AI Skin Guidance'}
               </Text>
             )}
           </LinearGradient>

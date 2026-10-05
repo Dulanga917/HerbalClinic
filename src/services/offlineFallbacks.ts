@@ -1,22 +1,12 @@
 import { DOSHAS, HERBS, SKIN_ISSUES } from '../constants/ayurveda';
+import { API_UNREACHABLE, GEMINI_UNAVAILABLE } from './apiClient';
+import type { OfflineSkinGuidance } from '../utils/skinGuidance';
 
 type HerbRecommendation = {
   name: string;
   emoji: string;
   benefit: string;
   usage: string;
-};
-
-type SkinIssueResult = {
-  issue: string;
-  severity: 'Mild' | 'Moderate' | 'Severe';
-  confidence: number;
-  description: string;
-  causes: string[];
-  herbs: HerbRecommendation[];
-  lifestyle: string[];
-  disclaimer: string;
-  offline?: boolean;
 };
 
 const herbToRecommendation = (herb: (typeof HERBS)[keyof typeof HERBS]): HerbRecommendation => ({
@@ -46,26 +36,18 @@ const herbsForCondition = (condition: string, dosha?: string): HerbRecommendatio
   return (matched.length ? matched : Object.values(HERBS)).slice(0, 5).map(herbToRecommendation);
 };
 
-export const offlineSkinIssue = (): SkinIssueResult => ({
-  issue: 'General skin-care guidance',
-  severity: 'Mild',
-  confidence: 0,
-  description:
-    'Gemini is not available on the server, so this is static Ayurvedic guidance. It is not an analysis of your photo.',
-  causes: [
-    'Dosha imbalance from diet, sleep, or climate',
-    'Harsh products or too much sun',
-    'Dehydration and stress',
-  ],
-  herbs: [HERBS.aloeVera, HERBS.turmeric, HERBS.neem].map(herbToRecommendation),
-  lifestyle: [
+export const offlineSkinGuidance = (): OfflineSkinGuidance => ({
+  kind: 'offline',
+  summary:
+    'AI guidance is unavailable right now, so your photo was not analysed. The tips below are general Ayurvedic skincare guidance and are the same for everyone.',
+  tips: [
+    'Use a gentle cleanser and lukewarm water; avoid harsh scrubs.',
+    'Protect your skin from strong sun and stay well hydrated.',
     DOSHAS.vata.lifestyle[0],
     DOSHAS.pitta.lifestyle[0],
     DOSHAS.kapha.lifestyle[0],
   ],
-  disclaimer:
-    'Offline herbal guidance only. This is not a medical diagnosis. Consult a qualified clinician for skin conditions.',
-  offline: true,
+  herbs: [HERBS.aloeVera, HERBS.turmeric, HERBS.neem].map(herbToRecommendation),
 });
 
 export const offlineHerbalRecommendations = (
@@ -88,8 +70,7 @@ export const offlineDailyTip = (dosha?: string): string => {
 };
 
 export const isGeminiUnavailable = (error: unknown): boolean => {
-  const message = error instanceof Error ? error.message : String(error);
-  return /Gemini is not configured|API_KEY_INVALID|API key not valid|Could not reach the HerbalClinic API|unavailable|502|503/i.test(
-    message,
-  );
+  const code =
+    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  return code === GEMINI_UNAVAILABLE || code === API_UNREACHABLE;
 };

@@ -23,6 +23,12 @@ const {
   getScanRecordsForUser,
 } = require('./db');
 const defaultGemini = require('./gemini');
+const {
+  GEMINI_UNAVAILABLE,
+  GEMINI_UNAVAILABLE_MESSAGE,
+  geminiUnavailable,
+  normaliseSkinGuidance,
+} = require('./aiGuidance');
 const { loadConfig } = require('./config');
 const {
   createRateLimiters,
@@ -59,6 +65,10 @@ function requireAuth(req, res, next) {
 }
 
 function handleError(res, error) {
+  if (error && error.code === GEMINI_UNAVAILABLE) {
+    res.status(503).json({ error: GEMINI_UNAVAILABLE_MESSAGE, code: GEMINI_UNAVAILABLE });
+    return;
+  }
   const status = Number.isInteger(error.status) ? error.status : 500;
   const message =
     status >= 500
@@ -180,21 +190,12 @@ function createApp({ config = loadConfig(), gemini = defaultGemini, rateLimits }
         badRequest(res, input.message);
         return;
       }
-      const analysis = await gemini.analyseSkinIssue(input.value);
+      const analysis = normaliseSkinGuidance(await gemini.analyseSkinIssue(input.value));
+      if (!analysis) {
+        throw geminiUnavailable(new Error('Gemini returned an unusable skin guidance response.'));
+      }
       res.json({ analysis });
     } catch (error) {
-      if (/API_KEY_INVALID|API key not valid/i.test(String(error.message))) {
-        handleError(
-          res,
-          Object.assign(
-            new Error(
-              'The server Gemini API key is invalid. Create a new key, store it in the server environment, and restart the API.',
-            ),
-            { status: 502 },
-          ),
-        );
-        return;
-      }
       handleError(res, error);
     }
   });

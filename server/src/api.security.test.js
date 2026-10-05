@@ -34,7 +34,17 @@ function makeGeminiStub() {
     calls,
     analyseSkinIssue: async input => {
       calls.push(['analyseSkinIssue', input]);
-      return { issue: 'Test', severity: 'Mild', confidence: 50 };
+      return {
+        status: 'possible_concern',
+        concern: 'Visible dryness',
+        observations: 'The skin looks a little dry.',
+        factors: ['Dry weather'],
+        herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'Soothing', usage: 'Apply gel' }],
+        selfCare: ['Moisturise daily'],
+        severity: 'Severe',
+        confidence: 97,
+        disclaimer: 'model-written disclaimer',
+      };
     },
     getHerbalRecommendations: async (condition, dosha) => {
       calls.push(['getHerbalRecommendations', condition, dosha]);
@@ -527,6 +537,79 @@ test('malformed, oversized, and wrongly typed bodies get clean 4xx responses', a
     const missing = await api.request('GET', '/api/v1/nope');
     assert.equal(missing.status, 404);
     assert.equal(missing.headers['x-powered-by'], undefined);
+  } finally {
+    await api.close();
+  }
+});
+
+test('skin-issue returns only normalised guidance fields (no severity or confidence)', async () => {
+  const api = await start();
+  try {
+    const { token } = await newSession();
+    const res = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' },
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json.analysis, {
+      status: 'possible_concern',
+      concern: 'Visible dryness',
+      observations: 'The skin looks a little dry.',
+      factors: ['Dry weather'],
+      herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'Soothing', usage: 'Apply gel' }],
+      selfCare: ['Moisturise daily'],
+    });
+  } finally {
+    await api.close();
+  }
+});
+
+test('missing GEMINI_API_KEY returns the stable GEMINI_UNAVAILABLE contract on every AI route', async () => {
+  delete process.env.GEMINI_API_KEY;
+  const api = await start({ gemini: require('./gemini'), rateLimits: { ai: { limit: 100 } } });
+  try {
+    const { token } = await newSession();
+    const requests = [
+      ['/api/v1/skin-issue', { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' }],
+      ['/api/v1/herbal-recommendations', { condition: 'Acne' }],
+      ['/api/v1/daily-tip', {}],
+    ];
+    for (const [urlPath, body] of requests) {
+      const res = await api.request('POST', urlPath, { token, body });
+      assert.equal(res.status, 503, urlPath);
+      assert.deepEqual(res.json, {
+        error: 'AI guidance is temporarily unavailable.',
+        code: 'GEMINI_UNAVAILABLE',
+      });
+      assert.doesNotMatch(res.text, /GEMINI_API_KEY|configured|stack|at \w+ \(|AIza/i);
+    }
+  } finally {
+    await api.close();
+  }
+});
+
+test('unusable Gemini output becomes GEMINI_UNAVAILABLE instead of reaching the client', async () => {
+  const gemini = makeGeminiStub();
+  const outputs = [
+    'plain text',
+    ['array'],
+    null,
+    { issue: 'Eczema', severity: 'Severe', confidence: 99 },
+    { status: 'possible_concern', concern: '', factors: 'not-an-array' },
+  ];
+  gemini.analyseSkinIssue = async () => outputs.shift();
+  const api = await start({ gemini, rateLimits: { ai: { limit: 100 } } });
+  try {
+    const { token } = await newSession();
+    for (let i = 0; i < 5; i += 1) {
+      const res = await api.request('POST', '/api/v1/skin-issue', {
+        token,
+        body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' },
+      });
+      assert.equal(res.status, 503, `output #${i}`);
+      assert.equal(res.json.code, 'GEMINI_UNAVAILABLE');
+      assert.doesNotMatch(res.text, /Eczema|Severe|99/);
+    }
   } finally {
     await api.close();
   }

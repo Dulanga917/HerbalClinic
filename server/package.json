@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --experimental-sqlite src/index.js",
     "verify:e2e": "node --experimental-sqlite scripts/e2e-security-check.js",
-    "test": "node --experimental-sqlite --test src/passwordPolicy.test.js src/confidence.test.js src/db.auth.test.js src/api.security.test.js"
+    "test": "node --experimental-sqlite --test src/passwordPolicy.test.js src/confidence.test.js src/db.auth.test.js src/api.security.test.js src/aiGuidance.test.js"
   },
   "engines": {
     "node": ">=18"
