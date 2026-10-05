@@ -19,6 +19,7 @@ export type HomeTabParamList = {
 export type MainStackParamList = {
   Tabs: undefined;
   AyurvedicTreatment: undefined;
+  AyurvedicHospitals: undefined;
 };
 
 export type SkinStackParamList = {

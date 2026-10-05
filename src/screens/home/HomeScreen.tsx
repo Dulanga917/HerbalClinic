@@ -58,6 +58,13 @@ const features = [
     description: 'Bilingual self-care questionnaire (EN / සිංහල)',
     gradient: Colors.gradientGreen,
   },
+  {
+    id: 'ayurveda-hospitals',
+    emoji: '🏥',
+    title: 'Ayurvedic Hospitals',
+    description: 'Find Ayurvedic hospitals and treatment centres in Sri Lanka',
+    gradient: Colors.gradientKapha,
+  },
 ];
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -106,6 +113,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         break;
       case 'ayurveda-treatment':
         navigation.navigate('AyurvedicTreatment');
+        break;
+      case 'ayurveda-hospitals':
+        navigation.navigate('AyurvedicHospitals');
         break;
     }
   };
