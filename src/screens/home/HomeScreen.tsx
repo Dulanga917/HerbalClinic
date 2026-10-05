@@ -8,14 +8,18 @@ import {
   StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { HomeTabParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+
+type Props = BottomTabScreenProps<HomeTabParamList, 'Home'>;
 
 const features = [
   {
     id: 'skin-type',
     emoji: '🔬',
-    title: 'Skin Type Detection',
-    description: 'AI-powered analysis of your unique skin type',
+    title: 'Dosha Image Classifier',
+    description: 'Experimental image classification as Vata, Pitta, or Kapha',
     gradient: Colors.gradientGreen,
   },
   {
@@ -41,7 +45,30 @@ const features = [
   },
 ];
 
-const HomeScreen: React.FC = () => {
+const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const handleFeaturePress = (featureId: string) => {
+    switch (featureId) {
+      case 'skin-type':
+        navigation.navigate('SkinAnalysis', {
+          screen: 'SkinCamera',
+          params: { analysisType: 'type' },
+        });
+        break;
+      case 'skin-issue':
+        navigation.navigate('SkinAnalysis', {
+          screen: 'SkinCamera',
+          params: { analysisType: 'issue' },
+        });
+        break;
+      case 'herbal':
+        navigation.navigate('HerbalTreatment');
+        break;
+      case 'meditation':
+        navigation.navigate('Meditation');
+        break;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
@@ -63,7 +90,13 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Core Features</Text>
           <View style={styles.featuresGrid}>
             {features.map(f => (
-              <TouchableOpacity key={f.id} style={styles.featureCard} activeOpacity={0.85}>
+              <TouchableOpacity
+                key={f.id}
+                style={styles.featureCard}
+                activeOpacity={0.85}
+                onPress={() => handleFeaturePress(f.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${f.title}`}>
                 <LinearGradient
                   colors={f.gradient}
                   style={styles.featureGradient}

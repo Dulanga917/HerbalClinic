@@ -52,6 +52,22 @@ Once the Emulator is running and Java is installed:
     npm run android
     ```
 
+## 5. Start the local API (required for login and Gemini)
+
+The mobile app no longer contains a Gemini API key. Authentication and skin-issue analysis use the local API.
+
+1. Copy `.env.example` to `.env`.
+2. Set `GEMINI_API_KEY` to a **new** key. Revoke any key that was previously stored in the app source.
+3. In a separate terminal:
+
+```powershell
+cd server
+npm install
+npm start
+```
+
+The Android emulator should use `http://10.0.2.2:3001`.
+
 ---
 
 ### Troubleshooting

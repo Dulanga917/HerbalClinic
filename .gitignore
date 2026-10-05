@@ -32,7 +32,17 @@ local.properties
 *.hprof
 .cxx/
 *.keystore
+*.jks
 !debug.keystore
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Local API database
+server/data/*.sqlite
+server/data/*.sqlite-*
 
 # node.js
 #

@@ -1,5 +1,7 @@
 // Navigation Type Definitions for HerbalClinic
 
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type AuthStackParamList = {
   Splash: undefined;
   Login: undefined;
@@ -8,7 +10,7 @@ export type AuthStackParamList = {
 
 export type HomeTabParamList = {
   Home: undefined;
-  SkinAnalysis: undefined;
+  SkinAnalysis: NavigatorScreenParams<SkinStackParamList>;
   HerbalTreatment: undefined;
   Meditation: undefined;
   Profile: undefined;

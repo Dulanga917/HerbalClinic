@@ -6,9 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 
 const menuItems = [
   { id: 'history', emoji: '📋', title: 'Scan History', description: 'View past skin analyses' },
@@ -19,6 +21,20 @@ const menuItems = [
 ];
 
 const ProfileScreen: React.FC = () => {
+  const { user, logout } = useAuth();
+  const displayName = user?.name?.trim() || 'HerbalClinic member';
+  const displayEmail = user?.email?.trim() || 'No email on file';
+  const doshaLabel = user?.dosha ? `Dosha: ${user.dosha}` : 'Dosha: Not analyzed yet';
+  const scanCount = String(user?.scanCount ?? 0);
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } catch {
+      Alert.alert('Sign out failed', 'Could not sign out. Please try again.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
@@ -29,17 +45,17 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarEmoji}>🌿</Text>
           </View>
-          <Text style={styles.userName}>Herbal User</Text>
-          <Text style={styles.userEmail}>user@herbalclinic.com</Text>
+          <Text style={styles.userName}>{displayName}</Text>
+          <Text style={styles.userEmail}>{displayEmail}</Text>
           <View style={styles.doshaBadge}>
-            <Text style={styles.doshaText}>Dosha: Vata-Pitta</Text>
+            <Text style={styles.doshaText}>{doshaLabel}</Text>
           </View>
         </LinearGradient>
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
           {[
-            { label: 'Scans', value: '0' },
+            { label: 'Scans', value: scanCount },
             { label: 'Sessions', value: '0' },
             { label: 'Plans', value: '0' },
           ].map((stat, i) => (
@@ -65,7 +81,7 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity style={styles.signOutWrapper}>
+        <TouchableOpacity style={styles.signOutWrapper} onPress={handleSignOut}>
           <LinearGradient
             colors={['#7A2010', '#FA5252']}
             style={styles.signOutBtn}

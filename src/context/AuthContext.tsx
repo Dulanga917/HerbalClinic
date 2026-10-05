@@ -1,64 +1,118 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
-  useState,
   useEffect,
+  useRef,
+  useState,
   ReactNode,
 } from 'react';
-
-// --- Types ---
-interface User {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL?: string | null;
-}
+import {
+  AuthUser,
+  fetchCurrentUser,
+  loginAccount,
+  logoutAccount,
+  registerAccount,
+} from '../services/apiClient';
+import {
+  clearSessionToken,
+  getSessionToken,
+  saveSessionToken,
+} from '../services/sessionStorage';
+import {
+  validateEmail,
+  validateName,
+  validatePassword,
+} from '../constants/passwordPolicy';
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
+  sessionToken: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   error: string | null;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- Mock user store (replace with Firebase later) ---
-const MOCK_USERS: Record<string, { password: string; name: string }> = {};
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const tokenRef = useRef<string | null>(null);
 
-  // Simulate checking persisted session on mount
+  const persistSession = useCallback(async (token: string, nextUser: AuthUser) => {
+    tokenRef.current = token;
+    await saveSessionToken(token);
+    setSessionToken(token);
+    setUser(nextUser);
+  }, []);
+
+  const clearSession = useCallback(async () => {
+    tokenRef.current = null;
+    await clearSessionToken();
+    setSessionToken(null);
+    setUser(null);
+  }, []);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      try {
+        const token = await getSessionToken();
+        if (!token) {
+          return;
+        }
+        const { user: restored } = await fetchCurrentUser(token);
+        if (!cancelled) {
+          tokenRef.current = token;
+          setSessionToken(token);
+          setUser(restored);
+        }
+      } catch {
+        await clearSessionToken();
+        if (!cancelled) {
+          tokenRef.current = null;
+          setSessionToken(null);
+          setUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
-      await new Promise(r => setTimeout(r, 1000));
-      const stored = MOCK_USERS[email.toLowerCase()];
-      if (!stored || stored.password !== password) {
-        throw new Error('Invalid email or password.');
+      const emailResult = validateEmail(email);
+      if (!emailResult.ok) {
+        throw new Error(emailResult.message);
       }
-      setUser({
-        uid: `uid_${email}`,
-        email,
-        displayName: stored.name,
-      });
-    } catch (e: any) {
-      setError(e.message);
-      throw e;
+      const passwordResult = validatePassword(password);
+      if (!passwordResult.ok) {
+        throw new Error(passwordResult.message);
+      }
+      const result = await loginAccount(emailResult.value, passwordResult.value);
+      await persistSession(result.token, result.user);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Invalid email or password.';
+      setError(message);
+      throw e instanceof Error ? e : new Error(message);
     } finally {
       setLoading(false);
     }
@@ -68,19 +122,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     try {
-      await new Promise(r => setTimeout(r, 1000));
-      if (MOCK_USERS[email.toLowerCase()]) {
-        throw new Error('An account with this email already exists.');
+      const nameResult = validateName(name);
+      if (!nameResult.ok) {
+        throw new Error(nameResult.message);
       }
-      MOCK_USERS[email.toLowerCase()] = { password, name };
-      setUser({
-        uid: `uid_${email}`,
-        email,
-        displayName: name,
-      });
-    } catch (e: any) {
-      setError(e.message);
-      throw e;
+      const emailResult = validateEmail(email);
+      if (!emailResult.ok) {
+        throw new Error(emailResult.message);
+      }
+      const passwordResult = validatePassword(password);
+      if (!passwordResult.ok) {
+        throw new Error(passwordResult.message);
+      }
+      const result = await registerAccount(
+        nameResult.value,
+        emailResult.value,
+        passwordResult.value,
+      );
+      await persistSession(result.token, result.user);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Could not create the account.';
+      setError(message);
+      throw e instanceof Error ? e : new Error(message);
     } finally {
       setLoading(false);
     }
@@ -88,16 +151,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
-    setUser(null);
-    setLoading(false);
+    setError(null);
+    try {
+      const token = tokenRef.current;
+      if (token) {
+        try {
+          await logoutAccount(token);
+        } catch {
+          // Local sign-out still proceeds if the API is unreachable.
+        }
+      }
+      await clearSession();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshUser = async () => {
+    const token = tokenRef.current;
+    if (!token) {
+      return;
+    }
+    const { user: latest } = await fetchCurrentUser(token);
+    setUser(latest);
   };
 
   const clearError = () => setError(null);
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, error, clearError }}>
+      value={{
+        user,
+        sessionToken,
+        loading,
+        login,
+        register,
+        logout,
+        refreshUser,
+        error,
+        clearError,
+      }}>
       {children}
     </AuthContext.Provider>
   );
@@ -105,6 +198,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  if (!ctx) {
+    throw new Error('useAuth must be used inside AuthProvider');
+  }
   return ctx;
 };

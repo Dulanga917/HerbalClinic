@@ -27,11 +27,25 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const title = analysisType === 'type' ? 'Detect Skin Type' : 'Detect Skin Issue';
+  const title = analysisType === 'type' ? 'Dosha Image Classifier' : 'Detect Skin Issue';
   const subtitle =
     analysisType === 'type'
-      ? 'Take a clear selfie or upload a photo of your face'
+      ? 'Experimental classification as Vata, Pitta, or Kapha'
       : 'Take a photo of the affected skin area';
+  const tips =
+    analysisType === 'type'
+      ? [
+          'Use a clear, well-lit photo',
+          'Keep the camera steady and focused',
+          'Avoid filters and heavy edits',
+          'This experimental result is not a diagnosis',
+        ]
+      : [
+          'Use natural lighting — avoid flash',
+          'Keep the camera steady and focused',
+          'Show the affected area clearly',
+          'This AI scan is not a medical diagnosis',
+        ];
 
   const handleCamera = async () => {
     const image = await openCamera();
@@ -114,10 +128,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.tipsCard}>
           <Text style={styles.tipsTitle}>📌 Tips for Best Results</Text>
           {[
-            'Use natural lighting — avoid flash',
-            'Keep the camera steady and focused',
-            'Show the area clearly without filters',
-            'Remove makeup before skin type analysis',
+            ...tips,
           ].map((tip, i) => (
             <View key={i} style={styles.tipRow}>
               <Text style={styles.tipDot}>•</Text>
@@ -141,7 +152,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
               <ActivityIndicator color={Colors.textPrimary} />
             ) : (
               <Text style={styles.analyseBtnText}>
-                ✨  Analyse with Gemini AI
+                ✨  {analysisType === 'type' ? 'Classify on Device' : 'Analyze with Gemini AI'}
               </Text>
             )}
           </LinearGradient>

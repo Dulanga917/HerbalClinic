@@ -20,8 +20,8 @@ const scanOptions = [
   {
     id: 'type' as const,
     emoji: '🔬',
-    title: 'Detect Skin Type',
-    description: 'Find out if you are Oily, Dry, Combination or Normal',
+    title: 'Dosha Image Classifier',
+    description: 'Experimental image classification: Vata, Pitta, or Kapha',
     gradient: Colors.gradientGreen,
   },
   {
@@ -33,6 +33,12 @@ const scanOptions = [
   },
 ];
 
+const workflowSteps = [
+  'Choose dosha classification or skin-issue analysis',
+  'Take or select a clear photo',
+  'Dosha classification runs on-device; skin-issue scans use Gemini',
+];
+
 const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
@@ -41,9 +47,9 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header */}
       <LinearGradient colors={Colors.gradientGreen} style={styles.header}>
         <Text style={styles.headerEmoji}>🔬</Text>
-        <Text style={styles.headerTitle}>Skin Analysis</Text>
+        <Text style={styles.headerTitle}>Image Analysis</Text>
         <Text style={styles.headerSubtitle}>
-          AI-powered skin detection using Gemini Vision
+          On-device dosha model and Gemini skin-issue analysis
         </Text>
       </LinearGradient>
 
@@ -74,11 +80,7 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
         {/* Instructions Card */}
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>📋 How it Works</Text>
-          {[
-            'Take or upload a clear photo of your skin',
-            'Gemini AI analyzes your skin in seconds',
-            'Get personalized Ayurvedic recommendations',
-          ].map((step, i) => (
+          {workflowSteps.map((step, i) => (
             <View key={i} style={styles.stepRow}>
               <View style={styles.stepBadge}>
                 <Text style={styles.stepNum}>{i + 1}</Text>

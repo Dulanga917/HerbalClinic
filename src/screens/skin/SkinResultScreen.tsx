@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StatusBar,
-  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,18 +15,29 @@ import { RouteProp } from '@react-navigation/native';
 import { SkinStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import geminiService, {
-  SkinTypeResult,
   SkinIssueResult,
   HerbRecommendation,
 } from '../../services/geminiService';
-import Config from '../../constants/config';
+import { analyseDosha, DoshaPrediction } from '../../services/doshaModelService';
+import { saveScan } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinResult'>;
   route: RouteProp<SkinStackParamList, 'SkinResult'>;
 };
 
-type AnalysisResult = SkinTypeResult | SkinIssueResult | null;
+type AnalysisResult = DoshaPrediction | SkinIssueResult | null;
+
+const getAnalysisErrorMessage = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/API_KEY_INVALID|API key not valid|Gemini is not configured/i.test(message)) {
+    return 'Skin-issue analysis is unavailable because the server Gemini key is missing or invalid. Ask the project maintainer to set GEMINI_API_KEY on the API server, then try again.';
+  }
+
+  return message || 'Analysis failed. Please try again.';
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -86,7 +96,7 @@ const ConfidenceBar: React.FC<{ value: number }> = ({ value }) => (
         end={{ x: 1, y: 0 }}
       />
     </View>
-    <Text style={confStyles.label}>{value}% confidence</Text>
+    <Text style={confStyles.label}>{value}% AI prediction confidence</Text>
   </View>
 );
 
@@ -100,13 +110,14 @@ const confStyles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: BorderRadius.full },
-  label: { fontSize: Typography.xs, color: Colors.textSecondary, width: 110 },
+  label: { fontSize: Typography.xs, color: Colors.textSecondary, width: 180 },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, analysisType } = route.params;
+  const { sessionToken, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,25 +131,46 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       setLoading(true);
       setError(null);
-      geminiService.init(Config.GEMINI_API_KEY);
 
       if (analysisType === 'type') {
-        const res = await geminiService.analyseSkinType(imageUri);
+        const res = await analyseDosha(imageUri);
         setResult(res);
+        if (sessionToken) {
+          try {
+            await saveScan(sessionToken, {
+              dosha: res.dosha,
+              confidence: res.confidence,
+              imageReference: imageUri.split('/').pop(),
+            });
+            await refreshUser();
+          } catch {
+            // Keep showing the on-device result even if persistence fails.
+          }
+        }
       } else {
         const res = await geminiService.analyseSkinIssue(imageUri);
         setResult(res);
+        if (sessionToken) {
+          try {
+            await saveScan(sessionToken, {
+              confidence: res.confidence,
+              imageReference: imageUri.split('/').pop(),
+            });
+            await refreshUser();
+          } catch {
+            // Keep showing the analysis even if persistence fails.
+          }
+        }
       }
-    } catch (e: any) {
-      console.error('Gemini analysis error:', e);
-      setError(e?.message ?? 'Analysis failed. Please try again.');
+    } catch (e: unknown) {
+      setError(getAnalysisErrorMessage(e));
     } finally {
       setLoading(false);
     }
   };
 
   const isSkinType = analysisType === 'type';
-  const skinTypeResult = isSkinType ? (result as SkinTypeResult) : null;
+  const doshaResult = isSkinType ? (result as DoshaPrediction | null) : null;
   const skinIssueResult = !isSkinType ? (result as SkinIssueResult) : null;
 
   const severityColor = (s?: string) => {
@@ -160,7 +192,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isSkinType ? '🔬 Analysis Result' : '🩺 Scan Result'}
+          {isSkinType ? '🌿 Dosha Analysis' : '🩺 Scan Result'}
         </Text>
       </LinearGradient>
 
@@ -172,10 +204,12 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         {loading && (
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={Colors.primaryLight} />
-            <Text style={styles.loadingTitle}>Analysing with Gemini AI...</Text>
+            <Text style={styles.loadingTitle}>
+              {isSkinType ? 'Analyzing with your on-device model...' : 'Analyzing with Gemini AI...'}
+            </Text>
             <Text style={styles.loadingSubtitle}>
               {isSkinType
-                ? 'Detecting your skin type and Ayurvedic dosha'
+                ? 'Classifying the image as Vata, Pitta, or Kapha'
                 : 'Identifying skin condition and causes'}
             </Text>
           </View>
@@ -193,55 +227,23 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Skin TYPE Result */}
-        {!loading && skinTypeResult && (
+        {/* Dosha classification result */}
+        {!loading && doshaResult && (
           <>
-            {/* Type Badge */}
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
                 <View>
-                  <Text style={styles.resultLabel}>Skin Type</Text>
-                  <Text style={styles.resultValue}>{skinTypeResult.skinType}</Text>
-                </View>
-                <View style={styles.doshaBadge}>
-                  <Text style={styles.doshaLabel}>Dosha</Text>
-                  <Text style={styles.doshaValue}>{skinTypeResult.dosha}</Text>
+                  <Text style={styles.resultLabel}>Predicted Dosha</Text>
+                  <Text style={styles.resultValue}>{doshaResult.dosha}</Text>
                 </View>
               </View>
-              <ConfidenceBar value={skinTypeResult.confidence} />
-              <Text style={styles.descText}>{skinTypeResult.description}</Text>
+              <ConfidenceBar value={doshaResult.confidence} />
             </View>
-
-            {/* Characteristics */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>✨ Characteristics</Text>
-              {skinTypeResult.characteristics.map((c, i) => (
-                <View key={i} style={styles.bulletRow}>
-                  <Text style={styles.bulletDot}>🌿</Text>
-                  <Text style={styles.bulletText}>{c}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Recommendations */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>📋 Daily Recommendations</Text>
-              {skinTypeResult.recommendations.map((r, i) => (
-                <View key={i} style={styles.bulletRow}>
-                  <Text style={styles.bulletDot}>💡</Text>
-                  <Text style={styles.bulletText}>{r}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Herb Cards */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🌿 Recommended Herbs</Text>
-              <View style={styles.herbGrid}>
-                {skinTypeResult.herbs.map((h, i) => (
-                  <HerbCard key={i} herb={h} index={i} />
-                ))}
-              </View>
+            <View style={styles.disclaimerCard}>
+              <Text style={styles.disclaimerText}>
+                This is an experimental image classification, not a medical diagnosis.
+                The percentage is AI prediction confidence, not medical accuracy.
+              </Text>
             </View>
           </>
         )}
