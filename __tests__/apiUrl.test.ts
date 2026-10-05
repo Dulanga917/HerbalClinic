@@ -4,7 +4,7 @@ import { resolveApiBaseUrl } from '../src/utils/apiUrl';
 describe('resolveApiBaseUrl', () => {
   it('uses local HTTP endpoints only in development builds', () => {
     expect(resolveApiBaseUrl({ isDev: true, platform: 'android', productionUrl: '' })).toBe(
-      'http://10.0.2.2:3001',
+      'http://127.0.0.1:3001',
     );
     expect(resolveApiBaseUrl({ isDev: true, platform: 'ios', productionUrl: '' })).toBe(
       'http://localhost:3001',

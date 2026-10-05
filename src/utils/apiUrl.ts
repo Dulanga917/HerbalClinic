@@ -8,7 +8,7 @@ type ResolveApiBaseUrlInput = {
 };
 
 /**
- * Development builds talk to the local API over plain HTTP (emulator loopback).
+ * Development builds talk to the local API over plain HTTP (127.0.0.1 via adb reverse).
  * Release builds only accept an https:// URL without credentials, query, or fragment;
  * anything else resolves to an empty string so requests fail closed.
  */
@@ -18,7 +18,9 @@ export const resolveApiBaseUrl = ({
   productionUrl,
 }: ResolveApiBaseUrlInput): string => {
   if (isDev) {
-    return platform === 'android' ? 'http://10.0.2.2:3001' : 'http://localhost:3001';
+    // USB devices and emulators both reach the host through adb reverse → 127.0.0.1.
+    // 10.0.2.2 only works on the emulator and fails on a physical phone.
+    return platform === 'android' ? 'http://127.0.0.1:3001' : 'http://localhost:3001';
   }
 
   const candidate = productionUrl.trim().replace(/\/+$/, '');
