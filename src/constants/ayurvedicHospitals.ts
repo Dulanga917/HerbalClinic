@@ -20,7 +20,7 @@ export const HOSPITAL_TYPE_LABELS: Record<HospitalType, string> = {
 
 const MINISTRY_LIST = 'https://mim.gov.lk/en/hospitals-and-institutions/';
 const NCP_LIST = 'https://ayudeptncp.lk/en/instinfo/ayuhsp/';
-const CP_LIST = 'https://ayurveda.cp.gov.lk/more-info/about-us/about-dept-of-ayurveda.html?id=87&view=category';
+const CP_LIST = 'https://ayurveda.cp.gov.lk/more-info/our-services/curative-care-institutions.html';
 const SP_CONTACTS = 'http://www.ayurvedadept.sp.gov.lk/viewcontactdetails';
 const SP_SERVICES = 'https://www.ayurvedadept.sp.gov.lk/allservices';
 
@@ -43,13 +43,13 @@ export const AYURVEDIC_HOSPITALS: AyurvedicHospital[] = [
   },
   {
     id: 'gampaha-wickramarachchi-yakkala',
-    name: 'Gampaha Wickramarachchi Ayurveda Teaching Hospital',
+    name: 'Gampaha Wickramarachchi Ayurvedic Teaching Hospital',
     city: 'Yakkala',
     district: 'Gampaha',
     address: 'Yakkala, Gampaha District',
     type: 'teaching',
     government: true,
-    mapQuery: 'Gampaha Wickramarachchi Ayurveda Teaching Hospital, Yakkala, Sri Lanka',
+    mapQuery: 'Gampaha Wickramarachchi Ayurvedic Teaching Hospital, Yakkala, Sri Lanka',
     source: MINISTRY_LIST,
   },
   {

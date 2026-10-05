@@ -33,7 +33,7 @@ describe('Ayurvedic hospital directory', () => {
     expect(hospitals.map(item => item.name)).toEqual(
       expect.arrayContaining([
         'National Ayurvedic Teaching Hospital',
-        'Gampaha Wickramarachchi Ayurveda Teaching Hospital',
+        'Gampaha Wickramarachchi Ayurvedic Teaching Hospital',
         'Bandaranaike Memorial Ayurvedic Research Institute',
       ]),
     );
@@ -64,7 +64,19 @@ describe('Ayurvedic hospital directory', () => {
         'provincial-anuradhapura',
       ]),
     );
+    expect(filterHospitals(hospitals, 'Polonnaruwa', 'all').map(item => item.id)).toEqual(['base-minneriya']);
+    expect(filterHospitals(hospitals, 'batticaloa', 'all').map(item => item.id)).toEqual([
+      'unani-research-manchanthuduvai',
+    ]);
     expect(filterHospitals(hospitals, 'no such place', 'all')).toEqual([]);
+    expect(filterHospitals(hospitals, '   ', 'all')).toHaveLength(hospitals.length);
+  });
+
+  it('returns every hospital for the All filter and exact counts per type', () => {
+    expect(filterHospitals(hospitals, '', 'all')).toEqual(hospitals);
+    expect(filterHospitals(hospitals, '', 'teaching')).toHaveLength(2);
+    expect(filterHospitals(hospitals, '', 'research')).toHaveLength(6);
+    expect(filterHospitals(hospitals, '', 'provincial')).toHaveLength(5);
   });
 
   it('filters by hospital type and combines with search', () => {

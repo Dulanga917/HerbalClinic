@@ -40,7 +40,7 @@ it('renders the hospital list with type badges, map buttons and the source note'
 
   expect(labels).toContain('Ayurvedic Hospitals');
   expect(labels).toContain('National Ayurvedic Teaching Hospital');
-  expect(labels).toContain('Gampaha Wickramarachchi Ayurveda Teaching Hospital');
+  expect(labels).toContain('Gampaha Wickramarachchi Ayurvedic Teaching Hospital');
   expect(labels).toContain('Bandaranaike Memorial Ayurvedic Research Institute');
   expect(labels).toContain('No. 325, Dr. N. M. Perera Mawatha, Colombo 08');
   expect(labels.filter(item => item === 'View on Map')).toHaveLength(AYURVEDIC_HOSPITALS.length);
@@ -59,12 +59,14 @@ it('filters the list by search text and by type', async () => {
     root.root.findByType(TextInput).props.onChangeText('Yakkala');
   });
   let labels = flatten(root);
-  expect(labels).toContain('Gampaha Wickramarachchi Ayurveda Teaching Hospital');
+  expect(labels).toContain('Gampaha Wickramarachchi Ayurvedic Teaching Hospital');
   expect(labels).not.toContain('National Ayurvedic Teaching Hospital');
 
   act(() => {
     root.root.findByType(TextInput).props.onChangeText('');
   });
+  expect(flatten(root).filter(item => item === 'View on Map')).toHaveLength(AYURVEDIC_HOSPITALS.length);
+
   act(() => {
     button(root, 'Filter Research')?.props.onPress();
   });
@@ -73,9 +75,24 @@ it('filters the list by search text and by type', async () => {
   expect(labels).not.toContain('National Ayurvedic Teaching Hospital');
 
   act(() => {
+    button(root, 'Filter Provincial')?.props.onPress();
+  });
+  labels = flatten(root);
+  expect(labels).toContain('Provincial Ayurveda Hospital - Pallekele');
+  expect(labels).not.toContain('Bandaranaike Memorial Ayurvedic Research Institute');
+
+  act(() => {
     root.root.findByType(TextInput).props.onChangeText('zzz');
   });
   expect(flatten(root)).toContain('No hospitals match that search and filter.');
+
+  act(() => {
+    root.root.findByType(TextInput).props.onChangeText('');
+  });
+  act(() => {
+    button(root, 'Filter All')?.props.onPress();
+  });
+  expect(flatten(root).filter(item => item === 'View on Map')).toHaveLength(AYURVEDIC_HOSPITALS.length);
 
   act(() => root.unmount());
 });
