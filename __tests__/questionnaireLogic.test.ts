@@ -7,6 +7,7 @@ import {
 import {
   buildQuestionnaireResult,
   canAdvance,
+  firstUnansweredRequiredIndex,
   formatProgress,
   getQuestionAt,
   localize,
@@ -49,6 +50,14 @@ describe('Ayurvedic Treatment questionnaire', () => {
     expect(canAdvance(skin, { skin: 'vata' })).toBe(true);
     expect(canAdvance(womens, {})).toBe(true);
     expect(canAdvance(womens, { womens: 'skip' })).toBe(true);
+  });
+
+  it('finds the first unanswered required question and ignores the optional one', () => {
+    expect(firstUnansweredRequiredIndex({ mental: 'vata' })).toBe(0);
+    expect(firstUnansweredRequiredIndex({ skin: 'vata', body: 'vata', mental: 'vata' })).toBe(2);
+    expect(
+      firstUnansweredRequiredIndex({ skin: 'vata', body: 'vata', hair: 'vata', mental: 'vata' }),
+    ).toBe(-1);
   });
 
   it('preserves answers independently of language labels', () => {

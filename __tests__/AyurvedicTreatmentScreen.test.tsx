@@ -80,6 +80,23 @@ it('renders the bilingual questionnaire and keeps answers when language changes'
   });
 });
 
+it('does not finish when required questions were skipped via the category chips', async () => {
+  const { root } = await renderScreen();
+
+  press(root, 'Mental Well-being');
+  expect(flatten(root)).toContain('Question 5 of 5');
+  press(root, 'Restless or worried');
+  press(root, 'See guidance');
+
+  const labels = flatten(root);
+  expect(labels).not.toContain('Questionnaire self-care guidance');
+  expect(labels).toContain('Question 1 of 5');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
 it('allows the optional womens-health question to be skipped and shows questionnaire guidance', async () => {
   const { root } = await renderScreen();
 

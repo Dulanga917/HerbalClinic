@@ -22,6 +22,7 @@ import {
   buildQuestionnaireResult,
   canAdvance,
   categoryLabels,
+  firstUnansweredRequiredIndex,
   formatProgress,
   getCategoryIndex,
   getQuestionAt,
@@ -56,6 +57,11 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
     if (index >= total - 1) {
+      const missing = firstUnansweredRequiredIndex(answers);
+      if (missing >= 0) {
+        setIndex(missing);
+        return;
+      }
       setCompleted(true);
       return;
     }

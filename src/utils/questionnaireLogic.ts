@@ -38,6 +38,9 @@ export const canAdvance = (
   return Boolean(answers[question.id]);
 };
 
+export const firstUnansweredRequiredIndex = (answers: QuestionnaireAnswers): number =>
+  QUESTIONNAIRE_QUESTIONS.findIndex(question => !question.optional && !answers[question.id]);
+
 export const scoreQuestionnaire = (answers: QuestionnaireAnswers) => {
   const counts: Record<SupportedDoshaKey, number> = { vata: 0, pitta: 0, kapha: 0 };
   let scored = 0;
