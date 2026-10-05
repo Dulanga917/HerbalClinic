@@ -2,5 +2,5 @@ type= raw events
 count= 1
 speed= 1.0
 start data >>
-DispatchPointer(0,0,0,540,925,1,1,0,1,1,0,0)
-DispatchPointer(0,160,1,540,925,1,1,0,1,1,0,0)
+DispatchPointer(0,0,0,87,230,1,1,0,1,1,0,0)
+DispatchPointer(0,180,1,87,230,1,1,0,1,1,0,0)
