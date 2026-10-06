@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import ScreenHeader from '../../components/ScreenHeader';
 import {
   AnswerValue,
   QUESTIONNAIRE_COPY,
@@ -83,37 +83,36 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <LinearGradient colors={Colors.gradientGreen} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={goPrevious}
-            accessibilityRole="button"
-            accessibilityLabel={t('back')}>
-            <Text style={styles.backIcon}>‹</Text>
-          </TouchableOpacity>
-          <View style={styles.headerCopy}>
-            <Text style={styles.brand}>{t('brand')}</Text>
-            <Text style={styles.title}>{t('title')}</Text>
-          </View>
+      <ScreenHeader
+        variant="compact"
+        eyebrow={t('brand')}
+        title={t('title')}
+        subtitle={t('intro')}
+        onBack={goPrevious}
+        backLabel={t('back')}
+        right={
           <View style={styles.langToggle}>
             <TouchableOpacity
               style={[styles.langBtn, lang === 'en' && styles.langBtnActive]}
               onPress={() => setLang('en')}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
               accessibilityRole="button"
-              accessibilityLabel="Switch to English">
+              accessibilityLabel="Switch to English"
+              accessibilityState={{ selected: lang === 'en' }}>
               <Text style={[styles.langText, lang === 'en' && styles.langTextActive]}>EN</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.langBtn, lang === 'si' && styles.langBtnActive]}
               onPress={() => setLang('si')}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
               accessibilityRole="button"
-              accessibilityLabel="Switch to Sinhala">
+              accessibilityLabel="Switch to Sinhala"
+              accessibilityState={{ selected: lang === 'si' }}>
               <Text style={[styles.langText, lang === 'si' && styles.langTextActive]}>සිංහල</Text>
             </TouchableOpacity>
           </View>
-        </View>
-        <Text style={styles.intro}>{t('intro')}</Text>
-      </LinearGradient>
+        }
+      />
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.categoryRow}>
@@ -129,7 +128,8 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
                   setIndex(categoryIndex);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={category.label}>
+                accessibilityLabel={category.label}
+                accessibilityState={{ selected: active }}>
                 <Text style={styles.categoryEmoji}>{category.emoji}</Text>
                 <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
                   {category.label}
@@ -187,6 +187,9 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
         ) : question ? (
           <View style={styles.card}>
             <Text style={styles.progress}>{formatProgress(lang, index + 1, total)}</Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${((index + 1) / total) * 100}%` }]} />
+            </View>
             {question.optional ? <Text style={styles.optional}>{t('optional')}</Text> : null}
             <Text style={styles.prompt}>{localize(question.prompt, lang)}</Text>
             {question.options.map(option => {
@@ -196,8 +199,13 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
                   key={option.value}
                   style={[styles.option, selected && styles.optionSelected]}
                   onPress={() => selectAnswer(option.value)}
-                  accessibilityRole="button"
-                  accessibilityLabel={localize(option.label, lang)}>
+                  activeOpacity={0.7}
+                  accessibilityRole="radio"
+                  accessibilityLabel={localize(option.label, lang)}
+                  accessibilityState={{ selected, checked: selected }}>
+                  <View style={[styles.radio, selected && styles.radioSelected]}>
+                    {selected ? <View style={styles.radioDot} /> : null}
+                  </View>
                   <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
                     {localize(option.label, lang)}
                   </Text>
@@ -249,45 +257,45 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 56,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-  },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  backIcon: { fontSize: 36, color: Colors.textPrimary, lineHeight: 36 },
-  headerCopy: { flex: 1 },
-  brand: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '600' },
-  title: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '800' },
   langToggle: { flexDirection: 'row', gap: 6 },
   langBtn: {
+    minHeight: 34,
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: 'rgba(240,244,241,0.35)',
     borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 4,
   },
   langBtnActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryLight },
-  langText: { color: Colors.textSecondary, fontWeight: '700', fontSize: Typography.xs },
+  langText: { color: 'rgba(240,244,241,0.85)', fontWeight: '700', fontSize: Typography.sm },
   langTextActive: { color: Colors.primaryLight },
-  intro: { color: Colors.textSecondary, marginTop: Spacing.md, lineHeight: 20 },
   body: { flex: 1, padding: Spacing.xl },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.base },
   categoryChip: {
+    minHeight: 36,
     backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   categoryChipActive: { borderColor: Colors.primaryLight, backgroundColor: Colors.primaryDark },
-  categoryEmoji: { fontSize: 12 },
-  categoryText: { color: Colors.textSecondary, fontSize: Typography.xs, fontWeight: '600' },
+  categoryEmoji: { fontSize: 14 },
+  categoryText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '600' },
   categoryTextActive: { color: Colors.primaryLight },
+  progressTrack: {
+    height: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceElevated,
+    overflow: 'hidden',
+    marginBottom: Spacing.base,
+  },
+  progressFill: { height: '100%', borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight },
   card: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,
@@ -299,19 +307,37 @@ const styles = StyleSheet.create({
   optional: { color: Colors.accent, fontSize: Typography.xs, marginBottom: Spacing.sm },
   prompt: { color: Colors.textPrimary, fontSize: Typography.lg, fontWeight: '700', marginBottom: Spacing.base },
   option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
     marginBottom: Spacing.sm,
     backgroundColor: Colors.surfaceElevated,
   },
   optionSelected: { borderColor: Colors.primaryLight, backgroundColor: Colors.primaryDark },
-  optionText: { color: Colors.textSecondary },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: BorderRadius.full,
+    borderWidth: 2,
+    borderColor: Colors.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: { borderColor: Colors.primaryLight },
+  radioDot: { width: 10, height: 10, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight },
+  optionText: { flex: 1, color: Colors.textSecondary, fontSize: Typography.base, lineHeight: 21 },
   optionTextSelected: { color: Colors.textPrimary, fontWeight: '700' },
   navRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xl },
   navBtn: {
     flex: 1,
+    minHeight: 50,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     borderRadius: BorderRadius.lg,
@@ -320,7 +346,9 @@ const styles = StyleSheet.create({
   },
   navBtnPrimary: {
     flex: 1,
-    backgroundColor: Colors.primaryDark,
+    minHeight: 50,
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     alignItems: 'center',

@@ -193,4 +193,20 @@ describe('SkinResultScreen — TFLite Dosha classifier regression', () => {
     expect(scanSaves()[0].body).toEqual({ dosha: 'Pitta', confidence: 83, imageReference: 'photo-1.jpg' });
     expect(fetchCalls.some(call => call.url.endsWith('/api/v1/skin-issue'))).toBe(false);
   });
+
+  it('explains an on-device model failure without exposing model internals', async () => {
+    (analyseDosha as jest.Mock<typeof analyseDosha>).mockRejectedValue(
+      new Error('The model returned an unexpected tensor shape.'),
+    );
+    mockServer({ status: 201, body: {} });
+    const root = await renderScreen('type');
+    const text = screenText(root);
+
+    expect(text).toMatch(/Analysis Failed/);
+    expect(text).toMatch(/could not classify this photo/);
+    expect(text).toMatch(/Try Again/);
+    expect(text).toMatch(/Choose Another Photo/);
+    expect(text).not.toMatch(/tensor|undefined|model confidence/i);
+    expect(scanSaves()).toHaveLength(0);
+  });
 });

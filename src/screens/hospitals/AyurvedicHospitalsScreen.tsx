@@ -9,9 +9,9 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import ScreenHeader from '../../components/ScreenHeader';
 import {
   AyurvedicHospital,
   HOSPITAL_SOURCE_NOTE,
@@ -59,32 +59,43 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <LinearGradient colors={Colors.gradientGreen} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Back">
-            <Text style={styles.backIcon}>‹</Text>
-          </TouchableOpacity>
-          <View style={styles.headerCopy}>
-            <Text style={styles.brand}>HerbalClinic</Text>
-            <Text style={styles.title}>Ayurvedic Hospitals</Text>
-          </View>
-          <Text style={styles.headerEmoji}>🏥</Text>
-        </View>
-        <Text style={styles.intro}>Government Ayurvedic hospitals and treatment centres in Sri Lanka</Text>
-      </LinearGradient>
+      <ScreenHeader
+        variant="compact"
+        eyebrow="HerbalClinic"
+        title="Ayurvedic Hospitals"
+        emoji="🏥"
+        subtitle="Government Ayurvedic hospitals and treatment centres in Sri Lanka"
+        onBack={() => navigation.goBack()}
+      />
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search hospitals or locations"
-          placeholderTextColor={Colors.textMuted}
-          value={query}
-          onChangeText={setQuery}
-          accessibilityLabel="Search hospitals or locations"
-        />
+      <ScrollView
+        style={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
+        <View style={styles.searchRow}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search hospitals or locations"
+            placeholderTextColor={Colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            accessibilityLabel="Search hospitals or locations"
+          />
+          {query ? (
+            <TouchableOpacity
+              style={styles.clearBtn}
+              onPress={() => setQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search">
+              <Text style={styles.clearText}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.filterRow}>
           {FILTERS.map(item => (
             <TouchableOpacity
@@ -92,11 +103,17 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
               style={[styles.filterChip, filter === item.id && styles.filterChipActive]}
               onPress={() => setFilter(item.id)}
               accessibilityRole="button"
-              accessibilityLabel={`Filter ${item.label}`}>
+              accessibilityLabel={`Filter ${item.label}`}
+              accessibilityState={{ selected: filter === item.id }}>
               <Text style={[styles.filterText, filter === item.id && styles.filterTextActive]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
+        {hospitals.length > 0 ? (
+          <Text style={styles.resultCount}>
+            {hospitals.length === 1 ? '1 hospital' : `${hospitals.length} hospitals`}
+          </Text>
+        ) : null}
 
         {hospitals.map(hospital => (
           <View key={hospital.id} style={styles.card}>
@@ -134,7 +151,19 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ))}
         {hospitals.length === 0 ? (
-          <Text style={styles.emptyText}>No hospitals match that search and filter.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No hospitals match that search and filter.</Text>
+            <TouchableOpacity
+              style={styles.resetBtn}
+              onPress={() => {
+                setQuery('');
+                setFilter('all');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Show all hospitals">
+              <Text style={styles.resetText}>Show all hospitals</Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
 
         <Text style={styles.sourceNote}>{HOSPITAL_SOURCE_NOTE}</Text>
@@ -146,31 +175,32 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 56,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-  },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  backIcon: { fontSize: 36, color: Colors.textPrimary, lineHeight: 36 },
-  headerCopy: { flex: 1 },
-  brand: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '600' },
-  title: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '800' },
-  headerEmoji: { fontSize: 32 },
-  intro: { color: Colors.textSecondary, marginTop: Spacing.md, lineHeight: 20 },
   body: { flex: 1, padding: Spacing.xl },
-  searchInput: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    color: Colors.textPrimary,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
+    paddingLeft: Spacing.base,
     marginBottom: Spacing.md,
   },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.xl },
+  searchIcon: { fontSize: 14, marginRight: Spacing.sm },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    color: Colors.textPrimary,
+    fontSize: Typography.base,
+    paddingVertical: Spacing.md,
+  },
+  clearBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  clearText: { color: Colors.textSecondary, fontSize: Typography.md, fontWeight: '700' },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.base },
+  resultCount: { color: Colors.textSecondary, fontSize: Typography.sm, marginBottom: Spacing.md },
   filterChip: {
+    minHeight: 36,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
@@ -199,10 +229,12 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: Typography.xs, color: Colors.primaryLight, fontWeight: '600' },
   name: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
   location: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: Spacing.xs },
-  address: { fontSize: Typography.sm, color: Colors.textMuted, marginTop: 2, lineHeight: 18 },
+  address: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 2, lineHeight: 18 },
   actionRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.base },
   mapBtn: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: Colors.primaryDark,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
@@ -213,6 +245,8 @@ const styles = StyleSheet.create({
   mapBtnText: { color: Colors.textPrimary, fontWeight: '700' },
   directionsBtn: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -220,7 +254,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   directionsText: { color: Colors.textSecondary, fontWeight: '700' },
-  emptyText: { color: Colors.textSecondary, marginBottom: Spacing.xl },
+  emptyCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  emptyText: { color: Colors.textSecondary, textAlign: 'center' },
+  resetBtn: {
+    marginTop: Spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  resetText: { color: Colors.primaryLight, fontWeight: '700' },
   sourceNote: {
     color: Colors.textMuted,
     fontSize: Typography.xs,

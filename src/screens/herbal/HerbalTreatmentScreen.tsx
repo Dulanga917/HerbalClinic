@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 import { useAuth } from '../../context/AuthContext';
 import geminiService, { HerbRecommendation } from '../../services/geminiService';
 import { filterHerbs, listHerbs, HerbDoshaFilter, HerbRecord } from '../../utils/herbLibrary';
+import { friendlyErrorMessage } from '../../utils/userMessages';
+import ScreenHeader from '../../components/ScreenHeader';
 
 const DOSHA_FILTERS: { id: HerbDoshaFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -32,9 +34,15 @@ const HerbalTreatmentScreen: React.FC = () => {
   const [aiHerbs, setAiHerbs] = useState<HerbRecommendation[] | null>(null);
   const [aiOffline, setAiOffline] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const aiLoadingRef = useRef(false);
   const visibleHerbs = filterHerbs(listHerbs(), query, doshaFilter);
+  const filtersActive = Boolean(query.trim()) || doshaFilter !== 'all';
 
   const handleAiRecommendation = async () => {
+    if (aiLoadingRef.current) {
+      return;
+    }
+    aiLoadingRef.current = true;
     setAiLoading(true);
     try {
       const condition = user?.dosha
@@ -44,30 +52,44 @@ const HerbalTreatmentScreen: React.FC = () => {
       setAiHerbs(result.herbs);
       setAiOffline(result.offline);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not load herbal recommendations.';
-      Alert.alert('Recommendation failed', message);
+      Alert.alert(
+        'Recommendation unavailable',
+        friendlyErrorMessage(error, 'Could not load herbal recommendations. Please try again.'),
+      );
     } finally {
+      aiLoadingRef.current = false;
       setAiLoading(false);
     }
+  };
+
+  const resetFilters = () => {
+    setQuery('');
+    setDoshaFilter('all');
   };
 
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-      <LinearGradient colors={Colors.gradientKapha} style={styles.header}>
-        <Text style={styles.headerEmoji}>🌿</Text>
-        <Text style={styles.headerTitle}>Herb Library</Text>
-        <Text style={styles.headerSubtitle}>Search Ayurvedic herbs and filter by Dosha</Text>
-      </LinearGradient>
+      <ScreenHeader
+        emoji="🌿"
+        title="Herb Library"
+        subtitle="Search Ayurvedic herbs and filter by Dosha"
+        colors={Colors.gradientKapha}
+      />
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleAiRecommendation}
           disabled={aiLoading}
           accessibilityRole="button"
-          accessibilityLabel="Get AI herbal recommendation">
+          accessibilityLabel="Get AI herbal recommendation"
+          accessibilityState={{ disabled: aiLoading, busy: aiLoading }}>
           <LinearGradient
             colors={Colors.gradientAccent}
             style={styles.aiBanner}
@@ -92,14 +114,29 @@ const HerbalTreatmentScreen: React.FC = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search herbs, properties, or uses"
-          placeholderTextColor={Colors.textMuted}
-          value={query}
-          onChangeText={setQuery}
-          accessibilityLabel="Search herbs"
-        />
+        <View style={styles.searchRow}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search herbs, properties, or uses"
+            placeholderTextColor={Colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            accessibilityLabel="Search herbs"
+          />
+          {query ? (
+            <TouchableOpacity
+              style={styles.clearBtn}
+              onPress={() => setQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search">
+              <Text style={styles.clearText}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.filterRow}>
           {DOSHA_FILTERS.map(filter => (
             <TouchableOpacity
@@ -107,7 +144,8 @@ const HerbalTreatmentScreen: React.FC = () => {
               style={[styles.filterChip, doshaFilter === filter.id && styles.filterChipActive]}
               onPress={() => setDoshaFilter(filter.id)}
               accessibilityRole="button"
-              accessibilityLabel={`Filter ${filter.label}`}>
+              accessibilityLabel={`Filter ${filter.label}`}
+              accessibilityState={{ selected: doshaFilter === filter.id }}>
               <Text style={[styles.filterText, doshaFilter === filter.id && styles.filterTextActive]}>
                 {filter.label}
               </Text>
@@ -115,7 +153,14 @@ const HerbalTreatmentScreen: React.FC = () => {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Popular Herbs</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Herbs</Text>
+          {filtersActive && visibleHerbs.length > 0 ? (
+            <Text style={styles.resultCount}>
+              {visibleHerbs.length === 1 ? '1 herb' : `${visibleHerbs.length} herbs`}
+            </Text>
+          ) : null}
+        </View>
         <View style={styles.herbGrid}>
           {visibleHerbs.map(herb => (
             <TouchableOpacity
@@ -135,7 +180,16 @@ const HerbalTreatmentScreen: React.FC = () => {
           ))}
         </View>
         {visibleHerbs.length === 0 ? (
-          <Text style={styles.emptyText}>No herbs match that search and Dosha filter.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No herbs match that search and Dosha filter.</Text>
+            <TouchableOpacity
+              style={styles.resetBtn}
+              onPress={resetFilters}
+              accessibilityRole="button"
+              accessibilityLabel="Show all herbs">
+              <Text style={styles.resetText}>Show all herbs</Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
 
         <View style={styles.bottomPad} />
@@ -143,7 +197,7 @@ const HerbalTreatmentScreen: React.FC = () => {
 
       <Modal visible={!!selectedHerb} transparent animationType="slide" onRequestClose={() => setSelectedHerb(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <ScrollView style={styles.modalCard} contentContainerStyle={styles.modalScroll}>
             <Text style={styles.modalEmoji}>{selectedHerb?.emoji}</Text>
             <Text style={styles.modalTitle}>{selectedHerb?.name}</Text>
             <Text style={styles.modalSub}>{selectedHerb?.sanskrit}</Text>
@@ -153,10 +207,14 @@ const HerbalTreatmentScreen: React.FC = () => {
             <Text style={styles.modalLabel}>Caution</Text>
             <Text style={styles.modalBody}>{selectedHerb?.caution}</Text>
             <Text style={styles.disclaimer}>Informational only. Not a medical diagnosis.</Text>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedHerb(null)}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={() => setSelectedHerb(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Close herb details">
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -187,7 +245,11 @@ const HerbalTreatmentScreen: React.FC = () => {
                 ? 'Static herb-library guidance while Gemini is unavailable. Not a medical diagnosis.'
                 : 'Informational herbal guidance only. Not a medical diagnosis.'}
             </Text>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setAiHerbs(null)}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={() => setAiHerbs(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Close herbal plan">
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -199,15 +261,6 @@ const HerbalTreatmentScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 60,
-    paddingBottom: Spacing['3xl'],
-    paddingHorizontal: Spacing.xl,
-    alignItems: 'center',
-  },
-  headerEmoji: { fontSize: 52, marginBottom: Spacing.sm },
-  headerTitle: { fontSize: Typography['3xl'], fontWeight: '800', color: Colors.textPrimary },
-  headerSubtitle: { fontSize: Typography.base, color: Colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' },
   body: { flex: 1, padding: Spacing.xl },
   aiBanner: {
     flexDirection: 'row',
@@ -220,20 +273,32 @@ const styles = StyleSheet.create({
   aiEmoji: { fontSize: 32 },
   aiText: { flex: 1 },
   aiTitle: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
-  aiDesc: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 2 },
-  arrowIcon: { fontSize: 32, color: Colors.textSecondary },
-  searchInput: {
+  aiDesc: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.92)', marginTop: 2 },
+  arrowIcon: { fontSize: 32, color: Colors.textPrimary },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    color: Colors.textPrimary,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
+    paddingLeft: Spacing.base,
     marginBottom: Spacing.md,
   },
+  searchIcon: { fontSize: 14, marginRight: Spacing.sm },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    color: Colors.textPrimary,
+    fontSize: Typography.base,
+    paddingVertical: Spacing.md,
+  },
+  clearBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  clearText: { color: Colors.textSecondary, fontSize: Typography.md, fontWeight: '700' },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.xl },
   filterChip: {
+    minHeight: 36,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
@@ -254,8 +319,33 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     textAlign: 'center',
   },
-  sectionTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.base },
-  emptyText: { color: Colors.textSecondary, marginBottom: Spacing.xl },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.base,
+  },
+  sectionTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.textPrimary },
+  resultCount: { fontSize: Typography.sm, color: Colors.textSecondary },
+  emptyCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    alignItems: 'center',
+  },
+  emptyText: { color: Colors.textSecondary, textAlign: 'center' },
+  resetBtn: {
+    marginTop: Spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  resetText: { color: Colors.primaryLight, fontWeight: '700' },
   herbGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -295,6 +385,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     maxHeight: '85%',
+    flexGrow: 0,
   },
   modalScroll: { paddingBottom: Spacing.xl },
   modalEmoji: { fontSize: 44, textAlign: 'center' },
@@ -305,6 +396,8 @@ const styles = StyleSheet.create({
   disclaimer: { fontSize: Typography.xs, color: Colors.textMuted, marginTop: Spacing.md, lineHeight: 16 },
   closeBtn: {
     marginTop: Spacing.xl,
+    minHeight: 48,
+    justifyContent: 'center',
     backgroundColor: Colors.primaryDark,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,

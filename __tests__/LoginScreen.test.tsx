@@ -4,7 +4,7 @@
 
 import 'react-native';
 import React from 'react';
-import { Text, TouchableOpacity } from 'react-native';
+import { Text, TextInput, TouchableOpacity } from 'react-native';
 import { beforeEach, expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import LoginScreen from '../src/screens/auth/LoginScreen';
@@ -53,6 +53,69 @@ it('shows no retry card when there is no unverified saved session', () => {
   mockAuth = baseAuth();
   const root = renderLogin();
   expect(texts(root)).not.toContain('Could not reach HerbalClinic');
+  act(() => root.unmount());
+});
+
+const field = (root: renderer.ReactTestRenderer, label: string) =>
+  root.root.findAllByType(TextInput).find(node => node.props.accessibilityLabel === label)!;
+
+const signIn = (root: renderer.ReactTestRenderer) =>
+  root.root.findAllByType(TouchableOpacity).find(node => node.props.accessibilityLabel === 'Sign In')!;
+
+it('shows validation next to the fields instead of submitting an empty form', async () => {
+  const login = jest.fn(async () => undefined);
+  mockAuth = { ...baseAuth(), login };
+  const root = renderLogin();
+  await act(async () => {
+    await signIn(root).props.onPress();
+  });
+  expect(texts(root)).toContain('Please enter your email address.');
+  expect(texts(root)).toContain('Please enter your password.');
+  expect(login).not.toHaveBeenCalled();
+
+  act(() => field(root, 'Email Address').props.onChangeText('ada@example.com'));
+  expect(texts(root)).not.toContain('Please enter your email address.');
+  act(() => root.unmount());
+});
+
+it('submits once even when Sign In is tapped repeatedly', async () => {
+  let finish!: () => void;
+  const login = jest.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+  mockAuth = { ...baseAuth(), login };
+  const root = renderLogin();
+  act(() => field(root, 'Email Address').props.onChangeText('ada@example.com'));
+  act(() => field(root, 'Password').props.onChangeText('password1'));
+
+  let first!: Promise<void>;
+  act(() => {
+    first = signIn(root).props.onPress();
+    signIn(root).props.onPress();
+  });
+  expect(login).toHaveBeenCalledTimes(1);
+  expect(login).toHaveBeenCalledWith('ada@example.com', 'password1');
+  expect(signIn(root).props.accessibilityState).toMatchObject({ busy: true, disabled: true });
+  expect(texts(root).flat(Infinity)).toContain('Signing in…');
+
+  await act(async () => {
+    finish();
+    await first;
+  });
+  expect(texts(root).flat(Infinity)).toContain('Sign In');
+  act(() => root.unmount());
+});
+
+it('masks the password until the user chooses to show it', () => {
+  mockAuth = baseAuth();
+  const root = renderLogin();
+  expect(field(root, 'Password').props.secureTextEntry).toBe(true);
+  const toggle = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'Show password')!;
+  act(() => toggle.props.onPress());
+  expect(field(root, 'Password').props.secureTextEntry).toBe(false);
+  expect(
+    root.root.findAllByType(TouchableOpacity).some(node => node.props.accessibilityLabel === 'Hide password'),
+  ).toBe(true);
   act(() => root.unmount());
 });
 
