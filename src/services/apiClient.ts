@@ -18,10 +18,14 @@ type RequestOptions = {
   method?: 'GET' | 'POST';
   token?: string | null;
   body?: unknown;
+  timeoutMs?: number;
 };
 
 export const GEMINI_UNAVAILABLE = 'GEMINI_UNAVAILABLE';
 export const API_UNREACHABLE = 'API_UNREACHABLE';
+export const SESSION_INVALID = 'SESSION_INVALID';
+
+const SESSION_CHECK_TIMEOUT_MS = 15000;
 
 export class ApiError extends Error {
   readonly status: number | null;
@@ -34,6 +38,24 @@ export class ApiError extends Error {
     this.code = code;
   }
 }
+
+/** True only when the server rejected the session token itself (never for network or 5xx failures). */
+export const isSessionInvalid = (error: unknown): boolean =>
+  error instanceof ApiError && error.code === SESSION_INVALID;
+
+type SessionInvalidListener = (rejectedToken: string) => void;
+
+let sessionInvalidListener: SessionInvalidListener | null = null;
+
+/** Registers the single handler notified when an authenticated request is rejected. Returns an unsubscribe function. */
+export const setSessionInvalidListener = (listener: SessionInvalidListener) => {
+  sessionInvalidListener = listener;
+  return () => {
+    if (sessionInvalidListener === listener) {
+      sessionInvalidListener = null;
+    }
+  };
+};
 
 const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
   const headers: Record<string, string> = {
@@ -50,30 +72,47 @@ const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promis
     throw new Error('The HerbalClinic API address is not configured for this build.');
   }
 
+  const controller = options.timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), options.timeoutMs) : null;
+
   let response: Response;
+  let payload: Record<string, unknown>;
   try {
-    response = await fetch(`${Config.API_BASE_URL}${path}`, {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
-  } catch {
-    throw new ApiError(
-      'Could not reach the HerbalClinic API. Start the local server, then try again.',
-      null,
-      API_UNREACHABLE,
-    );
+    try {
+      response = await fetch(`${Config.API_BASE_URL}${path}`, {
+        method: options.method ?? 'GET',
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: controller?.signal,
+      });
+    } catch {
+      throw new ApiError(
+        'Could not reach the HerbalClinic API. Start the local server, then try again.',
+        null,
+        API_UNREACHABLE,
+      );
+    }
+    payload = await response.json().catch(() => ({}));
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
   }
 
-  const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new ApiError(
+    // A 401 on a request that carried a token means the server no longer accepts that session.
+    const sessionRejected = response.status === 401 && Boolean(options.token);
+    const error = new ApiError(
       typeof payload.error === 'string' ? payload.error : 'Request failed. Please try again.',
       response.status,
-      typeof payload.code === 'string' ? payload.code : null,
+      sessionRejected ? SESSION_INVALID : typeof payload.code === 'string' ? payload.code : null,
     );
+    if (sessionRejected && options.token) {
+      sessionInvalidListener?.(options.token);
+    }
+    throw error;
   }
-  return payload as T;
+  return payload as unknown as T;
 };
 
 export const registerAccount = (name: string, email: string, password: string) =>
@@ -95,7 +134,7 @@ export const logoutAccount = (token: string | null) =>
   });
 
 export const fetchCurrentUser = (token: string) =>
-  apiRequest<{ user: AuthUser }>('/api/v1/me', { token });
+  apiRequest<{ user: AuthUser }>('/api/v1/me', { token, timeoutMs: SESSION_CHECK_TIMEOUT_MS });
 
 export interface ScanRecord {
   id: number;

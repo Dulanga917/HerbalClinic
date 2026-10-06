@@ -4,11 +4,11 @@
 
 import 'react-native';
 import React from 'react';
-import { Text, TouchableOpacity } from 'react-native';
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { it, expect, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import ProfileScreen from '../src/screens/home/ProfileScreen';
-import { fetchScanHistory } from '../src/services/apiClient';
+import { ApiError, fetchScanHistory, ScanRecord } from '../src/services/apiClient';
 
 const mockLogout = jest.fn(async () => undefined);
 
@@ -28,8 +28,26 @@ jest.mock('../src/context/AuthContext', () => ({
 }));
 
 jest.mock('../src/services/apiClient', () => ({
+  ...jest.requireActual<typeof import('../src/services/apiClient')>('../src/services/apiClient'),
   fetchScanHistory: jest.fn(async () => ({ scans: [] })),
 }));
+
+const mockedHistory = fetchScanHistory as jest.Mock<typeof fetchScanHistory>;
+
+const openHistory = async () => {
+  const navigation = { navigate: jest.fn() } as never;
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(<ProfileScreen navigation={navigation} route={{} as never} />);
+  });
+  const historyButton = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'Scan History');
+  await act(async () => {
+    historyButton!.props.onPress();
+  });
+  return root;
+};
 
 it('renders the authenticated user name and email', () => {
   const navigation = { navigate: jest.fn() } as never;

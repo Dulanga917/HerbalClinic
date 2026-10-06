@@ -45,6 +45,7 @@ const {
 } = require('./validation');
 
 const PORT = Number(process.env.PORT || 3001);
+const SESSION_INVALID = 'SESSION_INVALID';
 const JSON_BODY_LIMIT = '100kb';
 const IMAGE_BODY_LIMIT = '9mb';
 
@@ -57,7 +58,7 @@ function getBearerToken(req) {
 function requireAuth(req, res, next) {
   const user = getUserByToken(getBearerToken(req));
   if (!user) {
-    res.status(401).json({ error: 'Please sign in again.' });
+    res.status(401).json({ error: 'Please sign in again.', code: SESSION_INVALID });
     return;
   }
   req.user = user;

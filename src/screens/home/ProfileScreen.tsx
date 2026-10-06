@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -16,7 +17,7 @@ import { HomeTabParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import Config from '../../constants/config';
-import { fetchScanHistory, ScanRecord } from '../../services/apiClient';
+import { fetchScanHistory, isSessionInvalid, ScanRecord } from '../../services/apiClient';
 
 type Props = BottomTabScreenProps<HomeTabParamList, 'Profile'>;
 
@@ -58,6 +59,9 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       setScans(result.scans);
     } catch (error) {
       setHistoryVisible(false);
+      if (isSessionInvalid(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Could not load scan history.';
       Alert.alert('Scan History', message);
     } finally {
@@ -161,19 +165,26 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             ) : scans.length === 0 ? (
               <Text style={styles.menuDesc}>No saved scans for this account yet.</Text>
             ) : (
-              scans.map(scan => (
-                <View key={scan.id} style={styles.historyRow}>
-                  <Text style={styles.menuTitle}>{scan.dosha || 'AI skin guidance'}</Text>
-                  <Text style={styles.menuDesc}>
-                    {!scan.dosha
-                      ? 'General guidance, no confidence score'
-                      : scan.confidence != null
-                        ? `${scan.confidence}% model confidence`
-                        : 'No confidence stored'}
-                    {scan.createdAt ? ` · ${scan.createdAt.slice(0, 10)}` : ''}
-                  </Text>
-                </View>
-              ))
+              <FlatList
+                testID="scan-history-list"
+                style={styles.historyList}
+                data={scans}
+                keyExtractor={scan => String(scan.id)}
+                showsVerticalScrollIndicator
+                renderItem={({ item: scan }) => (
+                  <View style={styles.historyRow}>
+                    <Text style={styles.menuTitle}>{scan.dosha || 'AI skin guidance'}</Text>
+                    <Text style={styles.menuDesc}>
+                      {!scan.dosha
+                        ? 'General guidance, no confidence score'
+                        : scan.confidence != null
+                          ? `${scan.confidence}% model confidence`
+                          : 'No confidence stored'}
+                      {scan.createdAt ? ` · ${scan.createdAt.slice(0, 10)}` : ''}
+                    </Text>
+                  </View>
+                )}
+              />
             )}
             <TouchableOpacity style={styles.closeBtn} onPress={() => setHistoryVisible(false)}>
               <Text style={styles.closeText}>Close</Text>
@@ -271,6 +282,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: Spacing.base,
   },
+  historyList: { flexGrow: 0, flexShrink: 1 },
   historyRow: {
     marginBottom: Spacing.md,
     borderBottomWidth: 1,

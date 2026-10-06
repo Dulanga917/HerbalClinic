@@ -336,6 +336,46 @@ test('auth endpoints reject non-string and oversized fields', async () => {
   }
 });
 
+test('rejected sessions carry the stable SESSION_INVALID code; wrong-password logins do not', async () => {
+  const api = await start({ rateLimits: { ai: { limit: 100 } } });
+  try {
+    const expired = await newSession();
+    db.getDb()
+      .prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?')
+      .run(
+        new Date(Date.now() - 1000).toISOString(),
+        crypto.createHash('sha256').update(expired.token).digest('hex'),
+      );
+    const loggedOut = await newSession();
+    await api.request('POST', '/api/v1/auth/logout', { token: loggedOut.token });
+
+    const rejectedTokens = [expired.token, loggedOut.token, 'not-a-real-token', undefined];
+    for (const token of rejectedTokens) {
+      for (const [method, route, body] of [
+        ['GET', '/api/v1/me'],
+        ['GET', '/api/v1/scans'],
+        ['POST', '/api/v1/daily-tip', {}],
+      ]) {
+        const res = await api.request(method, route, { token, body });
+        assert.equal(res.status, 401, `${method} ${route}`);
+        assert.deepEqual(res.json, { error: 'Please sign in again.', code: 'SESSION_INVALID' });
+      }
+    }
+
+    const valid = await newSession();
+    const me = await api.request('GET', '/api/v1/me', { token: valid.token });
+    assert.equal(me.status, 200);
+
+    const wrongPassword = await api.request('POST', '/api/v1/auth/login', {
+      body: { email: valid.email, password: 'Wrong-password-1' },
+    });
+    assert.equal(wrongPassword.status, 401);
+    assert.equal(wrongPassword.json.code, undefined);
+  } finally {
+    await api.close();
+  }
+});
+
 test('scan input is validated server-side', async () => {
   const api = await start();
   try {

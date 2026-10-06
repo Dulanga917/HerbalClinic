@@ -158,6 +158,7 @@ function rawGet(p, origin) {
   dbm.getDb().prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').run(new Date(Date.now() - 1000).toISOString(), sha(tokenR));
   r = await call('GET', '/api/v1/me', undefined, tokenR);
   rec('Expired session rejected (401)', r.status === 401);
+  rec('Expired session carries stable SESSION_INVALID code', r.json?.code === 'SESSION_INVALID');
   const left = dbm.getDb().prepare('SELECT COUNT(*) c FROM sessions WHERE token_hash = ?').get(sha(tokenR)).c;
   rec('Expired session row purged on use', left === 0);
   r = await call('GET', '/api/v1/me', undefined, 'not-a-real-token');

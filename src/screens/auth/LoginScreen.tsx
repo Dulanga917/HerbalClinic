@@ -25,7 +25,17 @@ type Props = {
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, error, clearError, loading } = useAuth();
+  const [retrying, setRetrying] = useState(false);
+  const { login, error, clearError, loading, sessionUnverified, retrySession } = useAuth();
+
+  const handleRetrySession = async () => {
+    setRetrying(true);
+    try {
+      await retrySession();
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleLogin = async () => {
     clearError();
@@ -71,6 +81,24 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to your HerbalClinic account</Text>
           </View>
+
+          {sessionUnverified ? (
+            <View style={styles.sessionCard} accessibilityRole="alert">
+              <Text style={styles.sessionTitle}>Could not reach HerbalClinic</Text>
+              <Text style={styles.sessionText}>
+                Your saved sign-in was kept. Check your connection or the local server, then try
+                again.
+              </Text>
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={handleRetrySession}
+                disabled={retrying}
+                accessibilityRole="button"
+                accessibilityLabel="Retry saved session">
+                <Text style={styles.retryText}>{retrying ? 'Checking…' : 'Retry'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {/* Form Card */}
           <View style={styles.card}>
