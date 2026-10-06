@@ -65,7 +65,7 @@ test('authenticates with the hashed password and restores a session', async () =
   });
 
   assert.equal(user.email, 'test.user@example.com');
-  assert.equal(getUserByToken(token).id, user.id);
+  assert.equal((await getUserByToken(token)).id, user.id);
 });
 
 test('rejects an incorrect password without storing it', async () => {
@@ -97,15 +97,15 @@ test('associates scans with the authenticated user only', async () => {
     password: 'password1',
   });
 
-  saveScanRecord({
+  await saveScanRecord({
     userId: Number(first.user.id),
     dosha: 'Vata',
     confidence: 81,
     imageReference: 'photo.jpg',
   });
 
-  const adaScans = getScanRecordsForUser(Number(first.user.id));
-  const bobScans = getScanRecordsForUser(Number(second.user.id));
+  const adaScans = await getScanRecordsForUser(Number(first.user.id));
+  const bobScans = await getScanRecordsForUser(Number(second.user.id));
 
   assert.equal(adaScans.length, 1);
   assert.equal(adaScans[0].dosha, 'Vata');
@@ -119,6 +119,6 @@ test('logout invalidates the session token', async () => {
     password: 'password1',
   });
 
-  logoutToken(token);
-  assert.equal(getUserByToken(token), null);
+  await logoutToken(token);
+  assert.equal(await getUserByToken(token), null);
 });

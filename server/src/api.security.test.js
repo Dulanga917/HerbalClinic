@@ -397,14 +397,14 @@ test('scan input is validated server-side', async () => {
       const res = await api.request('POST', '/api/v1/scans', { token, body });
       assert.equal(res.status, 400, `expected 400 for ${JSON.stringify(body).slice(0, 80)}`);
     }
-    assert.equal(db.getScanRecordsForUser(Number(user.id)).length, 0);
+    assert.equal((await db.getScanRecordsForUser(Number(user.id))).length, 0);
 
     const good = await api.request('POST', '/api/v1/scans', {
       token,
       body: { dosha: 'Pitta', confidence: 72.6, imageReference: 'photo_123.jpg', userId: 1 },
     });
     assert.equal(good.status, 201);
-    const rows = db.getScanRecordsForUser(Number(user.id));
+    const rows = await db.getScanRecordsForUser(Number(user.id));
     assert.equal(rows.length, 1);
     assert.equal(rows[0].dosha, 'Pitta');
     assert.equal(rows[0].confidence, 73);

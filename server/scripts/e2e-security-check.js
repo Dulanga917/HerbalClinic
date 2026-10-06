@@ -177,8 +177,8 @@ function rawGet(p, origin) {
   r = await call('POST', '/api/v1/scans', { dosha: 'Pitta', confidence: 64, imageReference: 'b.jpg' }, tB);
   rec('User B can save a scan (201)', r.status === 201);
   r = await call('POST', '/api/v1/scans', { dosha: 'Kapha', confidence: 50, userId: idB, user_id: idB }, tA);
-  const aScans = dbm.getScanRecordsForUser(idA);
-  const bScans = dbm.getScanRecordsForUser(idB);
+  const aScans = await dbm.getScanRecordsForUser(idA);
+  const bScans = await dbm.getScanRecordsForUser(idB);
   rec('A never sees B scans (A rows are all A)', aScans.length === 2 && aScans.every(s => ['Vata', 'Kapha'].includes(s.dosha)));
   rec('B only sees B scans', bScans.length === 1 && bScans[0].dosha === 'Pitta');
   rec('Client-supplied userId in body is ignored (no impersonation)', !bScans.some(s => s.dosha === 'Kapha'));
@@ -198,7 +198,7 @@ function rawGet(p, origin) {
   rec('FK enforced: scan for nonexistent user rejected', fkThrown);
 
   // --- server-side input validation on scans ---
-  const beforeCount = dbm.getScanRecordsForUser(idA).length;
+  const beforeCount = (await dbm.getScanRecordsForUser(idA)).length;
   r = await call('POST', '/api/v1/scans', { dosha: '<script>alert(1)</script>', confidence: 99999, imageReference: 'x'.repeat(100000) }, tA);
   const accepted = r.status === 201;
   rec('Scan input validation (bad dosha/confidence/100KB ref rejected)', !accepted, accepted ? `ACCEPTED status=${r.status} (no server-side validation)` : `status=${r.status}`);

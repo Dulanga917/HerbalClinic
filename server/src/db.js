@@ -1,97 +1,123 @@
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const DatabaseSync = require('node:sqlite').DatabaseSync;
 const { validateEmail, validateName, validatePassword } = require('./passwordPolicy');
+const { loadDatabaseConfig } = require('./config');
+const { openDatabase } = require('./database');
+const { createSqliteDatabase, defaultSqlitePath } = require('./database/sqlite');
+const { assertSchemaCurrent } = require('./database/migrations');
 
 const BCRYPT_ROUNDS = 12;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const HEALTH_CHECK_TIMEOUT_MS = 3000;
 
-let db;
+let database;
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-function getDbPath() {
-  if (process.env.SQLITE_PATH) {
-    return process.env.SQLITE_PATH;
+// PostgreSQL returns BIGINT ids as strings and TIMESTAMPTZ values as Date objects;
+// normalise both so API responses look the same on either database.
+function toIso(value) {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+function closeActiveDatabase() {
+  const active = database;
+  database = undefined;
+  if (!active) {
+    return Promise.resolve();
   }
-  const dataDir = path.join(__dirname, '..', 'data');
-  fs.mkdirSync(dataDir, { recursive: true });
-  return path.join(dataDir, 'herbalclinic.sqlite');
+  if (active.closeSync) {
+    active.closeSync();
+    return Promise.resolve();
+  }
+  return active.close();
 }
 
-function initDb(dbPath = getDbPath()) {
-  db = new DatabaseSync(dbPath);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA foreign_keys = ON');
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS user_dosha (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL UNIQUE,
-      dosha TEXT NOT NULL,
-      confidence INTEGER NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS scan_records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      dosha TEXT,
-      confidence INTEGER,
-      image_reference TEXT,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      token_hash TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_scan_records_user_id ON scan_records(user_id);
-    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-  `);
-
-  return db;
+/** Opens the local SQLite database (development and tests) and makes it active. */
+function initDb(dbPath = defaultSqlitePath()) {
+  closeActiveDatabase();
+  database = createSqliteDatabase({ filename: dbPath });
+  return database.raw;
 }
 
-function getDb() {
-  if (!db) {
+/** Makes an already-open database driver active (used for PostgreSQL). */
+function useDatabase(instance) {
+  if (database && database !== instance) {
+    closeActiveDatabase();
+  }
+  database = instance;
+  return database;
+}
+
+function getDatabase() {
+  if (!database) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('The database is not connected.');
+    }
     initDb();
   }
-  return db;
+  return database;
+}
+
+/** Raw node:sqlite handle for SQLite-specific tooling and tests. */
+function getDb() {
+  const active = getDatabase();
+  if (active.dialect !== 'sqlite') {
+    throw new Error('getDb() is only available for the SQLite driver.');
+  }
+  return active.raw;
+}
+
+async function connectDatabase(databaseConfig = loadDatabaseConfig()) {
+  const instance = openDatabase(databaseConfig);
+  try {
+    if (instance.dialect === 'postgres') {
+      await instance.ping();
+      await assertSchemaCurrent(instance);
+    }
+  } catch (error) {
+    await instance.close().catch(() => {});
+    throw error;
+  }
+  return useDatabase(instance);
+}
+
+async function checkDatabaseHealth() {
+  let timer;
+  try {
+    await Promise.race([
+      getDatabase().ping(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Database health check timed out.')), HEALTH_CHECK_TIMEOUT_MS);
+      }),
+    ]);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function closeDb() {
+  return closeActiveDatabase();
 }
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function publicUser(row) {
-  const scanCount = getDb()
-    .prepare('SELECT COUNT(*) AS count FROM scan_records WHERE user_id = ?')
-    .get(row.id).count;
-
-  const dosha = getDb()
-    .prepare('SELECT dosha, confidence FROM user_dosha WHERE user_id = ?')
-    .get(row.id);
+async function publicUser(row, executor = getDatabase()) {
+  const countRow = await executor.queryOne(
+    'SELECT COUNT(*) AS count FROM scan_records WHERE user_id = $1',
+    [row.id],
+  );
+  const dosha = await executor.queryOne(
+    'SELECT dosha, confidence FROM user_dosha WHERE user_id = $1',
+    [row.id],
+  );
 
   return {
     id: String(row.id),
@@ -99,8 +125,12 @@ function publicUser(row) {
     email: row.email,
     dosha: dosha?.dosha ?? null,
     doshaConfidence: dosha?.confidence ?? null,
-    scanCount,
+    scanCount: Number(countRow.count),
   };
+}
+
+function duplicateEmailError() {
+  return Object.assign(new Error('An account with this email already exists.'), { status: 409 });
 }
 
 async function registerUser({ name, email, password }) {
@@ -117,25 +147,31 @@ async function registerUser({ name, email, password }) {
     throw Object.assign(new Error(passwordResult.message), { status: 400 });
   }
 
-  const existing = getDb()
-    .prepare('SELECT id FROM users WHERE email = ?')
-    .get(emailResult.value);
+  const db = getDatabase();
+  const existing = await db.queryOne('SELECT id FROM users WHERE email = $1', [emailResult.value]);
   if (existing) {
-    throw Object.assign(new Error('An account with this email already exists.'), {
-      status: 409,
-    });
+    throw duplicateEmailError();
   }
 
   const passwordHash = await bcrypt.hash(passwordResult.value, BCRYPT_ROUNDS);
-  const timestamp = nowIso();
-  const result = getDb()
-    .prepare(
-      `INSERT INTO users (name, email, password_hash, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-    .run(nameResult.value, emailResult.value, passwordHash, timestamp, timestamp);
-
-  return createSession(Number(result.lastInsertRowid));
+  try {
+    return await db.transaction(async tx => {
+      const timestamp = nowIso();
+      const inserted = await tx.queryOne(
+        `INSERT INTO users (name, email, password_hash, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [nameResult.value, emailResult.value, passwordHash, timestamp, timestamp],
+      );
+      return createSession(inserted.id, tx);
+    });
+  } catch (error) {
+    // Two simultaneous sign-ups for one email: the database UNIQUE constraint decides.
+    if (db.isUniqueViolation(error)) {
+      throw duplicateEmailError();
+    }
+    throw error;
+  }
 }
 
 async function loginUser({ email, password }) {
@@ -144,7 +180,10 @@ async function loginUser({ email, password }) {
   const dummyHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
 
   const user = emailResult.ok
-    ? getDb().prepare('SELECT * FROM users WHERE email = ?').get(emailResult.value)
+    ? await getDatabase().queryOne(
+        `SELECT id, name, email, password_hash FROM users WHERE email = $1`,
+        [emailResult.value],
+      )
     : null;
 
   const hashToCheck = user?.password_hash || dummyHash;
@@ -159,93 +198,99 @@ async function loginUser({ email, password }) {
   return createSession(user.id);
 }
 
-function createSession(userId) {
+async function createSession(userId, executor = getDatabase()) {
   const token = crypto.randomBytes(32).toString('hex');
   const timestamp = nowIso();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
-  getDb()
-    .prepare(
-      `INSERT INTO sessions (user_id, token_hash, expires_at, created_at)
-       VALUES (?, ?, ?, ?)`,
-    )
-    .run(userId, hashToken(token), expiresAt, timestamp);
+  await executor.execute(
+    `INSERT INTO sessions (user_id, token_hash, expires_at, created_at)
+     VALUES ($1, $2, $3, $4)`,
+    [userId, hashToken(token), expiresAt, timestamp],
+  );
 
-  const user = getDb().prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  return { token, user: publicUser(user) };
+  const user = await executor.queryOne(`SELECT id, name, email FROM users WHERE id = $1`, [userId]);
+  return { token, user: await publicUser(user, executor) };
 }
 
-function getUserByToken(token) {
+async function getUserByToken(token) {
   if (!token) {
     return null;
   }
 
-  const session = getDb()
-    .prepare(
-      `SELECT sessions.id AS id, sessions.user_id AS user_id, sessions.expires_at AS expires_at
-       FROM sessions
-       JOIN users ON users.id = sessions.user_id
-       WHERE sessions.token_hash = ?`,
-    )
-    .get(hashToken(token));
+  const db = getDatabase();
+  const session = await db.queryOne(
+    `SELECT sessions.id AS id, sessions.user_id AS user_id, sessions.expires_at AS expires_at
+     FROM sessions
+     JOIN users ON users.id = sessions.user_id
+     WHERE sessions.token_hash = $1`,
+    [hashToken(token)],
+  );
 
   if (!session) {
     return null;
   }
   if (new Date(session.expires_at).getTime() <= Date.now()) {
-    getDb().prepare('DELETE FROM sessions WHERE id = ?').run(session.id);
+    await db.execute('DELETE FROM sessions WHERE id = $1', [session.id]);
     return null;
   }
 
-  const user = getDb().prepare('SELECT * FROM users WHERE id = ?').get(session.user_id);
-  return publicUser(user);
+  const user = await db.queryOne(`SELECT id, name, email FROM users WHERE id = $1`, [session.user_id]);
+  return publicUser(user, db);
 }
 
-function logoutToken(token) {
+async function logoutToken(token) {
   if (!token) {
     return;
   }
-  getDb().prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashToken(token));
+  await getDatabase().execute('DELETE FROM sessions WHERE token_hash = $1', [hashToken(token)]);
 }
 
-function saveScanRecord({ userId, dosha, confidence, imageReference }) {
-  const timestamp = nowIso();
-  const result = getDb()
-    .prepare(
+async function saveScanRecord({ userId, dosha, confidence, imageReference }) {
+  return getDatabase().transaction(async tx => {
+    const timestamp = nowIso();
+    const inserted = await tx.queryOne(
       `INSERT INTO scan_records (user_id, dosha, confidence, image_reference, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-    .run(userId, dosha ?? null, confidence ?? null, imageReference ?? null, timestamp);
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [userId, dosha ?? null, confidence ?? null, imageReference ?? null, timestamp],
+    );
 
-  if (dosha) {
-    getDb()
-      .prepare(
+    if (dosha) {
+      await tx.execute(
         `INSERT INTO user_dosha (user_id, dosha, confidence, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(user_id) DO UPDATE SET
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_id) DO UPDATE SET
            dosha = excluded.dosha,
            confidence = excluded.confidence,
            updated_at = excluded.updated_at`,
-      )
-      .run(userId, dosha, confidence ?? 0, timestamp);
-  }
+        [userId, dosha, confidence ?? 0, timestamp],
+      );
+    }
 
-  const user = getDb().prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  return {
-    scanId: Number(result.lastInsertRowid),
-    user: publicUser(user),
-  };
+    const user = await tx.queryOne(`SELECT id, name, email FROM users WHERE id = $1`, [userId]);
+    return {
+      scanId: Number(inserted.id),
+      user: await publicUser(user, tx),
+    };
+  });
 }
 
-function getScanRecordsForUser(userId) {
-  return getDb()
-    .prepare(
-      `SELECT id, dosha, confidence, image_reference, created_at
-       FROM scan_records
-       WHERE user_id = ?
-       ORDER BY created_at DESC`,
-    )
-    .all(userId);
+async function getScanRecordsForUser(userId) {
+  const rows = await getDatabase().query(
+    `SELECT id, dosha, confidence, image_reference, created_at
+     FROM scan_records
+     WHERE user_id = $1
+     ORDER BY created_at DESC, id DESC`,
+    [userId],
+  );
+  return rows.map(row => ({
+    id: Number(row.id),
+    dosha: row.dosha,
+    confidence: row.confidence,
+    image_reference: row.image_reference,
+    created_at: toIso(row.created_at),
+  }));
 }
 
 async function seedDevUserIfRequested() {
@@ -266,9 +311,9 @@ async function seedDevUserIfRequested() {
     );
   }
 
-  const existing = getDb()
-    .prepare('SELECT id FROM users WHERE email = ?')
-    .get(emailResult.value);
+  const existing = await getDatabase().queryOne('SELECT id FROM users WHERE email = $1', [
+    emailResult.value,
+  ]);
   if (existing) {
     return;
   }
@@ -280,16 +325,14 @@ async function seedDevUserIfRequested() {
   });
 }
 
-function closeDb() {
-  if (db) {
-    db.close();
-    db = undefined;
-  }
-}
-
 module.exports = {
+  BCRYPT_ROUNDS,
   initDb,
+  useDatabase,
+  getDatabase,
   getDb,
+  connectDatabase,
+  checkDatabaseHealth,
   registerUser,
   loginUser,
   getUserByToken,
@@ -299,4 +342,5 @@ module.exports = {
   seedDevUserIfRequested,
   closeDb,
   publicUser,
+  hashToken,
 };

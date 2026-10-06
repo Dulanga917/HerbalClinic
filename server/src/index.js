@@ -13,7 +13,9 @@ if (fs.existsSync(serverEnv)) {
 }
 
 const {
-  initDb,
+  connectDatabase,
+  checkDatabaseHealth,
+  closeDb,
   seedDevUserIfRequested,
   registerUser,
   loginUser,
@@ -22,6 +24,7 @@ const {
   saveScanRecord,
   getScanRecordsForUser,
 } = require('./db');
+const { describeDatabaseConfig } = require('./database');
 const defaultGemini = require('./gemini');
 const {
   GEMINI_UNAVAILABLE,
@@ -29,7 +32,7 @@ const {
   geminiUnavailable,
   normaliseSkinGuidance,
 } = require('./aiGuidance');
-const { loadConfig } = require('./config');
+const { loadConfig, loadDatabaseConfig, checkStartupConfig } = require('./config');
 const {
   createRateLimiters,
   createCors,
@@ -55,8 +58,16 @@ function getBearerToken(req) {
   return match ? match[1].trim() : '';
 }
 
-function requireAuth(req, res, next) {
-  const user = getUserByToken(getBearerToken(req));
+// A database failure here must surface as a 5xx, never SESSION_INVALID, so the app
+// keeps its saved token while the server is unavailable.
+async function requireAuth(req, res, next) {
+  let user;
+  try {
+    user = await getUserByToken(getBearerToken(req));
+  } catch (error) {
+    handleError(res, error);
+    return;
+  }
   if (!user) {
     res.status(401).json({ error: 'Please sign in again.', code: SESSION_INVALID });
     return;
@@ -65,12 +76,23 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function logServerError(error) {
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+  // Only the error class/code is logged: driver messages can echo request values.
+  console.error(`Request failed (${(error && (error.code || error.name)) || 'unknown error'})`);
+}
+
 function handleError(res, error) {
   if (error && error.code === GEMINI_UNAVAILABLE) {
     res.status(503).json({ error: GEMINI_UNAVAILABLE_MESSAGE, code: GEMINI_UNAVAILABLE });
     return;
   }
-  const status = Number.isInteger(error.status) ? error.status : 500;
+  const status = Number.isInteger(error?.status) ? error.status : 500;
+  if (status >= 500) {
+    logServerError(error);
+  }
   const message =
     status >= 500
       ? 'Something went wrong. Please try again.'
@@ -82,7 +104,12 @@ function badRequest(res, message) {
   res.status(400).json({ error: message });
 }
 
-function createApp({ config = loadConfig(), gemini = defaultGemini, rateLimits } = {}) {
+function createApp({
+  config = loadConfig(),
+  gemini = defaultGemini,
+  rateLimits,
+  healthCheck = checkDatabaseHealth,
+} = {}) {
   const app = express();
   const limiters = createRateLimiters(rateLimits);
 
