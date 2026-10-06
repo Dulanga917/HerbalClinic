@@ -249,11 +249,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: Colors.primaryLight,
     paddingVertical: Spacing.sm,
     alignItems: 'center',
   },
-  directionsText: { color: Colors.textSecondary, fontWeight: '700' },
+  directionsText: { color: Colors.primaryLight, fontWeight: '700' },
   emptyCard: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,

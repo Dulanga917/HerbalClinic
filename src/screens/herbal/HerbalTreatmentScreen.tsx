@@ -220,39 +220,54 @@ const HerbalTreatmentScreen: React.FC = () => {
 
       <Modal visible={!!aiHerbs} transparent animationType="slide" onRequestClose={() => setAiHerbs(null)}>
         <View style={styles.modalBackdrop}>
-          <ScrollView style={styles.modalCard} contentContainerStyle={styles.modalScroll}>
-            <Text style={styles.modalTitle}>Herbal plan</Text>
-            <Text style={styles.modalSub}>
-              {user?.dosha ? `For ${user.dosha}` : 'General Ayurvedic guidance'}
-            </Text>
-            {aiOffline ? (
-              <Text style={styles.offlineLabel}>
-                Offline library guidance — not a live Gemini response
-              </Text>
-            ) : null}
-            {(aiHerbs || []).map(herb => (
-              <View key={herb.name} style={styles.aiHerbRow}>
-                <Text style={styles.herbEmoji}>{herb.emoji}</Text>
-                <View style={styles.aiHerbText}>
-                  <Text style={styles.herbName}>{herb.name}</Text>
-                  <Text style={styles.herbBenefit}>{herb.benefit}</Text>
-                  <Text style={styles.modalBody}>{herb.usage}</Text>
-                </View>
+          <View style={styles.planCard}>
+            <View style={styles.planHeader}>
+              <View style={styles.planHeaderSide} />
+              <View style={styles.planHeaderText}>
+                <Text style={styles.modalTitle}>Herbal plan</Text>
+                <Text style={styles.modalSub}>
+                  {user?.dosha ? `For ${user.dosha}` : 'General Ayurvedic guidance'}
+                </Text>
               </View>
-            ))}
-            <Text style={styles.disclaimer}>
-              {aiOffline
-                ? 'Static herb-library guidance while Gemini is unavailable. Not a medical diagnosis.'
-                : 'Informational herbal guidance only. Not a medical diagnosis.'}
-            </Text>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setAiHerbs(null)}
-              accessibilityRole="button"
-              accessibilityLabel="Close herbal plan">
-              <Text style={styles.closeText}>Close</Text>
-            </TouchableOpacity>
-          </ScrollView>
+              <TouchableOpacity
+                style={styles.planCloseIcon}
+                onPress={() => setAiHerbs(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close herbal plan">
+                <Text style={styles.planCloseIconText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.planScroll} contentContainerStyle={styles.modalScroll}>
+              {aiOffline ? (
+                <Text style={styles.offlineLabel}>
+                  Offline library guidance — not a live Gemini response
+                </Text>
+              ) : null}
+              {(aiHerbs || []).map(herb => (
+                <View key={herb.name} style={styles.aiHerbRow}>
+                  <Text style={styles.herbEmoji}>{herb.emoji}</Text>
+                  <View style={styles.aiHerbText}>
+                    <Text style={styles.herbName}>{herb.name}</Text>
+                    <Text style={styles.herbBenefit}>{herb.benefit}</Text>
+                    <Text style={styles.modalBody}>{herb.usage}</Text>
+                  </View>
+                </View>
+              ))}
+              <Text style={styles.disclaimer}>
+                {aiOffline
+                  ? 'Static herb-library guidance while Gemini is unavailable. Not a medical diagnosis.'
+                  : 'Informational herbal guidance only. Not a medical diagnosis.'}
+              </Text>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setAiHerbs(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close herbal plan">
+                <Text style={styles.closeText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
@@ -388,6 +403,28 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   modalScroll: { paddingBottom: Spacing.xl },
+  planCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    maxHeight: '85%',
+  },
+  planHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  planHeaderSide: { width: 40 },
+  planHeaderText: { flex: 1, paddingTop: Spacing.xs },
+  planCloseIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planCloseIconText: { color: Colors.textPrimary, fontSize: Typography.md, fontWeight: '700' },
+  planScroll: { flexGrow: 0 },
   modalEmoji: { fontSize: 44, textAlign: 'center' },
   modalTitle: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
   modalSub: { fontSize: Typography.sm, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.md },

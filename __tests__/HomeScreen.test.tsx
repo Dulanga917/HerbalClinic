@@ -46,7 +46,8 @@ it('shows the saved Dosha and thesis feature names', async () => {
   expect(flat).toContain('Welcome, Ada');
   expect(flat).toContain('PITTA');
   expect(flat).toContain('Skin Type Assessment');
-  expect(flat).toContain('AI Skin Scan');
+  expect(flat).toContain('AI Skin Guidance');
+  expect(flat).not.toContain('AI Skin Scan');
   expect(flat).toContain('Herb Library');
   expect(flat).toContain('Meditation');
   expect(flat).toContain('Ayurvedic Treatment');
@@ -74,7 +75,7 @@ it('routes every Home feature card, including Ayurvedic Hospitals', async () => 
   };
 
   press('Open Skin Type Assessment');
-  press('Open AI Skin Scan');
+  press('Open AI Skin Guidance');
   press('Open Herb Library');
   press('Open Meditation');
   press('Open Ayurvedic Treatment');

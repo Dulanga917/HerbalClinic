@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,11 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [completed, setCompleted] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo?.({ y: 0, animated: false });
+  }, [index, completed]);
 
   const question = getQuestionAt(index);
   const total = QUESTIONNAIRE_QUESTIONS.length;
@@ -88,7 +93,7 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
         eyebrow={t('brand')}
         title={t('title')}
         subtitle={t('intro')}
-        onBack={goPrevious}
+        onBack={() => navigation.goBack()}
         backLabel={t('back')}
         right={
           <View style={styles.langToggle}>
@@ -114,7 +119,7 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
         }
       />
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.categoryRow}>
           {categories.map(category => {
             const categoryIndex = getCategoryIndex(category.id);

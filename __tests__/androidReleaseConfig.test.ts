@@ -71,6 +71,18 @@ describe('Android release hardening (static checks)', () => {
   });
 });
 
+describe('Android launch window', () => {
+  it('uses the app dark background instead of the default white window', () => {
+    const styles = read('android', 'app', 'src', 'main', 'res', 'values', 'styles.xml');
+    const colors = read('android', 'app', 'src', 'main', 'res', 'values', 'colors.xml');
+    const theme = read('src', 'constants', 'theme.ts');
+    expect(styles).toMatch(/<item name="android:windowBackground">@color\/app_background<\/item>/);
+    const launchColor = colors.match(/<color name="app_background">(#[0-9A-Fa-f]{6})<\/color>/)?.[1];
+    expect(launchColor).toBeDefined();
+    expect(theme).toContain(`background: '${launchColor}'`);
+  });
+});
+
 describe('required runtime assets are present and tracked paths exist', () => {
   it('ships the TFLite model, labels, and server sources', () => {
     for (const parts of [

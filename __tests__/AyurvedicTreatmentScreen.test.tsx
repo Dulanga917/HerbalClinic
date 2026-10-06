@@ -4,7 +4,7 @@
 
 import 'react-native';
 import React from 'react';
-import { Text, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, TouchableOpacity } from 'react-native';
 import { expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import AyurvedicTreatmentScreen from '../src/screens/treatment/AyurvedicTreatmentScreen';
@@ -91,6 +91,49 @@ it('does not finish when required questions were skipped via the category chips'
   const labels = flatten(root);
   expect(labels).not.toContain('Questionnaire self-care guidance');
   expect(labels).toContain('Question 1 of 5');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('header Back leaves the questionnaire while Previous steps back through questions', async () => {
+  const { root, navigation } = await renderScreen();
+  const goBack = (navigation as unknown as { goBack: jest.Mock }).goBack;
+
+  press(root, 'Dry or tight');
+  press(root, 'Next');
+  expect(flatten(root)).toContain('Question 2 of 5');
+
+  press(root, 'Previous');
+  expect(flatten(root)).toContain('Question 1 of 5');
+  expect(goBack).not.toHaveBeenCalled();
+
+  press(root, 'Next');
+  expect(flatten(root)).toContain('Question 2 of 5');
+  press(root, 'Back');
+  expect(goBack).toHaveBeenCalledTimes(1);
+  expect(flatten(root)).toContain('Question 2 of 5');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('scrolls back to the top when the question changes', async () => {
+  const { root } = await renderScreen();
+  const scrollTo = root.root.findByType(ScrollView).instance.scrollTo as jest.Mock;
+  scrollTo.mockClear();
+
+  press(root, 'Dry or tight');
+  expect(scrollTo).not.toHaveBeenCalled();
+
+  press(root, 'Next');
+  expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
+
+  scrollTo.mockClear();
+  press(root, 'Previous');
+  expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
 
   act(() => {
     root.unmount();

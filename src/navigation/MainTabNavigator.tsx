@@ -30,13 +30,18 @@ const TabIcon = ({
   </View>
 );
 
+export const tabScreenOptions = {
+  headerShown: false,
+  tabBarShowLabel: false,
+  tabBarHideOnKeyboard: true,
+};
+
 const MainTabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: false,
+        ...tabScreenOptions,
         tabBarStyle: styles.tabBar,
-        tabBarShowLabel: false,
       }}>
 
       <Tab.Screen

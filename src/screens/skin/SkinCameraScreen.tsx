@@ -31,9 +31,11 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
   const [picking, setPicking] = useState<PickerSource | null>(null);
   const pickingRef = useRef(false);
   const navigatingRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => navigation.addListener('focus', () => {
     navigatingRef.current = false;
+    scrollRef.current?.scrollTo?.({ y: 0, animated: false });
   }), [navigation]);
 
   const isSkinType = analysisType === 'type';
@@ -100,7 +102,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
         onBack={() => navigation.goBack()}
       />
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.previewContainer}>
           {selectedImage ? (
             <>

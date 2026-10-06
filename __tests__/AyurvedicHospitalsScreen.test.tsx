@@ -4,11 +4,12 @@
 
 import 'react-native';
 import React from 'react';
-import { Linking, Text, TextInput, TouchableOpacity } from 'react-native';
+import { Linking, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { afterEach, expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import AyurvedicHospitalsScreen from '../src/screens/hospitals/AyurvedicHospitalsScreen';
 import { AYURVEDIC_HOSPITALS } from '../src/constants/ayurvedicHospitals';
+import { Colors } from '../src/constants/theme';
 
 const flatten = (root: renderer.ReactTestRenderer) =>
   root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity).map(String);
@@ -93,6 +94,22 @@ it('filters the list by search text and by type', async () => {
     button(root, 'Filter All')?.props.onPress();
   });
   expect(flatten(root).filter(item => item === 'View on Map')).toHaveLength(AYURVEDIC_HOSPITALS.length);
+
+  act(() => root.unmount());
+});
+
+it('keeps Get Directions a readable secondary outline action', async () => {
+  const { root } = await renderScreen();
+  const directions = button(root, `Get directions to ${AYURVEDIC_HOSPITALS[0].name}`)!;
+  const mapButton = button(root, `View ${AYURVEDIC_HOSPITALS[0].name} on Map`)!;
+  const directionsStyle = StyleSheet.flatten(directions.props.style);
+  const mapStyle = StyleSheet.flatten(mapButton.props.style);
+  const label = directions.findByType(Text);
+
+  expect(directionsStyle.backgroundColor).toBeUndefined();
+  expect(mapStyle.backgroundColor).toBe(Colors.primaryDark);
+  expect(directionsStyle.borderColor).toBe(Colors.primaryLight);
+  expect(StyleSheet.flatten(label.props.style).color).toBe(Colors.primaryLight);
 
   act(() => root.unmount());
 });

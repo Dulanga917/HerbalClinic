@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
 } from '../../constants/passwordPolicy';
 import FormField from '../../components/FormField';
 import HerbalButton from '../../components/HerbalButton';
+import { useTopInset } from '../../components/ScreenHeader';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
@@ -43,6 +44,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
   const { register, error, clearError, loading } = useAuth();
+  const topInset = useTopInset();
+
+  useEffect(
+    () => navigation.addListener('beforeRemove', () => clearError()),
+    [navigation, clearError],
+  );
 
   const clearFieldError = (field: FieldName) => {
     if (fieldErrors[field]) {
@@ -99,7 +106,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     <LinearGradient colors={Colors.gradientDark} style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={[styles.flex, { paddingTop: topInset }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -211,7 +218,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.loginRow}>
             <Text style={styles.loginText}>Already have an account? </Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate('Login')}
+              onPress={() => {
+                clearError();
+                navigation.navigate('Login');
+              }}
               disabled={busy}
               hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
               accessibilityRole="button"

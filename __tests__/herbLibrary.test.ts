@@ -24,6 +24,13 @@ describe('herb library', () => {
     expect(pitta.some(herb => herb.id === 'ashwagandha')).toBe(false);
   });
 
+  it('describes herbs in neutral educational language', () => {
+    for (const herb of herbs) {
+      expect(herb.description).not.toMatch(/miracle|nature's pharmacy|powerful|detoxif/i);
+    }
+    expect(herbs.find(herb => herb.id === 'aloeVera')?.description).toContain('moisturise and soothe');
+  });
+
   it('combines search and Dosha filter', () => {
     const result = filterHerbs(herbs, 'oil', 'vata');
     expect(result.some(herb => herb.id === 'jojoba')).toBe(true);

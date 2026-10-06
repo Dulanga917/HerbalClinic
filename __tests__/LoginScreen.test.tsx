@@ -124,5 +124,23 @@ it('explains that the session expired after a confirmed rejection', () => {
   const root = renderLogin();
   expect(texts(root)).toContain('Your session has expired. Please sign in again.');
   expect(texts(root)).not.toContain('Could not reach HerbalClinic');
+  expect(mockAuth.clearError).not.toHaveBeenCalled();
+  act(() => root.unmount());
+});
+
+it('clears a stale sign-in error before opening Sign Up', () => {
+  const clearError = jest.fn();
+  const login = jest.fn(async () => undefined);
+  mockAuth = { ...baseAuth(), login, clearError, error: 'Incorrect email or password.' };
+  const navigate = jest.fn();
+  const root = renderer.create(<LoginScreen navigation={{ navigate } as never} />);
+  const signUp = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'Sign Up')!;
+  act(() => signUp.props.onPress());
+  expect(clearError).toHaveBeenCalledTimes(1);
+  expect(navigate).toHaveBeenCalledWith('Register');
+  expect(login).not.toHaveBeenCalled();
+  expect(mockRetrySession).not.toHaveBeenCalled();
   act(() => root.unmount());
 });

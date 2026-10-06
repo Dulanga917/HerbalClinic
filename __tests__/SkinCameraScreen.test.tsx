@@ -4,7 +4,7 @@
 
 import 'react-native';
 import React from 'react';
-import { Image, Text, TouchableOpacity } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { beforeEach, expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import SkinCameraScreen from '../src/screens/skin/SkinCameraScreen';
@@ -28,7 +28,11 @@ const button = (root: renderer.ReactTestRenderer, label: string) =>
   root.root.findAllByType(TouchableOpacity).find(node => node.props.accessibilityLabel === label);
 
 const renderScreen = (analysisType: 'type' | 'issue') => {
-  const navigation = { navigate: jest.fn(), goBack: jest.fn(), addListener: jest.fn(() => () => undefined) };
+  const navigation = {
+    navigate: jest.fn(),
+    goBack: jest.fn(),
+    addListener: jest.fn((_event: string, _callback: () => void) => () => undefined),
+  };
   let root!: renderer.ReactTestRenderer;
   act(() => {
     root = renderer.create(
@@ -74,6 +78,28 @@ it('previews the chosen photo, offers Change Photo and opens the result once', a
     imageUri: 'file:///data/test-photo.jpg',
     analysisType: 'issue',
   });
+  act(() => root.unmount());
+});
+
+it('returns to the top of the photo screen when it regains focus after Scan Again', async () => {
+  const { root, navigation } = renderScreen('issue');
+  await act(async () => {
+    await button(root, 'Choose photo from gallery')?.props.onPress();
+  });
+  act(() => button(root, 'Get AI Skin Guidance')?.props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledTimes(1);
+
+  const focusCall = (navigation.addListener.mock.calls as unknown as [string, () => void][]).find(
+    ([event]) => event === 'focus',
+  );
+  expect(focusCall).toBeTruthy();
+  const scrollTo = root.root.findByType(ScrollView).instance.scrollTo as jest.Mock;
+  scrollTo.mockClear();
+  act(() => focusCall![1]());
+  expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
+
+  act(() => button(root, 'Get AI Skin Guidance')?.props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledTimes(2);
   act(() => root.unmount());
 });
 

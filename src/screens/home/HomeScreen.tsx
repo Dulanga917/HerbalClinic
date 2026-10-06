@@ -35,7 +35,7 @@ const features = [
   {
     id: 'skin-issue',
     emoji: '🩺',
-    title: 'AI Skin Scan',
+    title: 'AI Skin Guidance',
     description: 'Gemini-assisted skin-issue guidance — not a diagnosis',
     gradient: Colors.gradientVata,
   },

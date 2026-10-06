@@ -1,0 +1,4 @@
+<resources>
+    <!-- Matches Colors.background in src/constants/theme.ts -->
+    <color name="app_background">#0A0F0D</color>
+</resources>

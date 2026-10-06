@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { validateEmail, validatePassword } from '../../constants/passwordPolicy';
 import FormField from '../../components/FormField';
 import HerbalButton from '../../components/HerbalButton';
+import { useTopInset } from '../../components/ScreenHeader';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -36,6 +37,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const submittingRef = useRef(false);
   const passwordRef = useRef<TextInput>(null);
   const { login, error, clearError, loading, sessionUnverified, retrySession } = useAuth();
+  const topInset = useTopInset();
 
   const handleRetrySession = async () => {
     setRetrying(true);
@@ -88,7 +90,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     <LinearGradient colors={Colors.gradientDark} style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={[styles.flex, { paddingTop: topInset }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -197,7 +199,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.registerRow}>
             <Text style={styles.registerText}>Don't have an account? </Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate('Register')}
+              onPress={() => {
+                clearError();
+                navigation.navigate('Register');
+              }}
               disabled={busy}
               hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
               accessibilityRole="button"

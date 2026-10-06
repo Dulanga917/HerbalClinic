@@ -24,8 +24,25 @@ const field = (root: renderer.ReactTestRenderer, label: string) =>
 const createAccount = (root: renderer.ReactTestRenderer) =>
   root.root.findAllByType(TouchableOpacity).find(node => node.props.accessibilityLabel === 'Create Account')!;
 
-const renderRegister = () =>
-  renderer.create(<RegisterScreen navigation={{ navigate: jest.fn() } as never} />);
+const mockNavigation = () => {
+  const listeners: Record<string, () => void> = {};
+  return {
+    navigate: jest.fn(),
+    addListener: jest.fn((event: string, callback: () => void) => {
+      listeners[event] = callback;
+      return jest.fn();
+    }),
+    listeners,
+  };
+};
+
+const renderRegister = (navigation = mockNavigation()) => {
+  let root!: renderer.ReactTestRenderer;
+  act(() => {
+    root = renderer.create(<RegisterScreen navigation={navigation as never} />);
+  });
+  return root;
+};
 
 it('keeps the password policy and reports problems beside each field', async () => {
   const register = jest.fn(async () => undefined);
@@ -78,5 +95,29 @@ it('shows the server error from AuthContext without technical details', () => {
   };
   const root = renderRegister();
   expect(texts(root)).toContain('An account with that email already exists.');
+  act(() => root.unmount());
+});
+
+it('clears the shared auth error when returning to Sign In', () => {
+  const clearError = jest.fn();
+  mockAuth = {
+    register: jest.fn(async () => undefined),
+    clearError,
+    loading: false,
+    error: 'An account with that email already exists.',
+  };
+  const navigation = mockNavigation();
+  const root = renderRegister(navigation);
+  expect(clearError).not.toHaveBeenCalled();
+
+  const signInLink = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'Sign In')!;
+  act(() => signInLink.props.onPress());
+  expect(clearError).toHaveBeenCalledTimes(1);
+  expect(navigation.navigate).toHaveBeenCalledWith('Login');
+
+  act(() => navigation.listeners.beforeRemove());
+  expect(clearError).toHaveBeenCalledTimes(2);
   act(() => root.unmount());
 });

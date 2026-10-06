@@ -73,7 +73,7 @@ export const HERBS = {
     skinIssues: ['acne', 'pigmentation', 'inflammation', 'dullness'],
     usage: 'Mix 1 tsp turmeric with honey or milk. Apply for 15 minutes.',
     caution: 'May stain skin yellow temporarily. Do patch test first.',
-    description: 'The golden herb of Ayurveda known for its powerful curcumin compound.',
+    description: 'A yellow root used in traditional Ayurvedic skin-care pastes; it contains curcumin.',
   },
   neem: {
     id: 'neem',
@@ -86,7 +86,7 @@ export const HERBS = {
     skinIssues: ['acne', 'redness', 'infection', 'oiliness'],
     usage: 'Crush fresh neem leaves or use neem powder paste. Apply to affected areas.',
     caution: 'Strong herb — dilute properly. Avoid near eyes.',
-    description: 'Nature\'s pharmacy — powerful purifier that cleanses skin deeply.',
+    description: 'A bitter leaf traditionally used in Ayurvedic routines for oily or blemish-prone skin.',
   },
   aloeVera: {
     id: 'aloeVera',
@@ -99,7 +99,7 @@ export const HERBS = {
     skinIssues: ['dryness', 'irritation', 'sunburn', 'inflammation'],
     usage: 'Extract fresh gel from leaf. Apply directly and leave on.',
     caution: 'Fresh gel preferred. Some may be sensitive — patch test.',
-    description: 'The miracle plant for skin hydration and soothing irritated skin.',
+    description: 'A succulent plant whose leaf gel is commonly used to moisturise and soothe dry or irritated skin.',
   },
   sandalwood: {
     id: 'sandalwood',
@@ -125,7 +125,7 @@ export const HERBS = {
     skinIssues: ['pigmentation', 'dullness', 'dark spots', 'uneven tone'],
     usage: 'Take as supplement or apply paste. Works best internally.',
     caution: 'May turn urine/sweat slightly red — this is normal.',
-    description: 'Powerful blood purifier that detoxifies skin from within.',
+    description: 'A root traditionally described in Ayurveda as a blood-purifying herb for skin tone.',
   },
   licorice: {
     id: 'licorice',
@@ -138,7 +138,7 @@ export const HERBS = {
     skinIssues: ['pigmentation', 'dark spots', 'redness', 'irritation'],
     usage: 'Apply licorice root extract or powder mixed with aloe vera gel.',
     caution: 'Avoid long-term internal use without guidance.',
-    description: 'Nature\'s skin brightener that fades dark spots and evens skin tone.',
+    description: 'A sweet root traditionally used in Ayurvedic skin care for uneven tone and dark spots.',
   },
   ashwagandha: {
     id: 'ashwagandha',
