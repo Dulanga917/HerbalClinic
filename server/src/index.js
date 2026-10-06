@@ -1,16 +1,7 @@
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
-const dotenv = require('dotenv');
+const { loadEnvFiles } = require('./env');
 
-const rootEnv = path.join(__dirname, '..', '..', '.env');
-const serverEnv = path.join(__dirname, '..', '.env');
-if (fs.existsSync(rootEnv)) {
-  dotenv.config({ path: rootEnv });
-}
-if (fs.existsSync(serverEnv)) {
-  dotenv.config({ path: serverEnv, override: true });
-}
+loadEnvFiles();
 
 const {
   connectDatabase,

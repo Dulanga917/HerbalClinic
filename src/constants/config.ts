@@ -6,9 +6,11 @@ import { Platform } from 'react-native';
 import { resolveApiBaseUrl } from '../utils/apiUrl';
 
 /**
- * Public HTTPS address of the HerbalClinic API for release builds, for example
- * 'https://api.your-domain.example'. Release builds ignore it unless it is a valid
- * https:// URL, so a missing value fails closed instead of falling back to HTTP.
+ * Public HTTPS address of the HerbalClinic API for release builds: the Render service URL
+ * (https://<service-name>.onrender.com) or a custom domain. Release builds ignore it
+ * unless it is a valid https:// URL on a public host, so a missing value fails closed
+ * instead of falling back to HTTP or a local address. Never put database or Gemini
+ * credentials here; the app only talks to the API.
  */
 const PRODUCTION_API_BASE_URL = '';
 

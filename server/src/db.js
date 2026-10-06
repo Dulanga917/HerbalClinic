@@ -293,11 +293,16 @@ async function getScanRecordsForUser(userId) {
   }));
 }
 
+// A development account is only ever created in the local SQLite database, so a hosted
+// PostgreSQL database never contains a known login even if NODE_ENV is misconfigured.
 async function seedDevUserIfRequested() {
   if (process.env.NODE_ENV === 'production') {
     return;
   }
   if (String(process.env.SEED_DEV_USER).toLowerCase() !== 'true') {
+    return;
+  }
+  if (getDatabase().dialect !== 'sqlite') {
     return;
   }
 

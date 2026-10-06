@@ -46,7 +46,11 @@ function buildPoolConfig(options) {
     connectionTimeoutMs = 10000,
     idleTimeoutMs = 30000,
     statementTimeoutMs = 15000,
+    searchPath,
   } = options;
+  if (searchPath !== undefined && !SAFE_IDENTIFIER.test(searchPath)) {
+    throw new Error('Invalid PostgreSQL schema name.');
+  }
 
   const config = {
     connectionString: stripSslParams(databaseUrl),
@@ -56,6 +60,10 @@ function buildPoolConfig(options) {
     statement_timeout: statementTimeoutMs,
     application_name: 'herbalclinic-api',
   };
+  if (searchPath) {
+    // Sent as a startup parameter so every pooled connection uses the schema from its first query.
+    config.options = `-c search_path=${searchPath}`;
+  }
 
   if (sslMode === 'disable') {
     config.ssl = false;
@@ -85,23 +93,16 @@ function wrapClient(client) {
 }
 
 function createPostgresDatabase(options) {
+  const poolConfig = buildPoolConfig(options);
   const { Pool } = require('pg');
-  const { searchPath, logger = console } = options;
-  if (searchPath !== undefined && !SAFE_IDENTIFIER.test(searchPath)) {
-    throw new Error('Invalid PostgreSQL schema name.');
-  }
+  const { logger = console } = options;
 
-  const pool = new Pool(buildPoolConfig(options));
+  const pool = new Pool(poolConfig);
   // Idle clients can fail when the server restarts; log without connection details and
   // let the pool replace them instead of crashing the process.
   pool.on('error', error => {
     logger.error(`PostgreSQL idle client error (${error.code || error.name || 'unknown'})`);
   });
-  if (searchPath) {
-    pool.on('connect', client => {
-      client.query(`SET search_path TO "${searchPath}"`).catch(() => {});
-    });
-  }
 
   const executor = wrapClient(pool);
 

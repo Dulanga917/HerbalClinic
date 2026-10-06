@@ -1,6 +1,13 @@
 const HTTPS_ORIGIN_WITH_OPTIONAL_PATH =
   /^https:\/\/[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:\d{1,5})?(\/[A-Za-z0-9._~-]+)*$/;
 
+// Loopback, emulator, unspecified and private-LAN hosts only work next to a developer
+// machine, so a release build pointing at one would silently fail on users' phones.
+const LOCAL_ONLY_HOST =
+  /^(localhost|.*\.localhost|0\.0\.0\.0|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/i;
+
+const hostOf = (url: string): string => url.replace(/^https:\/\//, '').split(/[/:]/)[0];
+
 type ResolveApiBaseUrlInput = {
   isDev: boolean;
   platform: string;
@@ -24,5 +31,8 @@ export const resolveApiBaseUrl = ({
   }
 
   const candidate = productionUrl.trim().replace(/\/+$/, '');
-  return HTTPS_ORIGIN_WITH_OPTIONAL_PATH.test(candidate) ? candidate : '';
+  if (!HTTPS_ORIGIN_WITH_OPTIONAL_PATH.test(candidate) || LOCAL_ONLY_HOST.test(hostOf(candidate))) {
+    return '';
+  }
+  return candidate;
 };

@@ -69,6 +69,7 @@ function loadConfig(env = process.env) {
 }
 
 const POSTGRES_PROTOCOLS = ['postgres:', 'postgresql:'];
+const DATABASE_URL_PLACEHOLDER = 'postgresql://USER:PASSWORD@HOST:PORT/DATABASE';
 
 function parseIntegerInRange(value, fallback, min, max, name) {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -106,6 +107,11 @@ function loadDatabaseConfig(env = process.env) {
     }
     return { client: 'sqlite', sqlitePath: env.SQLITE_PATH || undefined };
   }
+  if (databaseUrl === DATABASE_URL_PLACEHOLDER) {
+    throw new Error(
+      'DATABASE_URL still has the .env.example placeholder. Set the real connection string, or leave it empty to use the local SQLite database in development.',
+    );
+  }
 
   let parsed;
   try {
@@ -130,7 +136,22 @@ function loadDatabaseConfig(env = process.env) {
 // Returns non-fatal warnings; throws when the production configuration cannot work safely.
 function checkStartupConfig(config, env = process.env) {
   const warnings = [];
+  const usesPostgres = String(env.DATABASE_URL ?? '').trim() !== '';
+  const seedRequested = String(env.SEED_DEV_USER).toLowerCase() === 'true';
   if (!config.isProduction) {
+    // Render sets RENDER=true on every service; a hosted instance must run in production mode
+    // so HTTPS enforcement, production CORS defaults and seed protection are active.
+    if (String(env.RENDER).toLowerCase() === 'true') {
+      throw new Error('NODE_ENV must be "production" when running on Render.');
+    }
+    if (usesPostgres) {
+      warnings.push(
+        'DATABASE_URL is set but NODE_ENV is not "production"; HTTPS enforcement and production CORS defaults are off.',
+      );
+    }
+    if (usesPostgres && seedRequested) {
+      warnings.push('SEED_DEV_USER only applies to the local SQLite database; no account is created in PostgreSQL.');
+    }
     return warnings;
   }
   if (config.enforceHttps && config.trustProxy === false) {
@@ -142,7 +163,7 @@ function checkStartupConfig(config, env = process.env) {
   if (!geminiKey || geminiKey === 'your_gemini_api_key_here') {
     warnings.push('GEMINI_API_KEY is not set; AI guidance routes will return GEMINI_UNAVAILABLE.');
   }
-  if (String(env.SEED_DEV_USER).toLowerCase() === 'true') {
+  if (seedRequested) {
     warnings.push('SEED_DEV_USER is ignored in production; no development account is created.');
   }
   return warnings;
