@@ -46,12 +46,14 @@ it('offers a retry that keeps the saved session when the API was unreachable at 
     await retry!.props.onPress();
   });
   expect(mockRetrySession).toHaveBeenCalledTimes(1);
+  act(() => root.unmount());
 });
 
 it('shows no retry card when there is no unverified saved session', () => {
   mockAuth = baseAuth();
   const root = renderLogin();
   expect(texts(root)).not.toContain('Could not reach HerbalClinic');
+  act(() => root.unmount());
 });
 
 it('explains that the session expired after a confirmed rejection', () => {
@@ -59,4 +61,5 @@ it('explains that the session expired after a confirmed rejection', () => {
   const root = renderLogin();
   expect(texts(root)).toContain('Your session has expired. Please sign in again.');
   expect(texts(root)).not.toContain('Could not reach HerbalClinic');
+  act(() => root.unmount());
 });

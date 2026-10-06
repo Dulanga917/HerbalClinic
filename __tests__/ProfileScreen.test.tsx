@@ -94,3 +94,54 @@ it('shows model confidence only for Dosha scans in Scan History', async () => {
   expect(text.match(/AI skin guidance/g)).toHaveLength(2);
   expect(text.match(/General guidance, no confidence score/g)).toHaveLength(2);
 });
+
+it('renders a long Scan History in a scrollable list that shrinks to fit the modal', async () => {
+  const scans: ScanRecord[] = Array.from({ length: 40 }, (_, i) => ({
+    id: 40 - i,
+    dosha: i % 2 === 0 ? 'Pitta' : null,
+    confidence: i % 2 === 0 ? 60 + (i % 30) : null,
+    imageReference: `scan-${i}.jpg`,
+    createdAt: '2026-10-01T10:00:00Z',
+  }));
+  mockedHistory.mockResolvedValueOnce({ scans });
+  const root = await openHistory();
+
+  const list = root.root.findByProps({ testID: 'scan-history-list' });
+  expect(list.type).toBe(FlatList);
+  expect(list.props.data).toHaveLength(40);
+  expect(list.props.scrollEnabled).not.toBe(false);
+  expect(StyleSheet.flatten(list.props.style)).toMatchObject({ flexGrow: 0, flexShrink: 1 });
+  expect(root.root.findByType(FlatList).findByType(ScrollView)).toBeTruthy();
+
+  const flatten = (children: unknown): string =>
+    Array.isArray(children) ? children.map(flatten).join('') : children == null ? '' : String(children);
+  const text = root.root.findAllByType(Text).map(node => flatten(node.props.children)).join('\n');
+  expect(text).toContain('60% model confidence');
+  expect(text).toContain('General guidance, no confidence score');
+  expect(text).toContain('Close');
+});
+
+it('keeps the empty state when there are no saved scans', async () => {
+  mockedHistory.mockResolvedValueOnce({ scans: [] });
+  const root = await openHistory();
+  const labels = root.root.findAllByType(Text).map(node => node.props.children);
+  expect(labels).toContain('No saved scans for this account yet.');
+  expect(root.root.findAllByProps({ testID: 'scan-history-list' })).toHaveLength(0);
+});
+
+it('leaves an expired session to the central handler instead of showing another alert', async () => {
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  mockedHistory.mockRejectedValueOnce(new ApiError('Please sign in again.', 401, 'SESSION_INVALID'));
+  await openHistory();
+  expect(alertSpy).not.toHaveBeenCalled();
+  alertSpy.mockRestore();
+});
+
+it('still reports other Scan History errors', async () => {
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  mockedHistory.mockRejectedValueOnce(new ApiError('Something went wrong. Please try again.', 500, null));
+  await openHistory();
+  expect(alertSpy).toHaveBeenCalledWith('Scan History', 'Something went wrong. Please try again.');
+  expect(mockLogout).not.toHaveBeenCalled();
+  alertSpy.mockRestore();
+});

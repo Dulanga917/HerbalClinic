@@ -27,10 +27,15 @@ import {
   validatePassword,
 } from '../constants/passwordPolicy';
 
+export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
+
 interface AuthContextType {
   user: AuthUser | null;
   sessionToken: string | null;
   loading: boolean;
+  /** A saved session exists but could not be checked because the API was unreachable. */
+  sessionUnverified: boolean;
+  retrySession: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -45,14 +50,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionUnverified, setSessionUnverified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
 
   const persistSession = useCallback(async (token: string, nextUser: AuthUser) => {
     tokenRef.current = token;
     await saveSessionToken(token);
     setSessionToken(token);
     setUser(nextUser);
+    setSessionUnverified(false);
   }, []);
 
   const clearSession = useCallback(async () => {
@@ -60,42 +68,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await clearSessionToken();
     setSessionToken(null);
     setUser(null);
+    setSessionUnverified(false);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const restoreSession = async () => {
-      try {
-        const token = await getSessionToken();
-        if (!token) {
-          return;
-        }
-        const { user: restored } = await fetchCurrentUser(token);
-        if (!cancelled) {
-          tokenRef.current = token;
-          setSessionToken(token);
-          setUser(restored);
-        }
-      } catch {
+  const verifyStoredSession = useCallback(async () => {
+    let token: string | null;
+    try {
+      token = await getSessionToken();
+    } catch {
+      token = null;
+    }
+    if (!token) {
+      if (mountedRef.current) {
+        setSessionUnverified(false);
+      }
+      return;
+    }
+    try {
+      const { user: restored } = await fetchCurrentUser(token);
+      if (mountedRef.current) {
+        tokenRef.current = token;
+        setSessionToken(token);
+        setUser(restored);
+        setSessionUnverified(false);
+      }
+    } catch (e) {
+      if (isSessionInvalid(e)) {
         await clearSessionToken();
-        if (!cancelled) {
+        if (mountedRef.current) {
           tokenRef.current = null;
           setSessionToken(null);
           setUser(null);
+          setSessionUnverified(false);
+          setError(SESSION_EXPIRED_MESSAGE);
         }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        return;
       }
-    };
-
-    restoreSession();
-    return () => {
-      cancelled = true;
-    };
+      // Network, timeout and 5xx failures keep the stored token so the session can be retried.
+      if (mountedRef.current) {
+        setSessionUnverified(true);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    verifyStoredSession().finally(() => {
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+    });
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [verifyStoredSession]);
+
+  useEffect(
+    () =>
+      setSessionInvalidListener(rejectedToken => {
+        if (!rejectedToken || tokenRef.current !== rejectedToken) {
+          return;
+        }
+        tokenRef.current = null;
+        clearSessionToken()
+          .catch(() => {})
+          .finally(() => {
+            if (mountedRef.current) {
+              setSessionToken(null);
+              setUser(null);
+              setSessionUnverified(false);
+              setError(SESSION_EXPIRED_MESSAGE);
+            }
+          });
+      }),
+    [],
+  );
+
+  const retrySession = useCallback(async () => {
+    setError(null);
+    await verifyStoredSession();
+  }, [verifyStoredSession]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -186,6 +238,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         sessionToken,
         loading,
+        sessionUnverified,
+        retrySession,
         login,
         register,
         logout,
