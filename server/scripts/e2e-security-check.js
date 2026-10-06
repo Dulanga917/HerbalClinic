@@ -221,6 +221,13 @@ function rawGet(p, origin) {
   r = await call('POST', '/api/v1/skin-issue', { imageBase64: TINY_JPEG_BASE64, mimeType: 'image/jpeg' }, tA);
   rec('With no GEMINI_API_KEY in env the server fails closed (5xx, no upstream call)', r.status >= 500, `status=${r.status} msg="${r.json?.error}"`);
   rec('Error body does not echo any key material', !/AIza|AQ\./.test(JSON.stringify(r.json || {})));
+  rec(
+    'Missing key returns the stable GEMINI_UNAVAILABLE contract with no internals',
+    r.status === 503 &&
+      r.json?.code === 'GEMINI_UNAVAILABLE' &&
+      !/GEMINI_API_KEY|configured|stack|\bat \w+ \(/i.test(JSON.stringify(r.json || {})),
+    `status=${r.status} code=${r.json?.code}`,
+  );
 
   // --- hardening observations ---
   const statuses = [];

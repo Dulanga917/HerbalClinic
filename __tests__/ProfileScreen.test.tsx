@@ -4,10 +4,11 @@
 
 import 'react-native';
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
 import { it, expect, jest } from '@jest/globals';
-import renderer from 'react-test-renderer';
+import renderer, { act } from 'react-test-renderer';
 import ProfileScreen from '../src/screens/home/ProfileScreen';
+import { fetchScanHistory } from '../src/services/apiClient';
 
 const mockLogout = jest.fn(async () => undefined);
 
