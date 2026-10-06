@@ -16,11 +16,16 @@ interface Props {
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   loading?: boolean;
+  /** Short text shown next to the spinner, e.g. "Signing in…". */
+  loadingLabel?: string;
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: React.ReactNode;
   fullWidth?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  colors?: string[];
 }
 
 const HerbalButton = ({
@@ -28,34 +33,59 @@ const HerbalButton = ({
   onPress,
   variant = 'primary',
   loading = false,
+  loadingLabel,
   disabled = false,
   style,
   textStyle,
   icon,
   fullWidth = true,
+  accessibilityLabel,
+  accessibilityHint,
+  colors,
 }: Props) => {
   const isDisabled = disabled || loading;
+  const a11y = {
+    accessibilityRole: 'button' as const,
+    accessibilityLabel: accessibilityLabel ?? title,
+    accessibilityHint,
+    accessibilityState: { disabled: isDisabled, busy: loading },
+  };
+
+  const renderContent = (textColorStyle: TextStyle, spinnerColor: string) =>
+    loading ? (
+      <View style={styles.content}>
+        <ActivityIndicator color={spinnerColor} size="small" />
+        {loadingLabel ? (
+          <Text style={[styles.text, textColorStyle, textStyle]}>{loadingLabel}</Text>
+        ) : null}
+      </View>
+    ) : (
+      <View style={styles.content}>
+        {icon && <View style={styles.iconWrap}>{icon}</View>}
+        <Text style={[styles.text, textColorStyle, isDisabled && styles.textDisabled, textStyle]}>
+          {title}
+        </Text>
+      </View>
+    );
 
   if (variant === 'primary') {
     return (
       <TouchableOpacity
         onPress={onPress}
         disabled={isDisabled}
-        activeOpacity={0.85}
-        style={[styles.wrapper, fullWidth && styles.fullWidth, style]}>
+        activeOpacity={0.8}
+        style={[styles.wrapper, fullWidth && styles.fullWidth, style]}
+        {...a11y}>
         <LinearGradient
-          colors={isDisabled ? ['#2A3F2F', '#2A3F2F'] : Colors.gradientGreen as string[]}
+          colors={
+            isDisabled && !loading
+              ? [Colors.cardBorder, Colors.cardBorder]
+              : colors ?? Colors.gradientGreen
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.gradient}>
-          {loading ? (
-            <ActivityIndicator color={Colors.textPrimary} size="small" />
-          ) : (
-            <View style={styles.content}>
-              {icon && <View style={styles.iconWrap}>{icon}</View>}
-              <Text style={[styles.text, styles.textPrimary, textStyle]}>{title}</Text>
-            </View>
-          )}
+          {renderContent(styles.textPrimary, Colors.textPrimary)}
         </LinearGradient>
       </TouchableOpacity>
     );
@@ -66,22 +96,16 @@ const HerbalButton = ({
       <TouchableOpacity
         onPress={onPress}
         disabled={isDisabled}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
         style={[
           styles.wrapper,
           styles.outline,
           fullWidth && styles.fullWidth,
           isDisabled && styles.disabledOutline,
           style,
-        ]}>
-        {loading ? (
-          <ActivityIndicator color={Colors.primaryLight} size="small" />
-        ) : (
-          <View style={styles.content}>
-            {icon && <View style={styles.iconWrap}>{icon}</View>}
-            <Text style={[styles.text, styles.textOutline, textStyle]}>{title}</Text>
-          </View>
-        )}
+        ]}
+        {...a11y}>
+        {renderContent(styles.textOutline, Colors.primaryLight)}
       </TouchableOpacity>
     );
   }
@@ -91,44 +115,35 @@ const HerbalButton = ({
       <TouchableOpacity
         onPress={onPress}
         disabled={isDisabled}
-        activeOpacity={0.7}
-        style={[styles.ghost, fullWidth && styles.fullWidth, style]}>
-        <View style={styles.content}>
-          {icon && <View style={styles.iconWrap}>{icon}</View>}
-          <Text style={[styles.text, styles.textGhost, textStyle]}>{title}</Text>
-        </View>
+        activeOpacity={0.6}
+        style={[styles.ghost, fullWidth && styles.fullWidth, style]}
+        {...a11y}>
+        {renderContent(styles.textGhost, Colors.textSecondary)}
       </TouchableOpacity>
     );
   }
 
-  // secondary
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
       style={[
         styles.wrapper,
         styles.secondary,
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabledSecondary,
         style,
-      ]}>
-      {loading ? (
-        <ActivityIndicator color={Colors.primary} size="small" />
-      ) : (
-        <View style={styles.content}>
-          {icon && <View style={styles.iconWrap}>{icon}</View>}
-          <Text style={[styles.text, styles.textSecondary, textStyle]}>{title}</Text>
-        </View>
-      )}
+      ]}
+      {...a11y}>
+      {renderContent(styles.textSecondary, Colors.primaryLight)}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     ...Shadows.md,
   },
@@ -153,7 +168,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   secondary: {
-    backgroundColor: Colors.surfaceElevated,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
     paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.xl,
     alignItems: 'center',
@@ -161,6 +178,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   ghost: {
+    minHeight: 44,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.base,
     alignItems: 'center',
@@ -177,7 +195,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: Typography.md,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   textPrimary: {
@@ -187,9 +205,12 @@ const styles = StyleSheet.create({
     color: Colors.primaryLight,
   },
   textSecondary: {
-    color: Colors.textPrimary,
+    color: Colors.primaryLight,
   },
   textGhost: {
+    color: Colors.textSecondary,
+  },
+  textDisabled: {
     color: Colors.textSecondary,
   },
   disabledOutline: {

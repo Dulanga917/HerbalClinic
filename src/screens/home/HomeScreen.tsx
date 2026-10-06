@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 import { useAuth } from '../../context/AuthContext';
 import geminiService from '../../services/geminiService';
 import { homeDoshaState } from '../../utils/homeDashboard';
+import { useTopInset } from '../../components/ScreenHeader';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<HomeTabParamList, 'Home'>,
@@ -67,16 +69,20 @@ const features = [
   },
 ];
 
+const FALLBACK_TIP =
+  'Start the day with warm water and a simple herbal routine. This tip is local guidance, not a Gemini response.';
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
+  const topInset = useTopInset();
   const doshaCard = homeDoshaState(user);
-  const [dailyTip, setDailyTip] = useState(
-    'Start the day with warm water and a simple herbal routine. This tip is local guidance, not a Gemini response.',
-  );
+  const [dailyTip, setDailyTip] = useState(FALLBACK_TIP);
   const [tipOffline, setTipOffline] = useState(true);
+  const [tipLoading, setTipLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    setTipLoading(true);
     geminiService
       .getDailyTip(user?.dosha || undefined)
       .then(result => {
@@ -85,7 +91,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           setTipOffline(Boolean(result.offline));
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          setDailyTip(FALLBACK_TIP);
+          setTipOffline(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTipLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -128,7 +144,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         {/* Hero Header */}
         <LinearGradient
           colors={Colors.gradientGreen}
-          style={styles.hero}
+          style={[styles.hero, { paddingTop: topInset + Spacing.xl }]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}>
           <Text style={styles.greeting}>{doshaCard.greeting} 🌿</Text>
@@ -177,7 +193,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   style={styles.featureGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}>
-                  <Text style={styles.featureEmoji}>{f.emoji}</Text>
+                  <View style={styles.featureTopRow}>
+                    <Text style={styles.featureEmoji}>{f.emoji}</Text>
+                    <View style={styles.featureChevron}>
+                      <Text style={styles.featureChevronText}>›</Text>
+                    </View>
+                  </View>
                   <Text style={styles.featureTitle}>{f.title}</Text>
                   <Text style={styles.featureDesc}>{f.description}</Text>
                 </LinearGradient>
@@ -191,12 +212,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Daily Ayurveda Tip</Text>
           <View style={styles.tipCard}>
             <Text style={styles.tipEmoji}>💡</Text>
-            <View style={styles.tipCopy}>
-              {tipOffline ? (
-                <Text style={styles.offlineLabel}>Offline guidance — not a live Gemini response</Text>
-              ) : null}
-              <Text style={styles.tipText}>{dailyTip}</Text>
-            </View>
+            {tipLoading ? (
+              <View style={styles.tipLoading} accessibilityLiveRegion="polite">
+                <ActivityIndicator size="small" color={Colors.primaryLight} />
+                <Text style={styles.tipLoadingText}>Loading today's tip…</Text>
+              </View>
+            ) : (
+              <View style={styles.tipCopy}>
+                {tipOffline ? (
+                  <Text style={styles.offlineLabel}>Offline guidance — not a live Gemini response</Text>
+                ) : null}
+                <Text style={styles.tipText}>{dailyTip}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -213,18 +241,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   hero: {
-    paddingTop: 60,
     paddingBottom: Spacing['3xl'],
     paddingHorizontal: Spacing.xl,
   },
-  greeting: { fontSize: Typography.base, color: Colors.textSecondary, marginBottom: Spacing.xs },
+  greeting: { fontSize: Typography.base, color: 'rgba(240,244,241,0.85)', marginBottom: Spacing.xs },
   heroTitle: {
     fontSize: Typography['4xl'],
     fontWeight: '800',
     color: Colors.textPrimary,
     letterSpacing: 1,
   },
-  heroSubtitle: { fontSize: Typography.md, color: Colors.textSecondary, marginTop: Spacing.xs },
+  heroSubtitle: { fontSize: Typography.md, color: 'rgba(240,244,241,0.85)', marginTop: Spacing.xs },
   section: { padding: Spacing.xl, paddingTop: Spacing['2xl'] },
   doshaCard: {
     backgroundColor: Colors.card,
@@ -255,9 +282,11 @@ const styles = StyleSheet.create({
   assessBtn: {
     marginTop: Spacing.base,
     alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: Colors.primaryDark,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.primaryLight,
@@ -295,14 +324,38 @@ const styles = StyleSheet.create({
     minHeight: 120,
     justifyContent: 'flex-end',
   },
-  featureEmoji: { fontSize: 36, marginBottom: Spacing.sm },
+  featureTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  featureEmoji: { fontSize: 36 },
+  featureChevron: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureChevronText: {
+    fontSize: 24,
+    lineHeight: 26,
+    color: Colors.textPrimary,
+    marginTop: -2,
+    marginLeft: 1,
+    includeFontPadding: false,
+  },
   featureTitle: {
     fontSize: Typography.lg,
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: Spacing.xs,
   },
-  featureDesc: { fontSize: Typography.sm, color: Colors.textSecondary },
+  featureDesc: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.88)', lineHeight: 19 },
+  tipLoading: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 28 },
+  tipLoadingText: { fontSize: Typography.sm, color: Colors.textSecondary },
   tipCard: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,

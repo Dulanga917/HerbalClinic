@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,63 +9,91 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { validateEmail, validateName, validatePassword } from '../../constants/passwordPolicy';
+import {
+  MIN_PASSWORD_LENGTH,
+  validateEmail,
+  validateName,
+  validatePassword,
+} from '../../constants/passwordPolicy';
+import FormField from '../../components/FormField';
+import HerbalButton from '../../components/HerbalButton';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
+
+type FieldName = 'name' | 'email' | 'password' | 'confirmPassword';
+type FieldErrors = Partial<Record<FieldName, string>>;
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
   const { register, error, clearError, loading } = useAuth();
 
-  const handleRegister = async () => {
-    clearError();
-
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert('Missing details', 'Please fill in all fields.');
-      return;
-    }
-
-    const nameResult = validateName(name);
-    if (!nameResult.ok) {
-      Alert.alert('Check your name', nameResult.message);
-      return;
-    }
-
-    const emailResult = validateEmail(email);
-    if (!emailResult.ok) {
-      Alert.alert('Check your email', emailResult.message);
-      return;
-    }
-
-    const passwordResult = validatePassword(password);
-    if (!passwordResult.ok) {
-      Alert.alert('Check your password', passwordResult.message);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'The passwords do not match.');
-      return;
-    }
-
-    try {
-      await register(nameResult.value, emailResult.value, passwordResult.value);
-    } catch (err: any) {
-      Alert.alert('Registration failed', err?.message || 'Could not create the account.');
+  const clearFieldError = (field: FieldName) => {
+    if (fieldErrors[field]) {
+      setFieldErrors(current => ({ ...current, [field]: undefined }));
     }
   };
+
+  const handleRegister = async () => {
+    if (submittingRef.current) {
+      return;
+    }
+    clearError();
+
+    const nextErrors: FieldErrors = {};
+    const nameResult = validateName(name);
+    if (!nameResult.ok) {
+      nextErrors.name = nameResult.message;
+    }
+    const emailResult = validateEmail(email);
+    if (!email.trim()) {
+      nextErrors.email = 'Please enter your email address.';
+    } else if (!emailResult.ok) {
+      nextErrors.email = emailResult.message;
+    }
+    const passwordResult = validatePassword(password);
+    if (!passwordResult.ok) {
+      nextErrors.password = passwordResult.message;
+    }
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = 'Please confirm your password.';
+    } else if (password !== confirmPassword) {
+      nextErrors.confirmPassword = 'The passwords do not match.';
+    }
+    setFieldErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean) || !nameResult.ok || !emailResult.ok || !passwordResult.ok) {
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await register(nameResult.value, emailResult.value, passwordResult.value);
+    } catch {
+      // AuthContext exposes a user-safe message through `error`, shown above the button.
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const busy = submitting || loading;
 
   return (
     <LinearGradient colors={Colors.gradientDark} style={styles.container}>
@@ -73,77 +101,121 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
 
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.emoji}>🌱</Text>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Start your Ayurvedic wellness journey</Text>
           </View>
 
-          {/* Form Card */}
           <View style={styles.card}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Your Name"
-              placeholderTextColor={Colors.textMuted}
+            <FormField
+              label="Full Name"
+              placeholder="Your name"
               value={name}
-              onChangeText={setName}
+              onChangeText={value => {
+                setName(value);
+                clearFieldError('name');
+              }}
+              error={fieldErrors.name}
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
+              editable={!busy}
             />
 
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
+            <FormField
+              ref={emailRef}
+              label="Email Address"
               placeholder="you@example.com"
-              placeholderTextColor={Colors.textMuted}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={value => {
+                setEmail(value);
+                clearFieldError('email');
+              }}
+              error={fieldErrors.email}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
+              editable={!busy}
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor={Colors.textMuted}
+            <FormField
+              ref={passwordRef}
+              label="Password"
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
               value={password}
-              onChangeText={setPassword}
-              secureTextEntry
+              onChangeText={value => {
+                setPassword(value);
+                clearFieldError('password');
+              }}
+              error={fieldErrors.password}
+              passwordToggle
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="password-new"
+              textContentType="newPassword"
+              returnKeyType="next"
+              onSubmitEditing={() => confirmRef.current?.focus()}
+              blurOnSubmit={false}
+              editable={!busy}
             />
 
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor={Colors.textMuted}
+            <FormField
+              ref={confirmRef}
+              label="Confirm Password"
+              placeholder="Re-enter your password"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
+              onChangeText={value => {
+                setConfirmPassword(value);
+                clearFieldError('confirmPassword');
+              }}
+              error={fieldErrors.confirmPassword}
+              passwordToggle
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="password-new"
+              textContentType="newPassword"
+              returnKeyType="go"
+              onSubmitEditing={handleRegister}
+              editable={!busy}
             />
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorBox} accessibilityRole="alert">
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
 
-            {/* Register Button */}
-            <TouchableOpacity style={styles.registerBtnWrapper} onPress={handleRegister} disabled={loading}>
-              <LinearGradient
-                colors={Colors.gradientGreen}
-                style={styles.registerBtn}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}>
-                <Text style={styles.registerBtnText}>
-                  {loading ? 'Creating account…' : 'Create Account'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            <HerbalButton
+              title="Create Account"
+              onPress={handleRegister}
+              loading={busy}
+              loadingLabel="Creating account…"
+              style={styles.registerBtn}
+            />
           </View>
 
-          {/* Login Link */}
           <View style={styles.loginRow}>
             <Text style={styles.loginText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              disabled={busy}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Sign In">
               <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
@@ -166,32 +238,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
+    paddingTop: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
-  label: {
-    fontSize: Typography.sm,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
+  errorBox: {
     marginTop: Spacing.md,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: Colors.surfaceElevated,
+    padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    color: Colors.textPrimary,
-    fontSize: Typography.base,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: Colors.error,
+    backgroundColor: 'rgba(250,82,82,0.08)',
   },
-  registerBtnWrapper: { marginTop: Spacing.xl, borderRadius: BorderRadius.md, overflow: 'hidden' },
-  registerBtn: { paddingVertical: Spacing.base + 2, alignItems: 'center', borderRadius: BorderRadius.md },
-  registerBtnText: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.5 },
-  errorText: { color: '#ff9a9a', fontSize: Typography.sm, marginTop: Spacing.sm },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.xl },
+  errorText: { color: '#ff9a9a', fontSize: Typography.sm, lineHeight: 20 },
+  registerBtn: { marginTop: Spacing.xl },
+  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.xl },
   loginText: { fontSize: Typography.base, color: Colors.textSecondary },
   loginLink: { fontSize: Typography.base, color: Colors.primaryLight, fontWeight: '700' },
 });

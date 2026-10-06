@@ -11,6 +11,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SkinStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import ScreenHeader from '../../components/ScreenHeader';
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinHome'>;
@@ -20,13 +21,13 @@ const scanOptions = [
   {
     id: 'type' as const,
     emoji: '🔬',
-    title: 'Dosha Image Classifier',
-    description: 'Experimental image classification: Vata, Pitta, or Kapha',
+    title: 'Skin Type Assessment',
+    description: 'Experimental on-device Dosha prediction: Vata, Pitta, or Kapha',
     gradient: Colors.gradientGreen,
   },
   {
     id: 'issue' as const,
-    emoji: '🌿',
+    emoji: '🩺',
     title: 'AI Skin Guidance',
     description: 'General Ayurvedic self-care suggestions from a photo (not a diagnosis)',
     gradient: Colors.gradientVata,
@@ -34,9 +35,9 @@ const scanOptions = [
 ];
 
 const workflowSteps = [
-  'Choose dosha classification or AI skin guidance',
+  'Choose Skin Type Assessment or AI Skin Guidance',
   'Take or select a clear photo',
-  'Dosha classification runs on-device; AI skin guidance uses Gemini',
+  'Skin Type Assessment runs on-device; AI Skin Guidance uses Gemini',
 ];
 
 const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
@@ -44,14 +45,11 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-      {/* Header */}
-      <LinearGradient colors={Colors.gradientGreen} style={styles.header}>
-        <Text style={styles.headerEmoji}>🔬</Text>
-        <Text style={styles.headerTitle}>Image Analysis</Text>
-        <Text style={styles.headerSubtitle}>
-          On-device dosha model and Gemini AI skin guidance
-        </Text>
-      </LinearGradient>
+      <ScreenHeader
+        emoji="🔬"
+        title="Skin Analysis"
+        subtitle="On-device Dosha model and Gemini AI skin guidance"
+      />
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionTitle}>Choose Analysis Type</Text>
@@ -61,7 +59,9 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
             key={opt.id}
             style={styles.optionCard}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('SkinCamera', { analysisType: opt.id })}>
+            onPress={() => navigation.navigate('SkinCamera', { analysisType: opt.id })}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${opt.title}`}>
             <LinearGradient
               colors={opt.gradient}
               style={styles.optionGradient}
@@ -77,7 +77,6 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         ))}
 
-        {/* Instructions Card */}
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>📋 How it Works</Text>
           {workflowSteps.map((step, i) => (
@@ -98,15 +97,6 @@ const SkinAnalysisScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 60,
-    paddingBottom: Spacing['3xl'],
-    paddingHorizontal: Spacing.xl,
-    alignItems: 'center',
-  },
-  headerEmoji: { fontSize: 52, marginBottom: Spacing.sm },
-  headerTitle: { fontSize: Typography['3xl'], fontWeight: '800', color: Colors.textPrimary },
-  headerSubtitle: { fontSize: Typography.base, color: Colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' },
   body: { flex: 1, padding: Spacing.xl },
   sectionTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.base },
   optionCard: { borderRadius: BorderRadius.xl, overflow: 'hidden', marginBottom: Spacing.md },
@@ -119,8 +109,8 @@ const styles = StyleSheet.create({
   optionEmoji: { fontSize: 40 },
   optionText: { flex: 1 },
   optionTitle: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
-  optionDesc: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 4 },
-  arrowIcon: { fontSize: 32, color: Colors.textSecondary },
+  optionDesc: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.88)', marginTop: 4, lineHeight: 19 },
+  arrowIcon: { fontSize: 32, color: Colors.textPrimary },
   infoCard: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,

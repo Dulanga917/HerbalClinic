@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  TouchableOpacity,
   StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -23,6 +22,9 @@ import { saveScan } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { getDoshaGuidance } from '../../utils/doshaGuidance';
 import { LiveSkinGuidance, SKIN_GUIDANCE_DISCLAIMER } from '../../utils/skinGuidance';
+import { friendlyErrorMessage } from '../../utils/userMessages';
+import ScreenHeader from '../../components/ScreenHeader';
+import HerbalButton from '../../components/HerbalButton';
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinResult'>;
@@ -31,10 +33,8 @@ type Props = {
 
 type AnalysisResult = DoshaPrediction | SkinGuidanceResult | null;
 
-const getAnalysisErrorMessage = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : String(error);
-  return message || 'Analysis failed. Please try again.';
-};
+const DOSHA_MODEL_FAILURE =
+  'The on-device model could not classify this photo. Please try another clear, well-lit photo.';
 
 const liveGuidanceHeading = (guidance: LiveSkinGuidance): { label: string; value: string } => {
   if (guidance.status === 'possible_concern' && guidance.concern) {
@@ -139,6 +139,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult>(null);
   const [error, setError] = useState<string | null>(null);
+  const analysingRef = useRef(false);
 
   useEffect(() => {
     runAnalysis();
@@ -146,6 +147,10 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   }, []);
 
   const runAnalysis = async () => {
+    if (analysingRef.current) {
+      return;
+    }
+    analysingRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -181,8 +186,9 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       }
     } catch (e: unknown) {
-      setError(getAnalysisErrorMessage(e));
+      setError(friendlyErrorMessage(e, analysisType === 'type' ? DOSHA_MODEL_FAILURE : undefined));
     } finally {
+      analysingRef.current = false;
       setLoading(false);
     }
   };
@@ -199,25 +205,24 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-      {/* Header */}
-      <LinearGradient
+      <ScreenHeader
+        variant="compact"
+        eyebrow={isSkinType ? 'On-device Dosha prediction' : 'General self-care guidance'}
+        title={isSkinType ? 'Skin Type Result' : 'AI Skin Guidance'}
+        emoji={isSkinType ? '🔬' : '🩺'}
         colors={isSkinType ? Colors.gradientGreen : Colors.gradientVata}
-        style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isSkinType ? '🌿 Dosha Analysis' : '🌿 AI Skin Guidance'}
-        </Text>
-      </LinearGradient>
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Image Preview */}
-        <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+        <Image
+          source={{ uri: imageUri }}
+          style={styles.imagePreview}
+          accessibilityLabel="Photo used for this result"
+        />
 
-        {/* Loading State */}
         {loading && (
-          <View style={styles.loadingCard}>
+          <View style={styles.loadingCard} accessibilityLiveRegion="polite">
             <ActivityIndicator size="large" color={Colors.primaryLight} />
             <Text style={styles.loadingTitle}>
               {isSkinType ? 'Analyzing with your on-device model...' : 'Requesting AI skin guidance...'}
@@ -230,15 +235,18 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Error State */}
         {error && !loading && (
-          <View style={styles.errorCard}>
+          <View style={styles.errorCard} accessibilityRole="alert">
             <Text style={styles.errorEmoji}>⚠️</Text>
             <Text style={styles.errorTitle}>Analysis Failed</Text>
             <Text style={styles.errorMsg}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={runAnalysis}>
-              <Text style={styles.retryText}>Try Again</Text>
-            </TouchableOpacity>
+            <HerbalButton title="Try Again" onPress={runAnalysis} style={styles.errorAction} />
+            <HerbalButton
+              title="Choose Another Photo"
+              variant="secondary"
+              onPress={() => navigation.goBack()}
+              style={styles.errorAction}
+            />
           </View>
         )}
 
@@ -382,11 +390,15 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Scan Again */}
         {!loading && result && (
-          <TouchableOpacity style={styles.scanAgainBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.scanAgainText}>📷  Scan Again</Text>
-          </TouchableOpacity>
+          <HerbalButton
+            title="📷  Scan Again"
+            accessibilityLabel="Scan Again"
+            accessibilityHint="Returns to the photo screen"
+            variant="outline"
+            onPress={() => navigation.goBack()}
+            style={styles.scanAgainBtn}
+          />
         )}
 
         <View style={styles.bottomPad} />
@@ -397,17 +409,6 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 56,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  backBtn: { padding: Spacing.xs },
-  backIcon: { fontSize: 36, color: Colors.textPrimary, lineHeight: 36 },
-  headerTitle: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary },
   body: { flex: 1, padding: Spacing.xl },
   imagePreview: {
     width: '100%',
@@ -444,15 +445,8 @@ const styles = StyleSheet.create({
   },
   errorEmoji: { fontSize: 48 },
   errorTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.error },
-  errorMsg: { fontSize: Typography.sm, color: Colors.textSecondary, textAlign: 'center' },
-  retryBtn: {
-    backgroundColor: Colors.primaryDark,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.sm,
-  },
-  retryText: { fontSize: Typography.base, fontWeight: '700', color: Colors.textPrimary },
+  errorMsg: { fontSize: Typography.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  errorAction: { marginTop: Spacing.xs },
 
   // Result
   resultCard: {
@@ -510,16 +504,7 @@ const styles = StyleSheet.create({
   disclaimerText: { fontSize: Typography.xs, color: Colors.textSecondary, lineHeight: 18 },
 
   // Scan Again
-  scanAgainBtn: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.base,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    marginBottom: Spacing.md,
-  },
-  scanAgainText: { fontSize: Typography.md, fontWeight: '600', color: Colors.primaryLight },
+  scanAgainBtn: { marginBottom: Spacing.md },
 
   bottomPad: { height: Spacing['3xl'] },
 });

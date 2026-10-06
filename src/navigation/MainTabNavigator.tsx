@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { HomeTabParamList } from './types';
-import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
+import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import SkinStackNavigator from './SkinStackNavigator';
@@ -24,7 +24,9 @@ const TabIcon = ({
 }) => (
   <View style={[styles.tabIconWrapper, focused && styles.tabIconActive]}>
     <Text style={[styles.tabEmoji, focused && styles.tabEmojiActive]}>{emoji}</Text>
-    <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
+    <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
+      {label}
+    </Text>
   </View>
 );
 
@@ -41,6 +43,7 @@ const MainTabNavigator: React.FC = () => {
         name="Home"
         component={HomeScreen}
         options={{
+          tabBarAccessibilityLabel: 'Home',
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🏡" label="Home" focused={focused} />
           ),
@@ -51,6 +54,7 @@ const MainTabNavigator: React.FC = () => {
         name="SkinAnalysis"
         component={SkinStackNavigator}
         options={{
+          tabBarAccessibilityLabel: 'Skin analysis',
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🔬" label="Skin" focused={focused} />
           ),
@@ -61,6 +65,7 @@ const MainTabNavigator: React.FC = () => {
         name="HerbalTreatment"
         component={HerbalTreatmentScreen}
         options={{
+          tabBarAccessibilityLabel: 'Herb Library',
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🌿" label="Herbal" focused={focused} />
           ),
@@ -71,6 +76,7 @@ const MainTabNavigator: React.FC = () => {
         name="Meditation"
         component={MeditationScreen}
         options={{
+          tabBarAccessibilityLabel: 'Meditation',
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🧘" label="Meditate" focused={focused} />
           ),
@@ -81,6 +87,7 @@ const MainTabNavigator: React.FC = () => {
         name="Profile"
         component={ProfileScreen}
         options={{
+          tabBarAccessibilityLabel: 'Profile',
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="👤" label="Profile" focused={focused} />
           ),
@@ -104,10 +111,10 @@ const styles = StyleSheet.create({
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
-    minWidth: 56,
+    minWidth: 68,
   },
   tabIconActive: {
     backgroundColor: Colors.primaryDark,
@@ -120,8 +127,8 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   tabLabel: {
-    fontSize: Typography.xs,
-    color: Colors.textMuted,
+    fontSize: 11,
+    color: Colors.textSecondary,
     marginTop: 2,
     fontWeight: '500',
   },
