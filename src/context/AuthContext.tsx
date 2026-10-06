@@ -26,6 +26,7 @@ import {
   validateName,
   validatePassword,
 } from '../constants/passwordPolicy';
+import { friendlyErrorMessage } from '../utils/userMessages';
 
 export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
 
@@ -164,9 +165,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await loginAccount(emailResult.value, passwordResult.value);
       await persistSession(result.token, result.user);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Invalid email or password.';
+      const message = friendlyErrorMessage(e, 'Could not sign in. Please try again.');
       setError(message);
-      throw e instanceof Error ? e : new Error(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -195,9 +196,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
       await persistSession(result.token, result.user);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Could not create the account.';
+      const message = friendlyErrorMessage(e, 'Could not create the account. Please try again.');
       setError(message);
-      throw e instanceof Error ? e : new Error(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
