@@ -181,7 +181,7 @@ async function loginUser({ email, password }) {
 
   const user = emailResult.ok
     ? await getDatabase().queryOne(
-        `SELECT id, name, email, password_hash FROM users WHERE email = $1`,
+        'SELECT id, name, email, password_hash FROM users WHERE email = $1',
         [emailResult.value],
       )
     : null;
@@ -209,7 +209,7 @@ async function createSession(userId, executor = getDatabase()) {
     [userId, hashToken(token), expiresAt, timestamp],
   );
 
-  const user = await executor.queryOne(`SELECT id, name, email FROM users WHERE id = $1`, [userId]);
+  const user = await executor.queryOne('SELECT id, name, email FROM users WHERE id = $1', [userId]);
   return { token, user: await publicUser(user, executor) };
 }
 
@@ -235,7 +235,7 @@ async function getUserByToken(token) {
     return null;
   }
 
-  const user = await db.queryOne(`SELECT id, name, email FROM users WHERE id = $1`, [session.user_id]);
+  const user = await db.queryOne('SELECT id, name, email FROM users WHERE id = $1', [session.user_id]);
   return publicUser(user, db);
 }
 
@@ -268,7 +268,7 @@ async function saveScanRecord({ userId, dosha, confidence, imageReference }) {
       );
     }
 
-    const user = await tx.queryOne(`SELECT id, name, email FROM users WHERE id = $1`, [userId]);
+    const user = await tx.queryOne('SELECT id, name, email FROM users WHERE id = $1', [userId]);
     return {
       scanId: Number(inserted.id),
       user: await publicUser(user, tx),

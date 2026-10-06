@@ -114,8 +114,12 @@ function createSqliteDatabase({ filename = defaultSqlitePath(), readOnly = false
         raw.exec('COMMIT');
         return result;
       } catch (error) {
-        if (raw.isTransaction) {
-          raw.exec('ROLLBACK');
+        if (raw.isTransaction !== false) {
+          try {
+            raw.exec('ROLLBACK');
+          } catch {
+            // SQLite already rolled the transaction back.
+          }
         }
         throw error;
       } finally {

@@ -123,8 +123,13 @@ function createApp({
     app.use(requireHttps);
   }
 
-  app.get('/health', (_req, res) => {
-    res.json({ ok: true });
+  app.get('/health', async (_req, res) => {
+    const healthy = await healthCheck().catch(() => false);
+    if (healthy) {
+      res.json({ ok: true, status: 'ok' });
+      return;
+    }
+    res.status(503).json({ ok: false, status: 'unavailable' });
   });
 
   // The image route needs a larger body limit, so it is parsed before the default parser.
@@ -170,9 +175,9 @@ function createApp({
     },
   );
 
-  app.post('/api/v1/auth/logout', (req, res) => {
+  app.post('/api/v1/auth/logout', async (req, res) => {
     try {
-      logoutToken(getBearerToken(req));
+      await logoutToken(getBearerToken(req));
       res.json({ ok: true });
     } catch (error) {
       handleError(res, error);
@@ -183,14 +188,14 @@ function createApp({
     res.json({ user: req.user });
   });
 
-  app.post('/api/v1/scans', requireAuth, (req, res) => {
+  app.post('/api/v1/scans', requireAuth, async (req, res) => {
     try {
       const input = validateScanInput(req.body);
       if (!input.ok) {
         badRequest(res, input.message);
         return;
       }
-      const result = saveScanRecord({
+      const result = await saveScanRecord({
         userId: Number(req.user.id),
         ...input.value,
       });
@@ -200,15 +205,19 @@ function createApp({
     }
   });
 
-  app.get('/api/v1/scans', requireAuth, (req, res) => {
-    const scans = getScanRecordsForUser(Number(req.user.id)).map(row => ({
-      id: row.id,
-      dosha: row.dosha,
-      confidence: row.confidence,
-      imageReference: row.image_reference,
-      createdAt: row.created_at,
-    }));
-    res.json({ scans });
+  app.get('/api/v1/scans', requireAuth, async (req, res) => {
+    try {
+      const scans = (await getScanRecordsForUser(Number(req.user.id))).map(row => ({
+        id: row.id,
+        dosha: row.dosha,
+        confidence: row.confidence,
+        imageReference: row.image_reference,
+        createdAt: row.created_at,
+      }));
+      res.json({ scans });
+    } catch (error) {
+      handleError(res, error);
+    }
   });
 
   app.post('/api/v1/skin-issue', requireAuth, limiters.ai, async (req, res) => {
@@ -287,17 +296,38 @@ function createApp({
 const app = createApp();
 
 async function start() {
-  initDb();
+  const config = loadConfig();
+  for (const warning of checkStartupConfig(config)) {
+    console.warn(`Warning: ${warning}`);
+  }
+  const databaseConfig = loadDatabaseConfig();
+  await connectDatabase(databaseConfig);
+  console.log(`Connected to ${describeDatabaseConfig(databaseConfig)}`);
   await seedDevUserIfRequested();
-  app.listen(PORT, '0.0.0.0', () => {
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`HerbalClinic API listening on port ${PORT}`);
   });
+
+  const shutdown = signal => {
+    console.log(`${signal} received, shutting down`);
+    server.close(() => {
+      closeDb()
+        .catch(() => {})
+        .finally(() => process.exit(0));
+    });
+  };
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  return server;
 }
 
 if (require.main === module) {
   start().catch(error => {
     console.error('Failed to start API');
-    console.error(error.message);
+    // Driver errors carry a code and can name the host or user; configuration errors
+    // raised by this app are plain messages that never include secrets.
+    console.error(error.code ? `Database connection failed (${error.code})` : error.message);
     process.exit(1);
   });
 }
