@@ -20,13 +20,16 @@ import { useAuth } from '../../context/AuthContext';
 import { validateEmail, validatePassword } from '../../constants/passwordPolicy';
 import FormField from '../../components/FormField';
 import HerbalButton from '../../components/HerbalButton';
+import LanguageSelector from '../../components/LanguageSelector';
 import { useTopInset } from '../../components/ScreenHeader';
+import { useLanguage } from '../../i18n';
+import { UserMessage } from '../../utils/userMessages';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 };
 
-type FieldErrors = { email?: string; password?: string };
+type FieldErrors = { email?: UserMessage; password?: UserMessage };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -37,7 +40,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const submittingRef = useRef(false);
   const passwordRef = useRef<TextInput>(null);
   const { login, error, clearError, loading, sessionUnverified, retrySession } = useAuth();
+  const { t } = useLanguage();
   const topInset = useTopInset();
+
+  const fieldError = (message?: UserMessage) => (message ? t(message.key, message.params) : undefined);
 
   const handleRetrySession = async () => {
     setRetrying(true);
@@ -57,15 +63,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     const nextErrors: FieldErrors = {};
     const emailResult = validateEmail(email);
     if (!email.trim()) {
-      nextErrors.email = 'Please enter your email address.';
+      nextErrors.email = { key: 'validation.emailRequired' };
     } else if (!emailResult.ok) {
-      nextErrors.email = emailResult.message;
+      nextErrors.email = emailResult;
     }
     const passwordResult = validatePassword(password);
     if (!password) {
-      nextErrors.password = 'Please enter your password.';
+      nextErrors.password = { key: 'validation.passwordRequired' };
     } else if (!passwordResult.ok) {
-      nextErrors.password = passwordResult.message;
+      nextErrors.password = passwordResult;
     }
     setFieldErrors(nextErrors);
     if (nextErrors.email || nextErrors.password || !emailResult.ok || !passwordResult.ok) {
@@ -97,36 +103,35 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
 
+          <LanguageSelector style={styles.language} />
+
           <View style={styles.header}>
             <Text style={styles.emoji}>🌿</Text>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to your HerbalClinic account</Text>
+            <Text style={styles.title}>{t('auth.login.title')}</Text>
+            <Text style={styles.subtitle}>{t('auth.login.subtitle')}</Text>
           </View>
 
           {sessionUnverified ? (
             <View style={styles.sessionCard} accessibilityRole="alert">
-              <Text style={styles.sessionTitle}>Could not reach HerbalClinic</Text>
-              <Text style={styles.sessionText}>
-                Your saved sign-in was kept. Check your connection or the local server, then try
-                again.
-              </Text>
+              <Text style={styles.sessionTitle}>{t('auth.unreachableTitle')}</Text>
+              <Text style={styles.sessionText}>{t('auth.unreachableBody')}</Text>
               <TouchableOpacity
                 style={[styles.retryBtn, retrying && styles.retryBtnBusy]}
                 onPress={handleRetrySession}
                 disabled={retrying}
                 accessibilityRole="button"
-                accessibilityLabel="Retry saved session"
+                accessibilityLabel={t('auth.retrySession')}
                 accessibilityState={{ disabled: retrying, busy: retrying }}>
                 {retrying ? <ActivityIndicator size="small" color={Colors.textPrimary} /> : null}
-                <Text style={styles.retryText}>{retrying ? 'Checking…' : 'Retry'}</Text>
+                <Text style={styles.retryText}>{retrying ? t('auth.checking') : t('auth.retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
           <View style={styles.card}>
             <FormField
-              label="Email Address"
-              placeholder="you@example.com"
+              label={t('auth.email')}
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChangeText={value => {
                 setEmail(value);
@@ -134,7 +139,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   setFieldErrors(current => ({ ...current, email: undefined }));
                 }
               }}
-              error={fieldErrors.email}
+              error={fieldError(fieldErrors.email)}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -148,8 +153,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             <FormField
               ref={passwordRef}
-              label="Password"
-              placeholder="Your password"
+              label={t('auth.password')}
+              placeholder={t('auth.passwordPlaceholder')}
               value={password}
               onChangeText={value => {
                 setPassword(value);
@@ -157,7 +162,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   setFieldErrors(current => ({ ...current, password: undefined }));
                 }
               }}
-              error={fieldErrors.password}
+              error={fieldError(fieldErrors.password)}
               passwordToggle
               autoCapitalize="none"
               autoCorrect={false}
@@ -172,13 +177,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               style={styles.forgotBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              onPress={() =>
-                Alert.alert(
-                  'Password reset unavailable',
-                  'This build does not reset passwords. Create a new account from Sign Up, or sign in with the account you already registered.',
-                )
-              }>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
+              onPress={() => Alert.alert(t('auth.forgotTitle'), t('auth.forgotBody'))}>
+              <Text style={styles.forgotText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
 
             {error ? (
@@ -188,16 +188,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             ) : null}
 
             <HerbalButton
-              title="Sign In"
+              title={t('auth.signIn')}
               onPress={handleLogin}
               loading={busy}
-              loadingLabel="Signing in…"
+              loadingLabel={t('auth.signingIn')}
               style={styles.loginBtn}
             />
           </View>
 
           <View style={styles.registerRow}>
-            <Text style={styles.registerText}>Don't have an account? </Text>
+            <Text style={styles.registerText}>{t('auth.noAccount')}</Text>
             <TouchableOpacity
               onPress={() => {
                 clearError();
@@ -206,8 +206,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               disabled={busy}
               hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel="Sign Up">
-              <Text style={styles.registerLink}>Sign Up</Text>
+              accessibilityLabel={t('auth.signUp')}>
+              <Text style={styles.registerLink}>{t('auth.signUp')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -221,16 +221,18 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
+  language: { alignSelf: 'center', marginBottom: Spacing.xl },
   header: { alignItems: 'center', marginBottom: Spacing['2xl'] },
   emoji: { fontSize: 56, marginBottom: Spacing.md },
   title: {
     fontSize: Typography['3xl'],
     fontWeight: '700',
     color: Colors.textPrimary,
-    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: Typography.base,
+    lineHeight: 22,
     color: Colors.textSecondary,
     marginTop: Spacing.xs,
     textAlign: 'center',
@@ -252,7 +254,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   sessionTitle: { fontSize: Typography.base, fontWeight: '700', color: Colors.textPrimary },
-  sessionText: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: Spacing.xs },
+  sessionText: { fontSize: Typography.sm, lineHeight: 20, color: Colors.textSecondary, marginTop: Spacing.xs },
   retryBtn: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -279,7 +281,13 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#ff9a9a', fontSize: Typography.sm, lineHeight: 20 },
   loginBtn: { marginTop: Spacing.xl },
-  registerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.xl },
+  registerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.xl,
+  },
   registerText: { fontSize: Typography.base, color: Colors.textSecondary },
   registerLink: { fontSize: Typography.base, color: Colors.primaryLight, fontWeight: '700' },
 });

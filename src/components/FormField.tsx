@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { BorderRadius, Colors, Spacing, Typography } from '../constants/theme';
+import { useLanguage } from '../i18n';
 
 type Props = TextInputProps & {
   label: string;
@@ -20,6 +21,7 @@ const FormField = forwardRef<TextInput, Props>(
   ({ label, error, passwordToggle = false, style, onFocus, onBlur, secureTextEntry, ...inputProps }, ref) => {
     const [focused, setFocused] = useState(false);
     const [hidden, setHidden] = useState(true);
+    const { t } = useLanguage();
 
     return (
       <View style={styles.field}>
@@ -47,8 +49,8 @@ const FormField = forwardRef<TextInput, Props>(
               onPress={() => setHidden(value => !value)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel={hidden ? 'Show password' : 'Hide password'}>
-              <Text style={styles.toggleText}>{hidden ? 'Show' : 'Hide'}</Text>
+              accessibilityLabel={hidden ? t('auth.showPassword') : t('auth.hidePassword')}>
+              <Text style={styles.toggleText}>{hidden ? t('auth.show') : t('auth.hide')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   toggleText: { color: Colors.primaryLight, fontWeight: '700', fontSize: Typography.sm },
-  error: { color: '#ff9a9a', fontSize: Typography.sm, marginTop: Spacing.xs },
+  error: { color: '#ff9a9a', fontSize: Typography.sm, lineHeight: 20, marginTop: Spacing.xs },
 });
 
 export default FormField;

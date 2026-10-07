@@ -157,31 +157,36 @@ export const saveScan = (
 export const fetchScanHistory = (token: string) =>
   apiRequest<{ scans: ScanRecord[] }>('/api/v1/scans', { token });
 
+/** Response language requested from the AI endpoints; the server accepts only these values. */
+export type GuidanceLanguage = 'en' | 'si';
+
 export const analyseSkinIssueRemote = (
   token: string,
   imageBase64: string,
   mimeType = 'image/jpeg',
+  language: GuidanceLanguage = 'en',
 ) =>
   apiRequest<{ analysis: unknown }>('/api/v1/skin-issue', {
     method: 'POST',
     token,
-    body: { imageBase64, mimeType },
+    body: { imageBase64, mimeType, language },
   });
 
 export const fetchHerbalRecommendations = (
   token: string,
   condition: string,
   dosha?: string,
+  language: GuidanceLanguage = 'en',
 ) =>
   apiRequest<{ herbs: unknown[] }>('/api/v1/herbal-recommendations', {
     method: 'POST',
     token,
-    body: { condition, dosha },
+    body: { condition, dosha, language },
   });
 
-export const fetchDailyTip = (token: string, dosha?: string) =>
+export const fetchDailyTip = (token: string, dosha?: string, language: GuidanceLanguage = 'en') =>
   apiRequest<{ tip: string }>('/api/v1/daily-tip', {
     method: 'POST',
     token,
-    body: { dosha },
+    body: { dosha, language },
   });

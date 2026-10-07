@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { HomeTabParamList } from './types';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import { useLanguage } from '../i18n';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import SkinStackNavigator from './SkinStackNavigator';
@@ -37,6 +38,8 @@ export const tabScreenOptions = {
 };
 
 const MainTabNavigator: React.FC = () => {
+  const { t } = useLanguage();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -48,9 +51,9 @@ const MainTabNavigator: React.FC = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarAccessibilityLabel: 'Home',
+          tabBarAccessibilityLabel: t('tabs.home'),
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🏡" label="Home" focused={focused} />
+            <TabIcon emoji="🏡" label={t('tabs.home')} focused={focused} />
           ),
         }}
       />
@@ -59,9 +62,9 @@ const MainTabNavigator: React.FC = () => {
         name="SkinAnalysis"
         component={SkinStackNavigator}
         options={{
-          tabBarAccessibilityLabel: 'Skin analysis',
+          tabBarAccessibilityLabel: t('tabs.skinA11y'),
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🔬" label="Skin" focused={focused} />
+            <TabIcon emoji="🔬" label={t('tabs.skin')} focused={focused} />
           ),
         }}
       />
@@ -70,9 +73,9 @@ const MainTabNavigator: React.FC = () => {
         name="HerbalTreatment"
         component={HerbalTreatmentScreen}
         options={{
-          tabBarAccessibilityLabel: 'Herb Library',
+          tabBarAccessibilityLabel: t('feature.herbal.title'),
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🌿" label="Herbal" focused={focused} />
+            <TabIcon emoji="🌿" label={t('tabs.herbal')} focused={focused} />
           ),
         }}
       />
@@ -81,9 +84,9 @@ const MainTabNavigator: React.FC = () => {
         name="Meditation"
         component={MeditationScreen}
         options={{
-          tabBarAccessibilityLabel: 'Meditation',
+          tabBarAccessibilityLabel: t('feature.meditation.title'),
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🧘" label="Meditate" focused={focused} />
+            <TabIcon emoji="🧘" label={t('tabs.meditate')} focused={focused} />
           ),
         }}
       />
@@ -92,9 +95,9 @@ const MainTabNavigator: React.FC = () => {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarAccessibilityLabel: 'Profile',
+          tabBarAccessibilityLabel: t('tabs.profile'),
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="👤" label="Profile" focused={focused} />
+            <TabIcon emoji="👤" label={t('tabs.profile')} focused={focused} />
           ),
         }}
       />
@@ -108,7 +111,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.cardBorder,
-    height: Platform.OS === 'ios' ? 90 : 70,
+    height: Platform.OS === 'ios' ? 92 : 74,
     paddingBottom: Platform.OS === 'ios' ? 20 : 8,
     paddingTop: Spacing.sm,
     paddingHorizontal: Spacing.xs,
@@ -119,7 +122,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
-    minWidth: 68,
+    minWidth: 66,
   },
   tabIconActive: {
     backgroundColor: Colors.primaryDark,
@@ -132,7 +135,8 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 16,
     color: Colors.textSecondary,
     marginTop: 2,
     fontWeight: '500',

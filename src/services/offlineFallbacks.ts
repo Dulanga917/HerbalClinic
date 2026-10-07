@@ -1,7 +1,9 @@
 import { DOSHAS, HERBS, SKIN_ISSUES } from '../constants/ayurveda';
 import { API_UNREACHABLE, GEMINI_UNAVAILABLE } from './apiClient';
 import type { OfflineSkinGuidance } from '../utils/skinGuidance';
-import { herbDisplayName } from '../utils/herbLibrary';
+import { herbDisplayName, localizeDosha, localizeHerb } from '../i18n/content';
+import { translate } from '../i18n/translate';
+import type { Language } from '../i18n/types';
 
 type HerbRecommendation = {
   name: string;
@@ -10,64 +12,78 @@ type HerbRecommendation = {
   usage: string;
 };
 
-const herbToRecommendation = (herb: (typeof HERBS)[keyof typeof HERBS]): HerbRecommendation => ({
-  name: herbDisplayName(herb),
-  emoji: herb.emoji,
-  benefit: herb.benefits[0] || herb.description,
-  usage: herb.usage,
-});
+const herbToRecommendation = (
+  herb: (typeof HERBS)[keyof typeof HERBS],
+  language: Language,
+): HerbRecommendation => {
+  const localized = localizeHerb(herb, language);
+  return {
+    name: herbDisplayName(herb, language),
+    emoji: herb.emoji,
+    benefit: localized.benefits[0] || localized.description,
+    usage: localized.usage,
+  };
+};
 
-const herbsForCondition = (condition: string, dosha?: string): HerbRecommendation[] => {
+const herbsForCondition = (
+  condition: string,
+  dosha: string | undefined,
+  language: Language,
+): HerbRecommendation[] => {
   const needle = condition.toLowerCase();
   const issue = Object.values(SKIN_ISSUES).find(
     item => item.id === needle || item.name.toLowerCase().includes(needle) || needle.includes(item.id),
   );
+  const toRecommendation = (herb: (typeof HERBS)[keyof typeof HERBS]) =>
+    herbToRecommendation(herb, language);
 
   if (issue) {
     return issue.herbs
       .map(id => HERBS[id as keyof typeof HERBS])
       .filter(Boolean)
-      .map(herbToRecommendation);
+      .map(toRecommendation);
   }
 
   const doshaKey = String(dosha || '').toLowerCase().split('-')[0];
   const matched = Object.values(HERBS).filter(herb =>
     doshaKey ? herb.doshas.includes(doshaKey) : true,
   );
-  return (matched.length ? matched : Object.values(HERBS)).slice(0, 5).map(herbToRecommendation);
+  return (matched.length ? matched : Object.values(HERBS)).slice(0, 5).map(toRecommendation);
 };
 
-export const offlineSkinGuidance = (): OfflineSkinGuidance => ({
+export const offlineSkinGuidance = (language: Language = 'en'): OfflineSkinGuidance => ({
   kind: 'offline',
-  summary:
-    'AI guidance is unavailable right now, so your photo was not analysed. The tips below are general Ayurvedic skincare guidance and are the same for everyone.',
+  summary: translate(language, 'offline.skin.summary'),
   tips: [
-    'Use a gentle cleanser and lukewarm water; avoid harsh scrubs.',
-    'Protect your skin from strong sun and stay well hydrated.',
-    DOSHAS.vata.lifestyle[0],
-    DOSHAS.pitta.lifestyle[0],
-    DOSHAS.kapha.lifestyle[0],
+    translate(language, 'offline.skin.cleanser'),
+    translate(language, 'offline.skin.sun'),
+    localizeDosha(DOSHAS.vata, language).lifestyle[0],
+    localizeDosha(DOSHAS.pitta, language).lifestyle[0],
+    localizeDosha(DOSHAS.kapha, language).lifestyle[0],
   ],
-  herbs: [HERBS.aloeVera, HERBS.turmeric, HERBS.neem].map(herbToRecommendation),
+  herbs: [HERBS.aloeVera, HERBS.turmeric, HERBS.neem].map(herb =>
+    herbToRecommendation(herb, language),
+  ),
 });
 
 export const offlineHerbalRecommendations = (
   condition: string,
   dosha?: string,
-): HerbRecommendation[] => herbsForCondition(condition, dosha);
+  language: Language = 'en',
+): HerbRecommendation[] => herbsForCondition(condition, dosha, language);
 
-export const offlineDailyTip = (dosha?: string): string => {
+export const offlineDailyTip = (dosha?: string, language: Language = 'en'): string => {
   const key = String(dosha || '').toLowerCase().split('-')[0];
   if (key === 'vata') {
-    return `${DOSHAS.vata.lifestyle[2]}. Sip warm water and choose ${DOSHAS.vata.diet[0].toLowerCase()}.`;
+    return translate(language, 'offline.tip.vata');
   }
   if (key === 'pitta') {
-    return `${DOSHAS.pitta.lifestyle[2]}. Favor ${DOSHAS.pitta.diet[0].toLowerCase()} and avoid excess heat.`;
+    return translate(language, 'offline.tip.pitta');
   }
   if (key === 'kapha') {
-    return `${DOSHAS.kapha.lifestyle[0]}. Keep meals light and warm.`;
+    return translate(language, 'offline.tip.kapha');
   }
-  return 'Start the day with warm water and a simple herbal routine. This tip is local guidance, not a Gemini response.';
+  return translate(language, 'offline.tip.general');
 };
 
 export const isGeminiUnavailable = (error: unknown): boolean => {

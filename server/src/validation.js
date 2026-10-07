@@ -93,6 +93,19 @@ function validateScanInput(body) {
   return { ok: true, value: { dosha: dosha.value, confidence, imageReference } };
 }
 
+const ALLOWED_LANGUAGES = ['en', 'si'];
+
+// Optional guidance language; older clients that do not send it get English.
+function validateLanguage(value) {
+  if (value === undefined || value === null || value === '') {
+    return { ok: true, value: 'en' };
+  }
+  if (typeof value !== 'string' || !ALLOWED_LANGUAGES.includes(value)) {
+    return fail(`Language must be one of: ${ALLOWED_LANGUAGES.join(', ')}.`);
+  }
+  return { ok: true, value };
+}
+
 function validateImageUpload(body) {
   if (!isPlainObject(body)) {
     return fail('A JSON object is required.');
@@ -126,7 +139,12 @@ function validateImageUpload(body) {
     return fail('Only JPEG, PNG, or WebP photos are supported.');
   }
 
-  return { ok: true, value: { imageBase64, mimeType: detected.mime } };
+  const language = validateLanguage(body.language);
+  if (!language.ok) {
+    return language;
+  }
+
+  return { ok: true, value: { imageBase64, mimeType: detected.mime, language: language.value } };
 }
 
 function validateRecommendationInput(body) {
@@ -150,12 +168,17 @@ function validateRecommendationInput(body) {
     return dosha;
   }
 
-  return { ok: true, value: { condition: trimmed, dosha: dosha.value } };
+  const language = validateLanguage(body.language);
+  if (!language.ok) {
+    return language;
+  }
+
+  return { ok: true, value: { condition: trimmed, dosha: dosha.value, language: language.value } };
 }
 
 function validateDailyTipInput(body) {
   if (body === undefined || body === null) {
-    return { ok: true, value: { dosha: null } };
+    return { ok: true, value: { dosha: null, language: 'en' } };
   }
   if (!isPlainObject(body)) {
     return fail('A JSON object is required.');
@@ -164,13 +187,19 @@ function validateDailyTipInput(body) {
   if (!dosha.ok) {
     return dosha;
   }
-  return { ok: true, value: { dosha: dosha.value } };
+  const language = validateLanguage(body.language);
+  if (!language.ok) {
+    return language;
+  }
+  return { ok: true, value: { dosha: dosha.value, language: language.value } };
 }
 
 module.exports = {
   ALLOWED_DOSHAS,
   ALLOWED_IMAGE_MIME_TYPES,
+  ALLOWED_LANGUAGES,
   MAX_IMAGE_BYTES,
+  validateLanguage,
   validateScanInput,
   validateImageUpload,
   validateRecommendationInput,

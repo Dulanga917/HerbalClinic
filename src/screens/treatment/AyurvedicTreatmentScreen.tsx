@@ -10,12 +10,8 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import ScreenHeader from '../../components/ScreenHeader';
-import {
-  AnswerValue,
-  QUESTIONNAIRE_COPY,
-  QUESTIONNAIRE_QUESTIONS,
-  QuestionnaireLang,
-} from '../../constants/questionnaire';
+import LanguageSelector from '../../components/LanguageSelector';
+import { AnswerValue, QUESTIONNAIRE_QUESTIONS } from '../../constants/questionnaire';
 import { MainStackParamList } from '../../navigation/types';
 import {
   QuestionnaireAnswers,
@@ -29,11 +25,13 @@ import {
   localize,
 } from '../../utils/questionnaireLogic';
 import { herbDisplayName } from '../../utils/herbLibrary';
+import { useLanguage } from '../../i18n';
+import { doshaName } from '../../i18n/content';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AyurvedicTreatment'>;
 
 const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
-  const [lang, setLang] = useState<QuestionnaireLang>('en');
+  const { language: lang, t } = useLanguage();
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [completed, setCompleted] = useState(false);
@@ -46,10 +44,8 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
   const question = getQuestionAt(index);
   const total = QUESTIONNAIRE_QUESTIONS.length;
   const categories = useMemo(() => categoryLabels(lang), [lang]);
-  const result = completed ? buildQuestionnaireResult(answers) : null;
+  const result = completed ? buildQuestionnaireResult(answers, lang) : null;
   const nextEnabled = canAdvance(question, answers);
-
-  const t = (key: keyof typeof QUESTIONNAIRE_COPY) => localize(QUESTIONNAIRE_COPY[key], lang);
 
   const selectAnswer = (value: AnswerValue) => {
     if (!question) {
@@ -91,33 +87,11 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <ScreenHeader
         variant="compact"
-        eyebrow={t('brand')}
-        title={t('title')}
-        subtitle={t('intro')}
+        eyebrow={t('common.appName')}
+        title={t('questionnaire.title')}
+        subtitle={t('questionnaire.intro')}
         onBack={() => navigation.goBack()}
-        backLabel={t('back')}
-        right={
-          <View style={styles.langToggle}>
-            <TouchableOpacity
-              style={[styles.langBtn, lang === 'en' && styles.langBtnActive]}
-              onPress={() => setLang('en')}
-              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-              accessibilityRole="button"
-              accessibilityLabel="Switch to English"
-              accessibilityState={{ selected: lang === 'en' }}>
-              <Text style={[styles.langText, lang === 'en' && styles.langTextActive]}>EN</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.langBtn, lang === 'si' && styles.langBtnActive]}
-              onPress={() => setLang('si')}
-              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-              accessibilityRole="button"
-              accessibilityLabel="Switch to Sinhala"
-              accessibilityState={{ selected: lang === 'si' }}>
-              <Text style={[styles.langText, lang === 'si' && styles.langTextActive]}>සිංහල</Text>
-            </TouchableOpacity>
-          </View>
-        }
+        right={<LanguageSelector compact />}
       />
 
       <ScrollView ref={scrollRef} style={styles.body} showsVerticalScrollIndicator={false}>
@@ -147,46 +121,43 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
 
         {completed && result ? (
           <View style={styles.card}>
-            <Text style={styles.progress}>{t('resultTitle')}</Text>
-            <Text style={styles.notModel}>{t('resultNotModel')}</Text>
+            <Text style={styles.progress}>{t('questionnaire.resultTitle')}</Text>
+            <Text style={styles.notModel}>{t('questionnaire.resultNotModel')}</Text>
             <Text style={styles.prompt}>
               {result.tendency
-                ? localize(QUESTIONNAIRE_COPY.tendency, lang).replace(
-                    '{dosha}',
-                    result.tendency.charAt(0).toUpperCase() + result.tendency.slice(1),
-                  )
-                : t('noTendency')}
+                ? t('questionnaire.tendency', { dosha: doshaName(result.tendency, lang) })
+                : t('questionnaire.noTendency')}
             </Text>
             {result.guidance ? (
               <>
-                <Text style={styles.sectionTitle}>{t('skincare')}</Text>
+                <Text style={styles.sectionTitle}>{t('questionnaire.skincare')}</Text>
                 {result.guidance.skincare.map(item => (
                   <Text key={item} style={styles.bullet}>
                     • {item}
                   </Text>
                 ))}
-                <Text style={styles.sectionTitle}>{t('herbs')}</Text>
+                <Text style={styles.sectionTitle}>{t('questionnaire.herbs')}</Text>
                 {result.guidance.herbs.map(herb => (
                   <Text key={herb.id} style={styles.bullet}>
-                    {herb.emoji} {herbDisplayName(herb)} — {herb.benefits[0]}
+                    {herb.emoji} {herbDisplayName(herb, lang)} — {herb.benefits[0]}
                   </Text>
                 ))}
-                <Text style={styles.sectionTitle}>{t('lifestyle')}</Text>
+                <Text style={styles.sectionTitle}>{t('questionnaire.lifestyle')}</Text>
                 {result.guidance.lifestyle.map(item => (
                   <Text key={item} style={styles.bullet}>
                     • {item}
                   </Text>
                 ))}
-                <Text style={styles.sectionTitle}>{t('meditation')}</Text>
+                <Text style={styles.sectionTitle}>{t('questionnaire.meditation')}</Text>
                 <Text style={styles.bullet}>
                   {result.guidance.meditation?.title} — {result.guidance.meditation?.subtitle}
                 </Text>
               </>
             ) : (
               <>
-                <Text style={styles.sectionTitle}>{t('lifestyle')}</Text>
-                <Text style={styles.bullet}>• {t('generalLifestyleOne')}</Text>
-                <Text style={styles.bullet}>• {t('generalLifestyleTwo')}</Text>
+                <Text style={styles.sectionTitle}>{t('questionnaire.lifestyle')}</Text>
+                <Text style={styles.bullet}>• {t('questionnaire.generalLifestyleOne')}</Text>
+                <Text style={styles.bullet}>• {t('questionnaire.generalLifestyleTwo')}</Text>
               </>
             )}
           </View>
@@ -196,7 +167,7 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${((index + 1) / total) * 100}%` }]} />
             </View>
-            {question.optional ? <Text style={styles.optional}>{t('optional')}</Text> : null}
+            {question.optional ? <Text style={styles.optional}>{t('questionnaire.optional')}</Text> : null}
             <Text style={styles.prompt}>{localize(question.prompt, lang)}</Text>
             {question.options.map(option => {
               const selected = answers[question.id] === option.value;
@@ -226,8 +197,8 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.navBtn}
             onPress={goPrevious}
             accessibilityRole="button"
-            accessibilityLabel={t('previous')}>
-            <Text style={styles.navText}>{t('previous')}</Text>
+            accessibilityLabel={t('questionnaire.previous')}>
+            <Text style={styles.navText}>{t('questionnaire.previous')}</Text>
           </TouchableOpacity>
           {!completed ? (
             <TouchableOpacity
@@ -235,9 +206,11 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
               onPress={goNext}
               disabled={!nextEnabled}
               accessibilityRole="button"
-              accessibilityLabel={index >= total - 1 ? t('finish') : t('next')}
+              accessibilityLabel={t(index >= total - 1 ? 'questionnaire.finish' : 'questionnaire.next')}
               accessibilityState={{ disabled: !nextEnabled }}>
-              <Text style={styles.navTextPrimary}>{index >= total - 1 ? t('finish') : t('next')}</Text>
+              <Text style={styles.navTextPrimary}>
+                {t(index >= total - 1 ? 'questionnaire.finish' : 'questionnaire.next')}
+              </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -248,13 +221,13 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
                 setAnswers({});
               }}
               accessibilityRole="button"
-              accessibilityLabel={t('restart')}>
-              <Text style={styles.navTextPrimary}>{t('restart')}</Text>
+              accessibilityLabel={t('questionnaire.restart')}>
+              <Text style={styles.navTextPrimary}>{t('questionnaire.restart')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <Text style={styles.disclaimer}>{t('disclaimer')}</Text>
+        <Text style={styles.disclaimer}>{t('questionnaire.disclaimer')}</Text>
         <View style={styles.bottomPad} />
       </ScrollView>
     </View>
@@ -263,19 +236,6 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  langToggle: { flexDirection: 'row', gap: 6 },
-  langBtn: {
-    minHeight: 34,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(240,244,241,0.35)',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-  },
-  langBtnActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryLight },
-  langText: { color: 'rgba(240,244,241,0.85)', fontWeight: '700', fontSize: Typography.sm },
-  langTextActive: { color: Colors.primaryLight },
   body: { flex: 1, padding: Spacing.xl },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.base },
   categoryChip: {
@@ -310,8 +270,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
   },
   progress: { color: Colors.primaryLight, fontWeight: '700', marginBottom: Spacing.sm },
-  optional: { color: Colors.accent, fontSize: Typography.xs, marginBottom: Spacing.sm },
-  prompt: { color: Colors.textPrimary, fontSize: Typography.lg, fontWeight: '700', marginBottom: Spacing.base },
+  optional: { color: Colors.accent, fontSize: Typography.xs, lineHeight: 17, marginBottom: Spacing.sm },
+  prompt: {
+    color: Colors.textPrimary,
+    fontSize: Typography.lg,
+    lineHeight: 26,
+    fontWeight: '700',
+    marginBottom: Spacing.base,
+  },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,8 +328,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.primaryLight,
   },
   navBtnDisabled: { opacity: 0.4 },
-  navText: { color: Colors.textSecondary, fontWeight: '700' },
-  navTextPrimary: { color: Colors.textPrimary, fontWeight: '700' },
+  navText: { color: Colors.textSecondary, fontWeight: '700', textAlign: 'center' },
+  navTextPrimary: { color: Colors.textPrimary, fontWeight: '700', textAlign: 'center' },
   disclaimer: {
     color: Colors.textMuted,
     fontSize: Typography.xs,
@@ -372,7 +338,7 @@ const styles = StyleSheet.create({
   },
   notModel: { color: Colors.accent, fontSize: Typography.sm, lineHeight: 20, marginBottom: Spacing.md },
   sectionTitle: { color: Colors.primaryLight, fontWeight: '700', marginTop: Spacing.md, marginBottom: Spacing.xs },
-  bullet: { color: Colors.textSecondary, lineHeight: 20, marginBottom: 4 },
+  bullet: { color: Colors.textSecondary, lineHeight: 22, marginBottom: 4 },
   bottomPad: { height: Spacing['3xl'] },
 });
 

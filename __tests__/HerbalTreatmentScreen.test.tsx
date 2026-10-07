@@ -8,6 +8,7 @@ import { Modal, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { expect, it, jest } from '@jest/globals';
 import renderer, { act, ReactTestInstance } from 'react-test-renderer';
 import HerbalTreatmentScreen from '../src/screens/herbal/HerbalTreatmentScreen';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage } from '../src/i18n';
 
 const mockGetHerbalRecommendations = jest.fn(async () => ({
   offline: true,
@@ -45,13 +46,17 @@ const hasAncestor = (node: ReactTestInstance, type: unknown) => {
   return false;
 };
 
-it('shows Sinhala common names on herb cards and in the detail modal without Devanagari', async () => {
+const textsOf = (node: ReactTestInstance) =>
+  node.findAllByType(Text).map(item => item.props.children).flat(Infinity).map(String);
+
+it('shows English herb names in English mode, with the Sinhala name in the detail modal', async () => {
   let root!: renderer.ReactTestRenderer;
   await act(async () => {
     root = renderer.create(<HerbalTreatmentScreen />);
   });
-  const texts = () => root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity);
-  expect(texts()).toContain('Turmeric (කහ)');
+  const texts = () => textsOf(root.root);
+  expect(texts()).toContain('Turmeric');
+  expect(texts()).not.toContain('Turmeric (කහ)');
   expect(texts()).toContain('Jojoba Oil');
 
   const card = root.root
@@ -60,11 +65,44 @@ it('shows Sinhala common names on herb cards and in the detail modal without Dev
   act(() => card.props.onPress());
   const detail = root.root.findAllByType(Modal)[0];
   expect(detail.props.visible).toBe(true);
-  const detailTexts = detail.findAllByType(Text).map(node => node.props.children).flat(Infinity);
-  expect(detailTexts).toContain('Turmeric (කහ)');
-  expect(detailTexts).toContain('Curcuma longa');
+  const detailTexts = textsOf(detail);
+  expect(detailTexts).toContain('Turmeric');
+  expect(detailTexts.join(' ')).toContain('කහ');
+  expect(detailTexts.join(' ')).toContain('Curcuma longa');
   expect(texts().join(' ')).not.toMatch(/[\u0900-\u097F]/);
   act(() => root.unmount());
+});
+
+it('shows the Herb Library in Sinhala with Sinhala herb names and keeps botanical names', async () => {
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={createMemoryLanguageStorage('si')}>
+        <HerbalTreatmentScreen />
+      </LanguageProvider>,
+    );
+  });
+  const texts = () => textsOf(root.root);
+  expect(texts()).toContain('කහ');
+  expect(texts()).not.toContain('Turmeric');
+  expect(texts()).toContain('Jojoba Oil');
+  expect(texts()).toContain('ජනප්‍රිය ඔසු');
+  expect(
+    root.root.findAllByProps({ placeholder: 'ඔසු, ගුණාංග හෝ භාවිත සොයන්න' }).length,
+  ).toBeGreaterThan(0);
+
+  const card = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'කහ විස්තර විවෘත කරන්න')!;
+  act(() => card.props.onPress());
+  const detailTexts = textsOf(root.root.findAllByType(Modal)[0]);
+  expect(detailTexts).toContain('කහ');
+  expect(detailTexts.join(' ')).toContain('Turmeric');
+  expect(detailTexts.join(' ')).toContain('Curcuma longa');
+  expect(detailTexts).toContain('භාවිතා කරන ආකාරය');
+
+  act(() => root.unmount());
+  setCurrentLanguage('en');
 });
 
 it('pins the herbal plan Close control outside the scrolling plan content', async () => {
@@ -80,7 +118,7 @@ it('pins the herbal plan Close control outside the scrolling plan content', asyn
   await act(async () => {
     await open.props.onPress();
   });
-  expect(mockGetHerbalRecommendations).toHaveBeenCalledWith('Vata dosha skin wellness', 'Vata');
+  expect(mockGetHerbalRecommendations).toHaveBeenCalledWith('Vata dosha skin wellness', 'Vata', 'en');
 
   const modal = planModal(root);
   expect(modal.props.visible).toBe(true);

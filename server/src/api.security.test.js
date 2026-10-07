@@ -46,12 +46,12 @@ function makeGeminiStub() {
         disclaimer: 'model-written disclaimer',
       };
     },
-    getHerbalRecommendations: async (condition, dosha) => {
-      calls.push(['getHerbalRecommendations', condition, dosha]);
+    getHerbalRecommendations: async (condition, dosha, language) => {
+      calls.push(['getHerbalRecommendations', condition, dosha, language]);
       return [];
     },
-    getDailyTip: async dosha => {
-      calls.push(['getDailyTip', dosha]);
+    getDailyTip: async (dosha, language) => {
+      calls.push(['getDailyTip', dosha, language]);
       return 'Drink warm water.';
     },
   };
@@ -536,7 +536,7 @@ test('herbal-recommendations and daily-tip validate input', async () => {
       body: { condition: ' Acne (mild) ', dosha: 'Pitta' },
     });
     assert.equal(ok.status, 200);
-    assert.deepEqual(api.gemini.calls[0], ['getHerbalRecommendations', 'Acne (mild)', 'Pitta']);
+    assert.deepEqual(api.gemini.calls[0], ['getHerbalRecommendations', 'Acne (mild)', 'Pitta', 'en']);
 
     const badTip = await api.request('POST', '/api/v1/daily-tip', {
       token,
@@ -547,6 +547,60 @@ test('herbal-recommendations and daily-tip validate input', async () => {
     assert.equal(tip.status, 200);
     const noBody = await api.request('POST', '/api/v1/daily-tip', { token });
     assert.equal(noBody.status, 200);
+  } finally {
+    await api.close();
+  }
+});
+
+test('Gemini endpoints accept an optional en/si guidance language and reject anything else', async () => {
+  const api = await start({ rateLimits: { ai: { limit: 100 } } });
+  try {
+    const { token } = await newSession();
+    const image = JPEG_BYTES.toString('base64');
+
+    for (const language of ['fr', 'EN', 'sinhala', 5, ['si'], { si: true }]) {
+      const responses = await Promise.all([
+        api.request('POST', '/api/v1/skin-issue', { token, body: { imageBase64: image, language } }),
+        api.request('POST', '/api/v1/herbal-recommendations', {
+          token,
+          body: { condition: 'Acne', language },
+        }),
+        api.request('POST', '/api/v1/daily-tip', { token, body: { language } }),
+      ]);
+      for (const res of responses) {
+        assert.equal(res.status, 400, `expected 400 for language ${JSON.stringify(language)}`);
+        assert.equal(res.json.error, 'Language must be one of: en, si.');
+      }
+    }
+    assert.equal(api.gemini.calls.length, 0, 'Gemini must not be called for an invalid language');
+
+    const skin = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: image, language: 'si' },
+    });
+    assert.equal(skin.status, 200);
+    assert.equal(api.gemini.calls[0][1].language, 'si');
+    assert.equal(skin.json.analysis.severity, undefined);
+    assert.equal(skin.json.analysis.confidence, undefined);
+
+    const herbs = await api.request('POST', '/api/v1/herbal-recommendations', {
+      token,
+      body: { condition: 'Acne', dosha: 'Vata', language: 'si' },
+    });
+    assert.equal(herbs.status, 200);
+    assert.deepEqual(api.gemini.calls[1], ['getHerbalRecommendations', 'Acne', 'Vata', 'si']);
+
+    const tip = await api.request('POST', '/api/v1/daily-tip', { token, body: { language: 'si' } });
+    assert.equal(tip.status, 200);
+    assert.deepEqual(api.gemini.calls[2], ['getDailyTip', null, 'si']);
+
+    const legacy = await api.request('POST', '/api/v1/skin-issue', { token, body: { imageBase64: image } });
+    assert.equal(legacy.status, 200);
+    assert.equal(api.gemini.calls[3][1].language, 'en', 'clients that send no language get English');
+
+    const noBody = await api.request('POST', '/api/v1/daily-tip', { token });
+    assert.equal(noBody.status, 200);
+    assert.deepEqual(api.gemini.calls[4], ['getDailyTip', null, 'en']);
   } finally {
     await api.close();
   }

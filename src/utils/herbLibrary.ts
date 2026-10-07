@@ -1,14 +1,14 @@
 import { HERBS } from '../constants/ayurveda';
+import { localizeHerb } from '../i18n/content';
+
+export { herbAlternateName, herbDisplayName } from '../i18n/content';
 
 export type HerbRecord = (typeof HERBS)[keyof typeof HERBS];
 export type HerbDoshaFilter = 'all' | 'vata' | 'pitta' | 'kapha';
 
 export const listHerbs = (): HerbRecord[] => Object.values(HERBS);
 
-/** English name with the Sinhala common name in parentheses, e.g. "Turmeric (කහ)". */
-export const herbDisplayName = (herb: Pick<HerbRecord, 'name' | 'sinhala'>): string =>
-  herb.sinhala ? `${herb.name} (${herb.sinhala})` : herb.name;
-
+/** Matches English and Sinhala names and text, whichever language the app is showing. */
 export const filterHerbs = (
   herbs: readonly HerbRecord[],
   query: string,
@@ -25,6 +25,7 @@ export const filterHerbs = (
       return true;
     }
 
+    const sinhala = localizeHerb(herb, 'si');
     const haystack = [
       herb.name,
       herb.sinhala ?? '',
@@ -32,6 +33,8 @@ export const filterHerbs = (
       herb.description,
       ...herb.benefits,
       ...herb.skinIssues,
+      sinhala.description,
+      ...sinhala.benefits,
     ]
       .join(' ')
       .toLowerCase();

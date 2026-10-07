@@ -10,6 +10,7 @@ import renderer, { act } from 'react-test-renderer';
 import AyurvedicHospitalsScreen from '../src/screens/hospitals/AyurvedicHospitalsScreen';
 import { AYURVEDIC_HOSPITALS } from '../src/constants/ayurvedicHospitals';
 import { Colors } from '../src/constants/theme';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
 
 const flatten = (root: renderer.ReactTestRenderer) =>
   root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity).map(String);
@@ -51,6 +52,36 @@ it('renders the hospital list with type badges, map buttons and the source note'
   expect(root.root.findByType(TextInput).props.placeholder).toBe('Search hospitals or locations');
 
   act(() => root.unmount());
+});
+
+it('shows the hospital UI in Sinhala while keeping official hospital names and addresses', async () => {
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={createMemoryLanguageStorage('si')}>
+        <AyurvedicHospitalsScreen
+          navigation={{ goBack: jest.fn(), navigate: jest.fn() } as never}
+          route={{ key: 'h', name: 'AyurvedicHospitals' } as never}
+        />
+      </LanguageProvider>,
+    );
+  });
+  const labels = flatten(root);
+  expect(labels).toContain('ආයුර්වේද රෝහල්');
+  expect(labels).toContain(translate('si', 'hospitals.subtitle'));
+  expect(labels.filter(item => item === 'සිතියමෙන් බලන්න')).toHaveLength(AYURVEDIC_HOSPITALS.length);
+  expect(labels).toContain('National Ayurvedic Teaching Hospital');
+  expect(labels).toContain('No. 325, Dr. N. M. Perera Mawatha, Colombo 08');
+  expect(labels.some(item => item.includes('කොළඹ දිස්ත්‍රික්කය'))).toBe(true);
+  expect(labels).not.toContain('View on Map');
+  expect(root.root.findByType(TextInput).props.placeholder).toBe(translate('si', 'hospitals.searchPlaceholder'));
+
+  act(() => {
+    root.root.findByType(TextInput).props.onChangeText('zzz');
+  });
+  expect(flatten(root)).toContain(translate('si', 'hospitals.empty'));
+  act(() => root.unmount());
+  setCurrentLanguage('en');
 });
 
 it('filters the list by search text and by type', async () => {

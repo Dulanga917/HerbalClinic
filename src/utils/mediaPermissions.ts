@@ -6,28 +6,30 @@ import {
   check,
   request,
 } from 'react-native-permissions';
+import { TranslationKey, translateCurrent } from '../i18n/translate';
 
 export type MediaPermissionResult = 'granted' | 'denied' | 'blocked';
 
 const openAppSettings = () => {
   Linking.openSettings().catch(() => {
     Alert.alert(
-      'Permission required',
-      'Open the system settings app and allow Camera or Photos for HerbalClinic.',
+      translateCurrent('permission.requiredTitle'),
+      translateCurrent('permission.openSettingsFailed'),
     );
   });
 };
 
 const showDeniedAlert = (message: string, blocked: boolean) => {
+  const title = translateCurrent('permission.neededTitle');
   if (blocked) {
-    Alert.alert('Permission needed', message, [
-      { text: 'Not now', style: 'cancel' },
-      { text: 'Open Settings', onPress: openAppSettings },
+    Alert.alert(title, message, [
+      { text: translateCurrent('permission.notNow'), style: 'cancel' },
+      { text: translateCurrent('permission.openSettings'), onPress: openAppSettings },
     ]);
     return;
   }
 
-  Alert.alert('Permission needed', message);
+  Alert.alert(title, message);
 };
 
 const toResult = (status: string): MediaPermissionResult => {
@@ -42,7 +44,7 @@ const toResult = (status: string): MediaPermissionResult => {
 
 const ensurePermission = async (
   permission: Permission,
-  rationale: string,
+  rationaleKey: TranslationKey,
 ): Promise<MediaPermissionResult> => {
   const current = toResult(await check(permission));
   if (current === 'granted') {
@@ -54,23 +56,18 @@ const ensurePermission = async (
     return next;
   }
 
-  showDeniedAlert(rationale, next === 'blocked');
+  showDeniedAlert(translateCurrent(rationaleKey), next === 'blocked');
   return next;
 };
 
 export const ensureCameraPermission = async (): Promise<boolean> => {
-  const rationale =
-    'HerbalClinic needs camera access to take a photo for analysis. You can enable it in Settings.';
   const permission =
     Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA;
-  const result = await ensurePermission(permission, rationale);
+  const result = await ensurePermission(permission, 'permission.cameraRationale');
   return result === 'granted';
 };
 
 export const ensureGalleryPermission = async (): Promise<boolean> => {
-  const rationale =
-    'HerbalClinic needs photo access to analyze an image from your gallery. You can enable it in Settings.';
-
   if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
     return true;
   }
@@ -79,6 +76,6 @@ export const ensureGalleryPermission = async (): Promise<boolean> => {
     Platform.OS === 'ios'
       ? PERMISSIONS.IOS.PHOTO_LIBRARY
       : PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE;
-  const result = await ensurePermission(permission, rationale);
+  const result = await ensurePermission(permission, 'permission.galleryRationale');
   return result === 'granted';
 };

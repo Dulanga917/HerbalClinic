@@ -22,10 +22,14 @@ import { saveScan } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { getDoshaGuidance } from '../../utils/doshaGuidance';
 import { herbDisplayName } from '../../utils/herbLibrary';
-import { LiveSkinGuidance, SKIN_GUIDANCE_DISCLAIMER } from '../../utils/skinGuidance';
-import { friendlyErrorMessage } from '../../utils/userMessages';
+import { LiveSkinGuidance } from '../../utils/skinGuidance';
+import { describeError, resolveMessage, UserMessage } from '../../utils/userMessages';
+import { offlineSkinGuidance } from '../../services/offlineFallbacks';
 import ScreenHeader from '../../components/ScreenHeader';
 import HerbalButton from '../../components/HerbalButton';
+import { useLanguage } from '../../i18n';
+import type { LanguageContextValue } from '../../i18n';
+import { doshaLabel } from '../../i18n/content';
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinResult'>;
@@ -34,17 +38,17 @@ type Props = {
 
 type AnalysisResult = DoshaPrediction | SkinGuidanceResult | null;
 
-const DOSHA_MODEL_FAILURE =
-  'The on-device model could not classify this photo. Please try another clear, well-lit photo.';
-
-const liveGuidanceHeading = (guidance: LiveSkinGuidance): { label: string; value: string } => {
+const liveGuidanceHeading = (
+  guidance: LiveSkinGuidance,
+  t: LanguageContextValue['t'],
+): { label: string; value: string } => {
   if (guidance.status === 'possible_concern' && guidance.concern) {
-    return { label: 'Possible skin concern', value: guidance.concern };
+    return { label: t('result.possibleConcern'), value: guidance.concern };
   }
   if (guidance.status === 'no_clear_concern') {
-    return { label: 'General observations', value: 'No clear concern noted in this photo' };
+    return { label: t('result.generalObservations'), value: t('result.noClearConcern') };
   }
-  return { label: 'General observations', value: 'This photo could not be assessed' };
+  return { label: t('result.generalObservations'), value: t('result.couldNotAssess') };
 };
 
 const BulletList: React.FC<{ items: string[]; bullet?: string }> = ({ items, bullet = '•' }) => (
@@ -61,6 +65,7 @@ const BulletList: React.FC<{ items: string[]; bullet?: string }> = ({ items, bul
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const HerbCard: React.FC<{ herb: HerbRecommendation; index: number }> = ({ herb, index }) => {
+  const { t } = useLanguage();
   const gradients = [
     Colors.gradientGreen,
     Colors.gradientVata,
@@ -79,7 +84,7 @@ const HerbCard: React.FC<{ herb: HerbRecommendation; index: number }> = ({ herb,
         <Text style={herbStyles.name}>{herb.name}</Text>
         <Text style={herbStyles.benefit}>{herb.benefit}</Text>
         <View style={herbStyles.usageBox}>
-          <Text style={herbStyles.usageLabel}>How to use:</Text>
+          <Text style={herbStyles.usageLabel}>{t('result.howToUse')}</Text>
           <Text style={herbStyles.usageText}>{herb.usage}</Text>
         </View>
       </LinearGradient>
@@ -92,7 +97,7 @@ const herbStyles = StyleSheet.create({
   gradient: { padding: Spacing.base, minHeight: 160 },
   emoji: { fontSize: 32, marginBottom: Spacing.xs },
   name: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
-  benefit: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 16 },
+  benefit: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
   usageBox: {
     marginTop: Spacing.sm,
     backgroundColor: 'rgba(0,0,0,0.2)',
@@ -100,24 +105,27 @@ const herbStyles = StyleSheet.create({
     padding: Spacing.xs,
   },
   usageLabel: { fontSize: Typography.xs, color: Colors.primaryLight, fontWeight: '700' },
-  usageText: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 15 },
+  usageText: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
 });
 
 // ─── Confidence Bar ───────────────────────────────────────────────────────────
 
-const ConfidenceBar: React.FC<{ value: number }> = ({ value }) => (
-  <View style={confStyles.container}>
-    <View style={confStyles.track}>
-      <LinearGradient
-        colors={Colors.gradientGreen}
-        style={[confStyles.fill, { width: `${value}%` }]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      />
+const ConfidenceBar: React.FC<{ value: number }> = ({ value }) => {
+  const { t } = useLanguage();
+  return (
+    <View style={confStyles.container}>
+      <View style={confStyles.track}>
+        <LinearGradient
+          colors={Colors.gradientGreen}
+          style={[confStyles.fill, { width: `${value}%` }]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        />
+      </View>
+      <Text style={confStyles.label}>{t('result.modelConfidence', { value })}</Text>
     </View>
-    <Text style={confStyles.label}>{value}% model confidence</Text>
-  </View>
-);
+  );
+};
 
 const confStyles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.sm },
@@ -129,7 +137,7 @@ const confStyles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: BorderRadius.full },
-  label: { fontSize: Typography.xs, color: Colors.textSecondary, width: 180 },
+  label: { fontSize: Typography.xs, lineHeight: 17, color: Colors.textSecondary, flexShrink: 1, maxWidth: '55%' },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────

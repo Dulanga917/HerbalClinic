@@ -5,9 +5,10 @@
 import 'react-native';
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity } from 'react-native';
-import { expect, it, jest } from '@jest/globals';
+import { afterEach, expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import AyurvedicTreatmentScreen from '../src/screens/treatment/AyurvedicTreatmentScreen';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage } from '../src/i18n';
 
 const flatten = (root: renderer.ReactTestRenderer) =>
   root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity);
@@ -23,22 +24,45 @@ const press = (root: renderer.ReactTestRenderer, label: string) => {
   });
 };
 
-const renderScreen = async () => {
+const renderScreen = async (storage = createMemoryLanguageStorage()) => {
   const navigation = { goBack: jest.fn(), navigate: jest.fn() } as never;
   let root!: renderer.ReactTestRenderer;
   await act(async () => {
     root = renderer.create(
-      <AyurvedicTreatmentScreen
-        navigation={navigation}
-        route={{ key: 'q', name: 'AyurvedicTreatment' } as never}
-      />,
+      <LanguageProvider storage={storage}>
+        <AyurvedicTreatmentScreen
+          navigation={navigation}
+          route={{ key: 'q', name: 'AyurvedicTreatment' } as never}
+        />
+      </LanguageProvider>,
     );
   });
-  return { root, navigation };
+  return { root, navigation, storage };
 };
 
+afterEach(() => {
+  setCurrentLanguage('en');
+});
+
+it('opens in the language saved globally instead of a separate questionnaire setting', async () => {
+  const storage = createMemoryLanguageStorage('si');
+  const { root } = await renderScreen(storage);
+
+  const labels = flatten(root);
+  expect(labels).toContain('ආයුර්වේද ප්‍රතිකාර');
+  expect(labels).toContain('ප්‍රශ්නය 1 / 5');
+  expect(labels).not.toContain('Ayurvedic Treatment');
+  expect(root.root.findByProps({ testID: 'language-option-si' }).props.accessibilityState.selected).toBe(
+    true,
+  );
+
+  act(() => {
+    root.unmount();
+  });
+});
+
 it('renders the bilingual questionnaire and keeps answers when language changes', async () => {
-  const { root } = await renderScreen();
+  const { root, storage } = await renderScreen();
 
   let labels = flatten(root);
   expect(labels).toContain('HerbalClinic');
@@ -55,13 +79,15 @@ it('renders the bilingual questionnaire and keeps answers when language changes'
   expect(next?.props.disabled).toBe(true);
 
   press(root, 'Dry or tight');
-  press(root, 'Switch to Sinhala');
+  press(root, 'සිංහල');
   labels = flatten(root);
   expect(labels).toContain('ආයුර්වේද ප්‍රතිකාර');
   expect(labels).toContain('සම');
   expect(labels).toContain('වියළි හෝ තදව ඇත');
+  expect(storage.value()).toBe('si');
 
-  press(root, 'Switch to English');
+  press(root, 'English');
+  expect(storage.value()).toBe('en');
   labels = flatten(root);
   expect(labels).toContain('Ayurvedic Treatment');
   expect(labels).toContain('Dry or tight');

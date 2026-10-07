@@ -17,23 +17,27 @@ import { useAuth } from '../../context/AuthContext';
 import geminiService, { HerbRecommendation } from '../../services/geminiService';
 import {
   filterHerbs,
+  herbAlternateName,
   herbDisplayName,
   listHerbs,
   HerbDoshaFilter,
   HerbRecord,
 } from '../../utils/herbLibrary';
-import { friendlyErrorMessage } from '../../utils/userMessages';
+import { describeError, resolveMessage } from '../../utils/userMessages';
 import ScreenHeader from '../../components/ScreenHeader';
+import { TranslationKey, useLanguage } from '../../i18n';
+import { doshaName, localizeHerb } from '../../i18n/content';
 
-const DOSHA_FILTERS: { id: HerbDoshaFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'vata', label: 'Vata' },
-  { id: 'pitta', label: 'Pitta' },
-  { id: 'kapha', label: 'Kapha' },
+const DOSHA_FILTERS: { id: HerbDoshaFilter; label: TranslationKey }[] = [
+  { id: 'all', label: 'common.all' },
+  { id: 'vata', label: 'dosha.vata' },
+  { id: 'pitta', label: 'dosha.pitta' },
+  { id: 'kapha', label: 'dosha.kapha' },
 ];
 
 const HerbalTreatmentScreen: React.FC = () => {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const [query, setQuery] = useState('');
   const [doshaFilter, setDoshaFilter] = useState<HerbDoshaFilter>('all');
   const [selectedHerb, setSelectedHerb] = useState<HerbRecord | null>(null);
@@ -41,8 +45,15 @@ const HerbalTreatmentScreen: React.FC = () => {
   const [aiOffline, setAiOffline] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const aiLoadingRef = useRef(false);
-  const visibleHerbs = filterHerbs(listHerbs(), query, doshaFilter);
+  const visibleHerbs = filterHerbs(listHerbs(), query, doshaFilter).map(herb =>
+    localizeHerb(herb, language),
+  );
   const filtersActive = Boolean(query.trim()) || doshaFilter !== 'all';
+  const herbDetail = selectedHerb ? localizeHerb(selectedHerb, language) : null;
+  const herbSubtitle = herbDetail
+    ? [herbAlternateName(herbDetail, language), herbDetail.botanical].filter(Boolean).join(' · ')
+    : '';
+  const userDosha = user?.dosha ? doshaName(user.dosha, language) : null;
 
   const handleAiRecommendation = async () => {
     if (aiLoadingRef.current) {
@@ -51,16 +62,21 @@ const HerbalTreatmentScreen: React.FC = () => {
     aiLoadingRef.current = true;
     setAiLoading(true);
     try {
+      // The condition is a server-validated query term, so it stays in English.
       const condition = user?.dosha
         ? `${user.dosha} dosha skin wellness`
         : 'general skin wellness';
-      const result = await geminiService.getHerbalRecommendations(condition, user?.dosha || undefined);
+      const result = await geminiService.getHerbalRecommendations(
+        condition,
+        user?.dosha || undefined,
+        language,
+      );
       setAiHerbs(result.herbs);
       setAiOffline(result.offline);
     } catch (error) {
       Alert.alert(
-        'Recommendation unavailable',
-        friendlyErrorMessage(error, 'Could not load herbal recommendations. Please try again.'),
+        t('herbal.unavailableTitle'),
+        resolveMessage(describeError(error, 'herbal.unavailableBody'), language),
       );
     } finally {
       aiLoadingRef.current = false;
@@ -79,8 +95,8 @@ const HerbalTreatmentScreen: React.FC = () => {
 
       <ScreenHeader
         emoji="🌿"
-        title="Herb Library"
-        subtitle="Search Ayurvedic herbs and filter by Dosha"
+        title={t('feature.herbal.title')}
+        subtitle={t('herbal.subtitle')}
         colors={Colors.gradientKapha}
       />
 
@@ -94,7 +110,7 @@ const HerbalTreatmentScreen: React.FC = () => {
           onPress={handleAiRecommendation}
           disabled={aiLoading}
           accessibilityRole="button"
-          accessibilityLabel="Get AI herbal recommendation"
+          accessibilityLabel={t('herbal.aiA11y')}
           accessibilityState={{ disabled: aiLoading, busy: aiLoading }}>
           <LinearGradient
             colors={Colors.gradientAccent}
@@ -104,12 +120,10 @@ const HerbalTreatmentScreen: React.FC = () => {
             <Text style={styles.aiEmoji}>✨</Text>
             <View style={styles.aiText}>
               <Text style={styles.aiTitle}>
-                {aiLoading ? 'Preparing recommendation…' : 'Get AI Recommendation'}
+                {aiLoading ? t('herbal.aiPreparing') : t('herbal.aiTitle')}
               </Text>
               <Text style={styles.aiDesc}>
-                {user?.dosha
-                  ? `Personalized herbs for ${user.dosha}`
-                  : 'Analyze your dosha & get a personalized herbal plan'}
+                {userDosha ? t('herbal.aiDescFor', { dosha: userDosha }) : t('herbal.aiDescNone')}
               </Text>
             </View>
             {aiLoading ? (
@@ -124,13 +138,13 @@ const HerbalTreatmentScreen: React.FC = () => {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search herbs, properties, or uses"
+            placeholder={t('herbal.searchPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
             autoCorrect={false}
-            accessibilityLabel="Search herbs"
+            accessibilityLabel={t('herbal.searchA11y')}
           />
           {query ? (
             <TouchableOpacity
@@ -138,7 +152,7 @@ const HerbalTreatmentScreen: React.FC = () => {
               onPress={() => setQuery('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel="Clear search">
+              accessibilityLabel={t('common.clearSearch')}>
               <Text style={styles.clearText}>✕</Text>
             </TouchableOpacity>
           ) : null}
@@ -150,20 +164,22 @@ const HerbalTreatmentScreen: React.FC = () => {
               style={[styles.filterChip, doshaFilter === filter.id && styles.filterChipActive]}
               onPress={() => setDoshaFilter(filter.id)}
               accessibilityRole="button"
-              accessibilityLabel={`Filter ${filter.label}`}
+              accessibilityLabel={t('common.filter', { label: t(filter.label) })}
               accessibilityState={{ selected: doshaFilter === filter.id }}>
               <Text style={[styles.filterText, doshaFilter === filter.id && styles.filterTextActive]}>
-                {filter.label}
+                {t(filter.label)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Popular Herbs</Text>
+          <Text style={styles.sectionTitle}>{t('herbal.popular')}</Text>
           {filtersActive && visibleHerbs.length > 0 ? (
             <Text style={styles.resultCount}>
-              {visibleHerbs.length === 1 ? '1 herb' : `${visibleHerbs.length} herbs`}
+              {visibleHerbs.length === 1
+                ? t('herbal.countOne')
+                : t('herbal.countOther', { count: visibleHerbs.length })}
             </Text>
           ) : null}
         </View>
@@ -175,25 +191,27 @@ const HerbalTreatmentScreen: React.FC = () => {
               activeOpacity={0.85}
               onPress={() => setSelectedHerb(herb)}
               accessibilityRole="button"
-              accessibilityLabel={`Open ${herb.name} details`}>
+              accessibilityLabel={t('herbal.openDetailsA11y', { name: herbDisplayName(herb, language) })}>
               <Text style={styles.herbEmoji}>{herb.emoji}</Text>
-              <Text style={styles.herbName}>{herbDisplayName(herb)}</Text>
+              <Text style={styles.herbName}>{herbDisplayName(herb, language)}</Text>
               <Text style={styles.herbBenefit}>{herb.benefits[0]}</Text>
               <View style={styles.doshaBadge}>
-                <Text style={styles.doshaText}>{herb.doshas.map(d => d[0].toUpperCase() + d.slice(1)).join(' · ')}</Text>
+                <Text style={styles.doshaText}>
+                  {herb.doshas.map(d => doshaName(d, language)).join(' · ')}
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
         {visibleHerbs.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No herbs match that search and Dosha filter.</Text>
+            <Text style={styles.emptyText}>{t('herbal.empty')}</Text>
             <TouchableOpacity
               style={styles.resetBtn}
               onPress={resetFilters}
               accessibilityRole="button"
-              accessibilityLabel="Show all herbs">
-              <Text style={styles.resetText}>Show all herbs</Text>
+              accessibilityLabel={t('herbal.showAll')}>
+              <Text style={styles.resetText}>{t('herbal.showAll')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -204,21 +222,21 @@ const HerbalTreatmentScreen: React.FC = () => {
       <Modal visible={!!selectedHerb} transparent animationType="slide" onRequestClose={() => setSelectedHerb(null)}>
         <View style={styles.modalBackdrop}>
           <ScrollView style={styles.modalCard} contentContainerStyle={styles.modalScroll}>
-            <Text style={styles.modalEmoji}>{selectedHerb?.emoji}</Text>
-            <Text style={styles.modalTitle}>{selectedHerb ? herbDisplayName(selectedHerb) : ''}</Text>
-            <Text style={styles.modalSub}>{selectedHerb?.botanical}</Text>
-            <Text style={styles.modalBody}>{selectedHerb?.description}</Text>
-            <Text style={styles.modalLabel}>How to use</Text>
-            <Text style={styles.modalBody}>{selectedHerb?.usage}</Text>
-            <Text style={styles.modalLabel}>Caution</Text>
-            <Text style={styles.modalBody}>{selectedHerb?.caution}</Text>
-            <Text style={styles.disclaimer}>Informational only. Not a medical diagnosis.</Text>
+            <Text style={styles.modalEmoji}>{herbDetail?.emoji}</Text>
+            <Text style={styles.modalTitle}>{herbDetail ? herbDisplayName(herbDetail, language) : ''}</Text>
+            <Text style={styles.modalSub}>{herbSubtitle}</Text>
+            <Text style={styles.modalBody}>{herbDetail?.description}</Text>
+            <Text style={styles.modalLabel}>{t('herbal.howToUse')}</Text>
+            <Text style={styles.modalBody}>{herbDetail?.usage}</Text>
+            <Text style={styles.modalLabel}>{t('herbal.caution')}</Text>
+            <Text style={styles.modalBody}>{herbDetail?.caution}</Text>
+            <Text style={styles.disclaimer}>{t('common.notDiagnosis')}</Text>
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={() => setSelectedHerb(null)}
               accessibilityRole="button"
-              accessibilityLabel="Close herb details">
-              <Text style={styles.closeText}>Close</Text>
+              accessibilityLabel={t('herbal.closeDetailsA11y')}>
+              <Text style={styles.closeText}>{t('common.close')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -230,9 +248,9 @@ const HerbalTreatmentScreen: React.FC = () => {
             <View style={styles.planHeader}>
               <View style={styles.planHeaderSide} />
               <View style={styles.planHeaderText}>
-                <Text style={styles.modalTitle}>Herbal plan</Text>
+                <Text style={styles.modalTitle}>{t('herbal.planTitle')}</Text>
                 <Text style={styles.modalSub}>
-                  {user?.dosha ? `For ${user.dosha}` : 'General Ayurvedic guidance'}
+                  {userDosha ? t('herbal.planFor', { dosha: userDosha }) : t('herbal.planGeneral')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -240,16 +258,12 @@ const HerbalTreatmentScreen: React.FC = () => {
                 onPress={() => setAiHerbs(null)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel="Close herbal plan">
+                accessibilityLabel={t('herbal.closePlanA11y')}>
                 <Text style={styles.planCloseIconText}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.planScroll} contentContainerStyle={styles.modalScroll}>
-              {aiOffline ? (
-                <Text style={styles.offlineLabel}>
-                  Offline library guidance — not a live Gemini response
-                </Text>
-              ) : null}
+              {aiOffline ? <Text style={styles.offlineLabel}>{t('herbal.planOffline')}</Text> : null}
               {(aiHerbs || []).map(herb => (
                 <View key={herb.name} style={styles.aiHerbRow}>
                   <Text style={styles.herbEmoji}>{herb.emoji}</Text>
@@ -261,16 +275,14 @@ const HerbalTreatmentScreen: React.FC = () => {
                 </View>
               ))}
               <Text style={styles.disclaimer}>
-                {aiOffline
-                  ? 'Static herb-library guidance while Gemini is unavailable. Not a medical diagnosis.'
-                  : 'Informational herbal guidance only. Not a medical diagnosis.'}
+                {aiOffline ? t('herbal.planOfflineDisclaimer') : t('herbal.planDisclaimer')}
               </Text>
               <TouchableOpacity
                 style={styles.closeBtn}
                 onPress={() => setAiHerbs(null)}
                 accessibilityRole="button"
-                accessibilityLabel="Close herbal plan">
-                <Text style={styles.closeText}>Close</Text>
+                accessibilityLabel={t('herbal.closePlanA11y')}>
+                <Text style={styles.closeText}>{t('common.close')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -294,7 +306,7 @@ const styles = StyleSheet.create({
   aiEmoji: { fontSize: 32 },
   aiText: { flex: 1 },
   aiTitle: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
-  aiDesc: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.92)', marginTop: 2 },
+  aiDesc: { fontSize: Typography.sm, lineHeight: 20, color: 'rgba(255,255,255,0.92)', marginTop: 2 },
   arrowIcon: { fontSize: 32, color: Colors.textPrimary },
   searchRow: {
     flexDirection: 'row',
@@ -335,6 +347,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: Colors.primaryLight },
   offlineLabel: {
     fontSize: Typography.sm,
+    lineHeight: 20,
     color: Colors.accent,
     fontWeight: '700',
     marginBottom: Spacing.md,
@@ -344,6 +357,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
     marginBottom: Spacing.base,
   },
   sectionTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.textPrimary },
@@ -356,7 +371,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     alignItems: 'center',
   },
-  emptyText: { color: Colors.textSecondary, textAlign: 'center' },
+  emptyText: { color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   resetBtn: {
     marginTop: Spacing.md,
     minHeight: 44,
@@ -366,7 +381,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primaryLight,
   },
-  resetText: { color: Colors.primaryLight, fontWeight: '700' },
+  resetText: { color: Colors.primaryLight, fontWeight: '700', textAlign: 'center' },
   herbGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -382,7 +397,7 @@ const styles = StyleSheet.create({
   },
   herbEmoji: { fontSize: 36, marginBottom: Spacing.sm },
   herbName: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
-  herbBenefit: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 4, lineHeight: 16 },
+  herbBenefit: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 4, lineHeight: 17 },
   doshaBadge: {
     marginTop: Spacing.sm,
     alignSelf: 'flex-start',
@@ -391,7 +406,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
-  doshaText: { fontSize: Typography.xs, color: Colors.primaryLight, fontWeight: '600' },
+  doshaText: { fontSize: Typography.xs, lineHeight: 17, color: Colors.primaryLight, fontWeight: '600' },
   bottomPad: { height: Spacing['3xl'] },
   modalBackdrop: {
     flex: 1,
@@ -433,10 +448,16 @@ const styles = StyleSheet.create({
   planScroll: { flexGrow: 0 },
   modalEmoji: { fontSize: 44, textAlign: 'center' },
   modalTitle: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
-  modalSub: { fontSize: Typography.sm, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.md },
+  modalSub: {
+    fontSize: Typography.sm,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
   modalLabel: { fontSize: Typography.sm, fontWeight: '700', color: Colors.primaryLight, marginTop: Spacing.md },
-  modalBody: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20, marginTop: 4 },
-  disclaimer: { fontSize: Typography.xs, color: Colors.textMuted, marginTop: Spacing.md, lineHeight: 16 },
+  modalBody: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 21, marginTop: 4 },
+  disclaimer: { fontSize: Typography.xs, color: Colors.textMuted, marginTop: Spacing.md, lineHeight: 17 },
   closeBtn: {
     marginTop: Spacing.xl,
     minHeight: 48,

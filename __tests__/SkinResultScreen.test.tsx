@@ -11,6 +11,7 @@ import RNFS from 'react-native-fs';
 import SkinResultScreen from '../src/screens/skin/SkinResultScreen';
 import { analyseDosha } from '../src/services/doshaModelService';
 import { SKIN_GUIDANCE_DISCLAIMER } from '../src/utils/skinGuidance';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
 
 const mockRefreshUser = jest.fn(async () => undefined);
 
@@ -57,12 +58,19 @@ const screenText = (root: ReactTestRenderer) =>
     .map(node => flatten(node.props.children))
     .join('\n');
 
-const renderScreen = async (analysisType: 'issue' | 'type') => {
+const renderScreen = async (analysisType: 'issue' | 'type', language?: 'si') => {
   let root!: ReactTestRenderer;
   const navigation = { goBack: jest.fn() } as never;
   const route = { params: { imageUri: 'file:///data/photo-1.jpg', analysisType } } as never;
+  const screen = <SkinResultScreen navigation={navigation} route={route} />;
   await act(async () => {
-    root = renderer.create(<SkinResultScreen navigation={navigation} route={route} />);
+    root = renderer.create(
+      language ? (
+        <LanguageProvider storage={createMemoryLanguageStorage(language)}>{screen}</LanguageProvider>
+      ) : (
+        screen
+      ),
+    );
   });
   for (let i = 0; i < 5; i += 1) {
     await act(async () => {

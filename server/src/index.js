@@ -242,6 +242,7 @@ function createApp({
         const herbs = await gemini.getHerbalRecommendations(
           input.value.condition,
           input.value.dosha,
+          input.value.language,
         );
         res.json({ herbs });
       } catch (error) {
@@ -257,7 +258,7 @@ function createApp({
         badRequest(res, input.message);
         return;
       }
-      const tip = await gemini.getDailyTip(input.value.dosha);
+      const tip = await gemini.getDailyTip(input.value.dosha, input.value.language);
       res.json({ tip });
     } catch (error) {
       handleError(res, error);

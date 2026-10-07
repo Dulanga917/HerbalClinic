@@ -11,6 +11,7 @@ import {
   MediaType,
 } from 'react-native-image-picker';
 import { ensureCameraPermission, ensureGalleryPermission } from './mediaPermissions';
+import { translateCurrent } from '../i18n/translate';
 
 export interface PickedImage {
   uri: string;
@@ -25,10 +26,7 @@ const mapAsset = (response: ImagePickerResponse): PickedImage | null => {
     return null;
   }
   if (response.errorCode === 'permission') {
-    Alert.alert(
-      'Permission needed',
-      'Camera or photo access was denied. You can enable it in Settings if you want to try again.',
-    );
+    Alert.alert(translateCurrent('permission.neededTitle'), translateCurrent('permission.denied'));
     return null;
   }
   if (response.errorCode || !response.assets?.length) {

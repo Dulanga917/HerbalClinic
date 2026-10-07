@@ -2,12 +2,12 @@ import {
   AnswerValue,
   LocalizedText,
   QUESTIONNAIRE_CATEGORIES,
-  QUESTIONNAIRE_COPY,
   QUESTIONNAIRE_QUESTIONS,
   QuestionnaireCategoryId,
   QuestionnaireLang,
   QuestionnaireQuestion,
 } from '../constants/questionnaire';
+import { translate } from '../i18n/translate';
 import { getDoshaGuidance, SupportedDoshaKey } from './doshaGuidance';
 
 export type QuestionnaireAnswers = Partial<Record<string, AnswerValue>>;
@@ -15,9 +15,7 @@ export type QuestionnaireAnswers = Partial<Record<string, AnswerValue>>;
 export const localize = (text: LocalizedText, lang: QuestionnaireLang): string => text[lang];
 
 export const formatProgress = (lang: QuestionnaireLang, current: number, total: number): string =>
-  localize(QUESTIONNAIRE_COPY.progress, lang)
-    .replace('{current}', String(current))
-    .replace('{total}', String(total));
+  translate(lang, 'questionnaire.progress', { current, total });
 
 export const getQuestionAt = (index: number): QuestionnaireQuestion | undefined =>
   QUESTIONNAIRE_QUESTIONS[index];
@@ -64,9 +62,12 @@ export const scoreQuestionnaire = (answers: QuestionnaireAnswers) => {
   return { counts, scored, tendency, skippedWomens };
 };
 
-export const buildQuestionnaireResult = (answers: QuestionnaireAnswers) => {
+export const buildQuestionnaireResult = (
+  answers: QuestionnaireAnswers,
+  lang: QuestionnaireLang = 'en',
+) => {
   const score = scoreQuestionnaire(answers);
-  const guidance = score.tendency ? getDoshaGuidance(score.tendency) : null;
+  const guidance = score.tendency ? getDoshaGuidance(score.tendency, lang) : null;
 
   return {
     ...score,

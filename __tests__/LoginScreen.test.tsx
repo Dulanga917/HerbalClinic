@@ -8,6 +8,7 @@ import { Text, TextInput, TouchableOpacity } from 'react-native';
 import { beforeEach, expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import LoginScreen from '../src/screens/auth/LoginScreen';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
 
 const mockRetrySession = jest.fn(async () => undefined);
 let mockAuth: Record<string, unknown>;
@@ -126,6 +127,72 @@ it('explains that the session expired after a confirmed rejection', () => {
   expect(texts(root)).not.toContain('Could not reach HerbalClinic');
   expect(mockAuth.clearError).not.toHaveBeenCalled();
   act(() => root.unmount());
+});
+
+it('switches the Sign In screen to Sinhala before login and saves the choice', async () => {
+  const login = jest.fn(async () => undefined);
+  mockAuth = { ...baseAuth(), login };
+  const storage = createMemoryLanguageStorage();
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={storage}>
+        <LoginScreen navigation={{ navigate: jest.fn() } as never} />
+      </LanguageProvider>,
+    );
+  });
+  expect(texts(root).flat(Infinity)).toContain('Welcome Back');
+
+  const sinhalaOption = root.root.findByProps({ testID: 'language-option-si' });
+  act(() => sinhalaOption.props.onPress());
+  expect(storage.value()).toBe('si');
+
+  const labels = () => texts(root).flat(Infinity);
+  expect(labels()).toContain(translate('si', 'auth.login.title'));
+  expect(labels()).not.toContain('Welcome Back');
+  expect(labels()).toContain('සිංහල');
+  expect(labels()).toContain('English');
+  expect(field(root, translate('si', 'auth.email'))).toBeTruthy();
+  expect(
+    root.root
+      .findAllByType(TouchableOpacity)
+      .some(node => node.props.accessibilityLabel === translate('si', 'auth.showPassword')),
+  ).toBe(true);
+
+  const sinhalaSignIn = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'පිවිසෙන්න')!;
+  await act(async () => {
+    await sinhalaSignIn.props.onPress();
+  });
+  expect(labels()).toContain('කරුණාකර ඔබගේ ඊමේල් ලිපිනය ඇතුළත් කරන්න.');
+  expect(labels()).toContain('කරුණාකර ඔබගේ මුරපදය ඇතුළත් කරන්න.');
+  expect(login).not.toHaveBeenCalled();
+
+  act(() => root.root.findByProps({ testID: 'language-option-en' }).props.onPress());
+  expect(labels()).toContain('Please enter your email address.');
+  act(() => root.unmount());
+  setCurrentLanguage('en');
+});
+
+it('shows the unreachable-server retry card in Sinhala', async () => {
+  mockAuth = { ...baseAuth(), sessionUnverified: true };
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={createMemoryLanguageStorage('si')}>
+        <LoginScreen navigation={{ navigate: jest.fn() } as never} />
+      </LanguageProvider>,
+    );
+  });
+  expect(texts(root).flat(Infinity)).toContain(translate('si', 'auth.unreachableTitle'));
+  expect(
+    root.root
+      .findAllByType(TouchableOpacity)
+      .some(node => node.props.accessibilityLabel === translate('si', 'auth.retrySession')),
+  ).toBe(true);
+  act(() => root.unmount());
+  setCurrentLanguage('en');
 });
 
 it('clears a stale sign-in error before opening Sign Up', () => {

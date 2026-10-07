@@ -1,9 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
-import {
-  QUESTIONNAIRE_CATEGORIES,
-  QUESTIONNAIRE_COPY,
-  QUESTIONNAIRE_QUESTIONS,
-} from '../src/constants/questionnaire';
+import { QUESTIONNAIRE_CATEGORIES, QUESTIONNAIRE_QUESTIONS } from '../src/constants/questionnaire';
+import { translate } from '../src/i18n';
 import {
   buildQuestionnaireResult,
   canAdvance,
@@ -27,10 +24,10 @@ describe('Ayurvedic Treatment questionnaire', () => {
   });
 
   it('has English and Sinhala labels for copy, questions, and answers', () => {
-    expect(QUESTIONNAIRE_COPY.title.en).toBe('Ayurvedic Treatment');
-    expect(QUESTIONNAIRE_COPY.title.si).toContain('ආයුර්වේද');
-    expect(QUESTIONNAIRE_COPY.disclaimer.en).toMatch(/not a medical diagnosis/i);
-    expect(QUESTIONNAIRE_COPY.disclaimer.si).toContain('රෝග විනිශ්චයක් නොවේ');
+    expect(translate('en', 'questionnaire.title')).toBe('Ayurvedic Treatment');
+    expect(translate('si', 'questionnaire.title')).toContain('ආයුර්වේද');
+    expect(translate('en', 'questionnaire.disclaimer')).toMatch(/not a medical diagnosis/i);
+    expect(translate('si', 'questionnaire.disclaimer')).toContain('රෝග විනිශ්චයක් නොවේ');
 
     for (const question of QUESTIONNAIRE_QUESTIONS) {
       expect(question.prompt.en.length).toBeGreaterThan(0);
@@ -90,5 +87,13 @@ describe('Ayurvedic Treatment questionnaire', () => {
     expect(clear.tendency).toBe('vata');
     expect(clear.isModelPrediction).toBe(false);
     expect(clear.guidance?.name).toBe('Vata');
+
+    const sinhala = buildQuestionnaireResult(
+      { skin: 'vata', body: 'vata', hair: 'vata', womens: 'skip', mental: 'pitta' },
+      'si',
+    );
+    expect(sinhala.tendency).toBe('vata');
+    expect(sinhala.counts).toEqual(clear.counts);
+    expect(sinhala.guidance?.name).toBe('වාත');
   });
 });

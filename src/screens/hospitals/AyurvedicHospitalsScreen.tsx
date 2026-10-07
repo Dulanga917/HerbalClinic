@@ -12,11 +12,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import ScreenHeader from '../../components/ScreenHeader';
-import {
-  AyurvedicHospital,
-  HOSPITAL_SOURCE_NOTE,
-  HOSPITAL_TYPE_LABELS,
-} from '../../constants/ayurvedicHospitals';
+import { AyurvedicHospital } from '../../constants/ayurvedicHospitals';
 import { MainStackParamList } from '../../navigation/types';
 import {
   HospitalFilter,
@@ -26,24 +22,32 @@ import {
   openHospitalDirections,
   openHospitalOnMap,
 } from '../../utils/hospitalDirectory';
+import { TranslationKey, useLanguage } from '../../i18n';
+import { districtName } from '../../i18n/content';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AyurvedicHospitals'>;
 
-const FILTERS: { id: HospitalFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'government', label: 'Government' },
-  { id: 'teaching', label: 'Teaching' },
-  { id: 'research', label: 'Research' },
-  { id: 'provincial', label: 'Provincial' },
+const FILTERS: { id: HospitalFilter; label: TranslationKey }[] = [
+  { id: 'all', label: 'common.all' },
+  { id: 'government', label: 'hospitals.filter.government' },
+  { id: 'teaching', label: 'hospitals.filter.teaching' },
+  { id: 'research', label: 'hospitals.filter.research' },
+  { id: 'provincial', label: 'hospitals.filter.provincial' },
 ];
 
-const reportFailure = (result: MapOpenResult) => {
-  if (result === 'failed') {
-    Alert.alert('Could not open Google Maps', 'No maps app or browser is available on this device.');
-  }
+const TYPE_LABELS: Record<AyurvedicHospital['type'], TranslationKey> = {
+  teaching: 'hospitals.filter.teaching',
+  research: 'hospitals.filter.research',
+  provincial: 'hospitals.filter.provincial',
 };
 
 const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
+  const { language, t } = useLanguage();
+  const reportFailure = (result: MapOpenResult) => {
+    if (result === 'failed') {
+      Alert.alert(t('hospitals.mapsFailedTitle'), t('hospitals.mapsFailedBody'));
+    }
+  };
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<HospitalFilter>('all');
   const hospitals = filterHospitals(listHospitals(), query, filter);
@@ -61,10 +65,10 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <ScreenHeader
         variant="compact"
-        eyebrow="HerbalClinic"
-        title="Ayurvedic Hospitals"
+        eyebrow={t('common.appName')}
+        title={t('feature.hospitals.title')}
         emoji="🏥"
-        subtitle="Government Ayurvedic hospitals and treatment centres in Sri Lanka"
+        subtitle={t('hospitals.subtitle')}
         onBack={() => navigation.goBack()}
       />
 
@@ -77,13 +81,13 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search hospitals or locations"
+            placeholder={t('hospitals.searchPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
             autoCorrect={false}
-            accessibilityLabel="Search hospitals or locations"
+            accessibilityLabel={t('hospitals.searchPlaceholder')}
           />
           {query ? (
             <TouchableOpacity
@@ -91,7 +95,7 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => setQuery('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel="Clear search">
+              accessibilityLabel={t('common.clearSearch')}>
               <Text style={styles.clearText}>✕</Text>
             </TouchableOpacity>
           ) : null}
@@ -103,15 +107,19 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
               style={[styles.filterChip, filter === item.id && styles.filterChipActive]}
               onPress={() => setFilter(item.id)}
               accessibilityRole="button"
-              accessibilityLabel={`Filter ${item.label}`}
+              accessibilityLabel={t('common.filter', { label: t(item.label) })}
               accessibilityState={{ selected: filter === item.id }}>
-              <Text style={[styles.filterText, filter === item.id && styles.filterTextActive]}>{item.label}</Text>
+              <Text style={[styles.filterText, filter === item.id && styles.filterTextActive]}>
+                {t(item.label)}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
         {hospitals.length > 0 ? (
           <Text style={styles.resultCount}>
-            {hospitals.length === 1 ? '1 hospital' : `${hospitals.length} hospitals`}
+            {hospitals.length === 1
+              ? t('hospitals.countOne')
+              : t('hospitals.countOther', { count: hospitals.length })}
           </Text>
         ) : null}
 
@@ -120,16 +128,20 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.badgeRow}>
               {hospital.government ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>Government</Text>
+                  <Text style={styles.badgeText}>{t('hospitals.filter.government')}</Text>
                 </View>
               ) : null}
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{HOSPITAL_TYPE_LABELS[hospital.type]}</Text>
+                <Text style={styles.badgeText}>{t(TYPE_LABELS[hospital.type])}</Text>
               </View>
             </View>
             <Text style={styles.name}>{hospital.name}</Text>
             <Text style={styles.location}>
-              📍 {hospital.city} · {hospital.district} District
+              📍{' '}
+              {t('hospitals.location', {
+                city: hospital.city,
+                district: districtName(hospital.district, language),
+              })}
             </Text>
             <Text style={styles.address}>{hospital.address}</Text>
             <View style={styles.actionRow}>
@@ -137,22 +149,22 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.mapBtn}
                 onPress={() => viewOnMap(hospital)}
                 accessibilityRole="button"
-                accessibilityLabel={`View ${hospital.name} on Map`}>
-                <Text style={styles.mapBtnText}>View on Map</Text>
+                accessibilityLabel={t('hospitals.viewOnMapA11y', { name: hospital.name })}>
+                <Text style={styles.mapBtnText}>{t('hospitals.viewOnMap')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.directionsBtn}
                 onPress={() => getDirections(hospital)}
                 accessibilityRole="button"
-                accessibilityLabel={`Get directions to ${hospital.name}`}>
-                <Text style={styles.directionsText}>Get Directions</Text>
+                accessibilityLabel={t('hospitals.directionsA11y', { name: hospital.name })}>
+                <Text style={styles.directionsText}>{t('hospitals.directions')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         ))}
         {hospitals.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No hospitals match that search and filter.</Text>
+            <Text style={styles.emptyText}>{t('hospitals.empty')}</Text>
             <TouchableOpacity
               style={styles.resetBtn}
               onPress={() => {
@@ -160,13 +172,13 @@ const AyurvedicHospitalsScreen: React.FC<Props> = ({ navigation }) => {
                 setFilter('all');
               }}
               accessibilityRole="button"
-              accessibilityLabel="Show all hospitals">
-              <Text style={styles.resetText}>Show all hospitals</Text>
+              accessibilityLabel={t('hospitals.showAll')}>
+              <Text style={styles.resetText}>{t('hospitals.showAll')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
-        <Text style={styles.sourceNote}>{HOSPITAL_SOURCE_NOTE}</Text>
+        <Text style={styles.sourceNote}>{t('hospitals.sourceNote')}</Text>
         <View style={styles.bottomPad} />
       </ScrollView>
     </View>
@@ -219,7 +231,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     marginBottom: Spacing.md,
   },
-  badgeRow: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   badge: {
     backgroundColor: Colors.primaryDark,
     paddingHorizontal: Spacing.sm,
@@ -228,7 +240,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: Typography.xs, color: Colors.primaryLight, fontWeight: '600' },
   name: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
-  location: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: Spacing.xs },
+  location: { fontSize: Typography.sm, lineHeight: 20, color: Colors.textSecondary, marginTop: Spacing.xs },
   address: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 2, lineHeight: 18 },
   actionRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.base },
   mapBtn: {
@@ -242,7 +254,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     alignItems: 'center',
   },
-  mapBtnText: { color: Colors.textPrimary, fontWeight: '700' },
+  mapBtnText: { color: Colors.textPrimary, fontWeight: '700', textAlign: 'center' },
   directionsBtn: {
     flex: 1,
     minHeight: 44,
@@ -253,7 +265,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     alignItems: 'center',
   },
-  directionsText: { color: Colors.primaryLight, fontWeight: '700' },
+  directionsText: { color: Colors.primaryLight, fontWeight: '700', textAlign: 'center' },
   emptyCard: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,
@@ -263,7 +275,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
-  emptyText: { color: Colors.textSecondary, textAlign: 'center' },
+  emptyText: { color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   resetBtn: {
     marginTop: Spacing.md,
     minHeight: 44,

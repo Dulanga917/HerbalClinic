@@ -1,4 +1,6 @@
 import { DOSHAS, HERBS, MEDITATION_SESSIONS } from '../constants/ayurveda';
+import { doshaName, localizeDosha, localizeHerb, localizeMeditation } from '../i18n/content';
+import type { Language } from '../i18n/types';
 
 export type SupportedDoshaKey = 'vata' | 'pitta' | 'kapha';
 
@@ -21,26 +23,28 @@ export const resolveSupportedDoshaKey = (dosha?: string | null): SupportedDoshaK
   return null;
 };
 
-export const getDoshaGuidance = (dosha?: string | null) => {
+export const getDoshaGuidance = (dosha?: string | null, language: Language = 'en') => {
   const key = resolveSupportedDoshaKey(dosha);
   if (!key) {
     return null;
   }
 
-  const profile = DOSHAS[key];
-  const herbs = Object.values(HERBS).filter(herb => herb.doshas.includes(key));
-  const meditation =
-    MEDITATION_SESSIONS.find(session => session.id === MEDITATION_BY_DOSHA[key]) ||
+  const profile = localizeDosha(DOSHAS[key], language);
+  const herbs = Object.values(HERBS)
+    .filter(herb => herb.doshas.includes(key))
+    .map(herb => localizeHerb(herb, language));
+  const session =
+    MEDITATION_SESSIONS.find(item => item.id === MEDITATION_BY_DOSHA[key]) ||
     MEDITATION_SESSIONS[0];
 
   return {
     key,
-    name: profile.name,
+    name: doshaName(profile.name, language),
     emoji: profile.emoji,
     explanation: `${profile.skinType}. ${profile.characteristics.slice(0, 2).join('. ')}.`,
     skincare: profile.balancedSigns,
     herbs,
     lifestyle: [...profile.lifestyle, ...profile.diet.slice(0, 2)],
-    meditation,
+    meditation: localizeMeditation(session, language),
   };
 };

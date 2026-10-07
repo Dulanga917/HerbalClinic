@@ -17,6 +17,20 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 import { openCamera, openGallery, PickedImage } from '../../utils/imageUtils';
 import ScreenHeader from '../../components/ScreenHeader';
 import HerbalButton from '../../components/HerbalButton';
+import { TranslationKey, useLanguage } from '../../i18n';
+
+const TYPE_TIPS: TranslationKey[] = [
+  'camera.tipClearPhoto',
+  'camera.tipSteady',
+  'camera.tipNoFilters',
+  'camera.tipExperimental',
+];
+const ISSUE_TIPS: TranslationKey[] = [
+  'camera.tipNaturalLight',
+  'camera.tipSteady',
+  'camera.tipShowArea',
+  'camera.tipAiGeneral',
+];
 
 type Props = {
   navigation: NativeStackNavigationProp<SkinStackParamList, 'SkinCamera'>;
@@ -32,6 +46,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
   const pickingRef = useRef(false);
   const navigatingRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
+  const { t } = useLanguage();
 
   useEffect(() => navigation.addListener('focus', () => {
     navigatingRef.current = false;
@@ -39,26 +54,10 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
   }), [navigation]);
 
   const isSkinType = analysisType === 'type';
-  const title = isSkinType ? 'Skin Type Assessment' : 'AI Skin Guidance';
-  const subtitle = isSkinType
-    ? 'Experimental on-device Dosha prediction: Vata, Pitta, or Kapha'
-    : 'General Ayurvedic self-care guidance for a skin area';
-  const privacyNote = isSkinType
-    ? 'The photo is classified on this phone by the on-device model.'
-    : 'The photo is sent to the HerbalClinic server to request Gemini guidance.';
-  const tips = isSkinType
-    ? [
-        'Use a clear, well-lit photo',
-        'Keep the camera steady and focused',
-        'Avoid filters and heavy edits',
-        'This experimental result is not a diagnosis',
-      ]
-    : [
-        'Use natural lighting — avoid flash',
-        'Keep the camera steady and focused',
-        'Show the skin area clearly',
-        'AI guidance is general information, not a medical diagnosis',
-      ];
+  const title = t(isSkinType ? 'feature.skinType.title' : 'feature.skinIssue.title');
+  const subtitle = t(isSkinType ? 'skin.typeDesc' : 'camera.issueSubtitle');
+  const privacyNote = t(isSkinType ? 'camera.privacyType' : 'camera.privacyIssue');
+  const tips = isSkinType ? TYPE_TIPS : ISSUE_TIPS;
 
   const pickImage = async (source: PickerSource) => {
     if (pickingRef.current) {
@@ -109,22 +108,24 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
               <Image
                 source={{ uri: selectedImage }}
                 style={styles.previewImage}
-                accessibilityLabel="Selected photo preview"
+                accessibilityLabel={t('camera.previewA11y')}
               />
               <View style={styles.previewBadge}>
-                <Text style={styles.previewBadgeText}>✓ Photo selected</Text>
+                <Text style={styles.previewBadgeText}>{t('camera.photoSelected')}</Text>
               </View>
             </>
           ) : (
             <View style={styles.previewPlaceholder}>
               <Text style={styles.placeholderEmoji}>📷</Text>
-              <Text style={styles.placeholderText}>No photo selected</Text>
-              <Text style={styles.placeholderHint}>Take a photo or choose one from your gallery</Text>
+              <Text style={styles.placeholderText}>{t('camera.noPhoto')}</Text>
+              <Text style={styles.placeholderHint}>{t('camera.noPhotoHint')}</Text>
             </View>
           )}
         </View>
 
-        <Text style={styles.stepLabel}>{hasImage ? 'Change photo' : '1. Add a photo'}</Text>
+        <Text style={styles.stepLabel}>
+          {hasImage ? t('camera.changePhotoStep') : t('camera.addPhotoStep')}
+        </Text>
         <View style={styles.optionsRow}>
           <TouchableOpacity
             style={[styles.optionBtn, picking && picking !== 'camera' && styles.optionBtnDimmed]}
@@ -132,7 +133,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
             disabled={picking !== null}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel={hasImage ? 'Retake photo with camera' : 'Take photo with camera'}
+            accessibilityLabel={hasImage ? t('camera.retakeA11y') : t('camera.takeA11y')}
             accessibilityState={{ disabled: picking !== null, busy: picking === 'camera' }}>
             <LinearGradient colors={Colors.gradientGreen} style={styles.optionGradient}>
               {picking === 'camera' ? (
@@ -140,7 +141,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
               ) : (
                 <Text style={styles.optionEmoji}>📷</Text>
               )}
-              <Text style={styles.optionLabel}>{hasImage ? 'Retake' : 'Camera'}</Text>
+              <Text style={styles.optionLabel}>{hasImage ? t('camera.retake') : t('camera.camera')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -150,7 +151,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
             disabled={picking !== null}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel={hasImage ? 'Change photo from gallery' : 'Choose photo from gallery'}
+            accessibilityLabel={hasImage ? t('camera.changeGalleryA11y') : t('camera.chooseGalleryA11y')}
             accessibilityState={{ disabled: picking !== null, busy: picking === 'gallery' }}>
             <LinearGradient colors={Colors.gradientVata} style={styles.optionGradient}>
               {picking === 'gallery' ? (

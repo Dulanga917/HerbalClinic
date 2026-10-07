@@ -11,6 +11,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, Spacing, Typography } from '../constants/theme';
+import { useLanguage } from '../i18n';
 
 const FALLBACK_TOP_INSET = Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 44;
 
@@ -25,17 +26,20 @@ type BackButtonProps = {
   accessibilityLabel?: string;
 };
 
-export const BackButton: React.FC<BackButtonProps> = ({ onPress, accessibilityLabel = 'Back' }) => (
-  <TouchableOpacity
-    style={styles.backBtn}
-    onPress={onPress}
-    activeOpacity={0.6}
-    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-    accessibilityRole="button"
-    accessibilityLabel={accessibilityLabel}>
-    <Text style={styles.backIcon}>‹</Text>
-  </TouchableOpacity>
-);
+export const BackButton: React.FC<BackButtonProps> = ({ onPress, accessibilityLabel }) => {
+  const { t } = useLanguage();
+  return (
+    <TouchableOpacity
+      style={styles.backBtn}
+      onPress={onPress}
+      activeOpacity={0.6}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? t('common.back')}>
+      <Text style={styles.backIcon}>‹</Text>
+    </TouchableOpacity>
+  );
+};
 
 type Props = {
   title: string;
@@ -138,7 +142,7 @@ const styles = StyleSheet.create({
   compactSubtitle: {
     color: 'rgba(240,244,241,0.85)',
     marginTop: Spacing.md,
-    lineHeight: 20,
+    lineHeight: 22,
     fontSize: Typography.base,
   },
   hero: {

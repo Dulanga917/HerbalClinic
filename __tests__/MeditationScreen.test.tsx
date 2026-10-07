@@ -9,6 +9,8 @@ import { afterEach, beforeEach, expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import MeditationScreen from '../src/screens/meditation/MeditationScreen';
 import { MEDITATION_SESSIONS } from '../src/constants/ayurveda';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
+import { localizeMeditation } from '../src/i18n/content';
 
 const texts = (root: renderer.ReactTestRenderer) =>
   root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity).map(String);
@@ -103,4 +105,30 @@ it('stops at 00:00 and offers a restart', () => {
   press(root, 'Close session');
   expect(texts(root)).not.toContain('00:00');
   act(() => root.unmount());
+});
+
+it('shows sessions and timer controls in Sinhala while keeping the same timer length', async () => {
+  const sinhala = localizeMeditation(session, 'si');
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={createMemoryLanguageStorage('si')}>
+        <MeditationScreen />
+      </LanguageProvider>,
+    );
+  });
+  expect(texts(root)).toContain(translate('si', 'meditation.guided'));
+  expect(texts(root)).toContain(sinhala.title);
+  expect(texts(root)).not.toContain(session.title);
+
+  press(root, translate('si', 'common.open', { title: sinhala.title }));
+  expect(texts(root)).toContain(startClock);
+  expect(texts(root)).toContain('ආරම්භ කිරීමට සූදානම්');
+
+  press(root, translate('si', 'meditation.primaryA11y', { label: translate('si', 'meditation.start') }));
+  tick(3);
+  expect(texts(root)).toContain(`${String(minutes - 1).padStart(2, '0')}:57`);
+  expect(texts(root)).toContain(translate('si', 'meditation.statusRunning'));
+  act(() => root.unmount());
+  setCurrentLanguage('en');
 });

@@ -12,6 +12,7 @@ import {
 } from './offlineFallbacks';
 import { getSessionToken } from './sessionStorage';
 import { parseSkinGuidance, SkinGuidanceResult } from '../utils/skinGuidance';
+import type { Language } from '../i18n/types';
 
 export type { SkinGuidanceResult } from '../utils/skinGuidance';
 
@@ -62,52 +63,57 @@ const isHerbRecommendation = (value: unknown): value is HerbRecommendation => {
 };
 
 class GeminiService {
-  async analyseSkinIssue(imageUri: string): Promise<SkinGuidanceResult> {
+  async analyseSkinIssue(imageUri: string, language: Language = 'en'): Promise<SkinGuidanceResult> {
     let analysis: unknown;
     try {
       const token = await requireToken();
       const imageBase64 = await imageUriToBase64(imageUri);
-      ({ analysis } = await analyseSkinIssueRemote(token, imageBase64));
+      ({ analysis } = await analyseSkinIssueRemote(token, imageBase64, undefined, language));
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return offlineSkinGuidance();
+        return offlineSkinGuidance(language);
       }
       throw error;
     }
-    return parseSkinGuidance(analysis) ?? offlineSkinGuidance();
+    return parseSkinGuidance(analysis) ?? offlineSkinGuidance(language);
   }
 
   async getHerbalRecommendations(
     condition: string,
     dosha?: string,
+    language: Language = 'en',
   ): Promise<HerbalRecommendationResult> {
+    const offline = () => ({
+      herbs: offlineHerbalRecommendations(condition, dosha, language),
+      offline: true,
+    });
     try {
       const token = await requireToken();
-      const { herbs } = await fetchHerbalRecommendations(token, condition, dosha);
+      const { herbs } = await fetchHerbalRecommendations(token, condition, dosha, language);
       const valid = Array.isArray(herbs) ? herbs.filter(isHerbRecommendation) : [];
       if (valid.length === 0) {
-        return { herbs: offlineHerbalRecommendations(condition, dosha), offline: true };
+        return offline();
       }
       return { herbs: valid, offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return { herbs: offlineHerbalRecommendations(condition, dosha), offline: true };
+        return offline();
       }
       throw error;
     }
   }
 
-  async getDailyTip(dosha?: string): Promise<DailyTipResult> {
+  async getDailyTip(dosha?: string, language: Language = 'en'): Promise<DailyTipResult> {
     try {
       const token = await requireToken();
-      const { tip } = await fetchDailyTip(token, dosha);
+      const { tip } = await fetchDailyTip(token, dosha, language);
       if (typeof tip !== 'string' || !tip.trim()) {
-        return { tip: offlineDailyTip(dosha), offline: true };
+        return { tip: offlineDailyTip(dosha, language), offline: true };
       }
       return { tip, offline: false };
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        return { tip: offlineDailyTip(dosha), offline: true };
+        return { tip: offlineDailyTip(dosha, language), offline: true };
       }
       throw error;
     }

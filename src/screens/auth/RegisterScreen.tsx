@@ -23,14 +23,17 @@ import {
 } from '../../constants/passwordPolicy';
 import FormField from '../../components/FormField';
 import HerbalButton from '../../components/HerbalButton';
+import LanguageSelector from '../../components/LanguageSelector';
 import { useTopInset } from '../../components/ScreenHeader';
+import { useLanguage } from '../../i18n';
+import { UserMessage } from '../../utils/userMessages';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
 type FieldName = 'name' | 'email' | 'password' | 'confirmPassword';
-type FieldErrors = Partial<Record<FieldName, string>>;
+type FieldErrors = Partial<Record<FieldName, UserMessage>>;
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -44,12 +47,18 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
   const { register, error, clearError, loading } = useAuth();
+  const { t } = useLanguage();
   const topInset = useTopInset();
 
   useEffect(
     () => navigation.addListener('beforeRemove', () => clearError()),
     [navigation, clearError],
   );
+
+  const fieldError = (field: FieldName) => {
+    const message = fieldErrors[field];
+    return message ? t(message.key, message.params) : undefined;
+  };
 
   const clearFieldError = (field: FieldName) => {
     if (fieldErrors[field]) {
@@ -66,22 +75,22 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const nextErrors: FieldErrors = {};
     const nameResult = validateName(name);
     if (!nameResult.ok) {
-      nextErrors.name = nameResult.message;
+      nextErrors.name = nameResult;
     }
     const emailResult = validateEmail(email);
     if (!email.trim()) {
-      nextErrors.email = 'Please enter your email address.';
+      nextErrors.email = { key: 'validation.emailRequired' };
     } else if (!emailResult.ok) {
-      nextErrors.email = emailResult.message;
+      nextErrors.email = emailResult;
     }
     const passwordResult = validatePassword(password);
     if (!passwordResult.ok) {
-      nextErrors.password = passwordResult.message;
+      nextErrors.password = passwordResult;
     }
     if (!confirmPassword) {
-      nextErrors.confirmPassword = 'Please confirm your password.';
+      nextErrors.confirmPassword = { key: 'validation.confirmRequired' };
     } else if (password !== confirmPassword) {
-      nextErrors.confirmPassword = 'The passwords do not match.';
+      nextErrors.confirmPassword = { key: 'validation.passwordMismatch' };
     }
     setFieldErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean) || !nameResult.ok || !emailResult.ok || !passwordResult.ok) {
@@ -113,22 +122,24 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
 
+          <LanguageSelector style={styles.language} />
+
           <View style={styles.header}>
             <Text style={styles.emoji}>🌱</Text>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Start your Ayurvedic wellness journey</Text>
+            <Text style={styles.title}>{t('auth.register.title')}</Text>
+            <Text style={styles.subtitle}>{t('auth.register.subtitle')}</Text>
           </View>
 
           <View style={styles.card}>
             <FormField
-              label="Full Name"
-              placeholder="Your name"
+              label={t('auth.fullName')}
+              placeholder={t('auth.fullNamePlaceholder')}
               value={name}
               onChangeText={value => {
                 setName(value);
                 clearFieldError('name');
               }}
-              error={fieldErrors.name}
+              error={fieldError('name')}
               autoCapitalize="words"
               autoComplete="name"
               textContentType="name"
@@ -140,14 +151,14 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
             <FormField
               ref={emailRef}
-              label="Email Address"
-              placeholder="you@example.com"
+              label={t('auth.email')}
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChangeText={value => {
                 setEmail(value);
                 clearFieldError('email');
               }}
-              error={fieldErrors.email}
+              error={fieldError('email')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -161,14 +172,14 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
             <FormField
               ref={passwordRef}
-              label="Password"
-              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              label={t('auth.password')}
+              placeholder={t('auth.newPasswordPlaceholder', { min: MIN_PASSWORD_LENGTH })}
               value={password}
               onChangeText={value => {
                 setPassword(value);
                 clearFieldError('password');
               }}
-              error={fieldErrors.password}
+              error={fieldError('password')}
               passwordToggle
               autoCapitalize="none"
               autoCorrect={false}
@@ -182,14 +193,14 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
             <FormField
               ref={confirmRef}
-              label="Confirm Password"
-              placeholder="Re-enter your password"
+              label={t('auth.confirmPassword')}
+              placeholder={t('auth.confirmPasswordPlaceholder')}
               value={confirmPassword}
               onChangeText={value => {
                 setConfirmPassword(value);
                 clearFieldError('confirmPassword');
               }}
-              error={fieldErrors.confirmPassword}
+              error={fieldError('confirmPassword')}
               passwordToggle
               autoCapitalize="none"
               autoCorrect={false}
@@ -207,16 +218,16 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             ) : null}
 
             <HerbalButton
-              title="Create Account"
+              title={t('auth.createAccount')}
               onPress={handleRegister}
               loading={busy}
-              loadingLabel="Creating account…"
+              loadingLabel={t('auth.creatingAccount')}
               style={styles.registerBtn}
             />
           </View>
 
           <View style={styles.loginRow}>
-            <Text style={styles.loginText}>Already have an account? </Text>
+            <Text style={styles.loginText}>{t('auth.haveAccount')}</Text>
             <TouchableOpacity
               onPress={() => {
                 clearError();
@@ -225,8 +236,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               disabled={busy}
               hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel="Sign In">
-              <Text style={styles.loginLink}>Sign In</Text>
+              accessibilityLabel={t('auth.signIn')}>
+              <Text style={styles.loginLink}>{t('auth.signIn')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -240,10 +251,17 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
+  language: { alignSelf: 'center', marginBottom: Spacing.xl },
   header: { alignItems: 'center', marginBottom: Spacing['2xl'] },
   emoji: { fontSize: 56, marginBottom: Spacing.md },
-  title: { fontSize: Typography['3xl'], fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.5 },
-  subtitle: { fontSize: Typography.base, color: Colors.textSecondary, marginTop: Spacing.xs, textAlign: 'center' },
+  title: { fontSize: Typography['3xl'], fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
+  subtitle: {
+    fontSize: Typography.base,
+    lineHeight: 22,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: 'center',
+  },
   card: {
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.xl,
@@ -262,7 +280,13 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#ff9a9a', fontSize: Typography.sm, lineHeight: 20 },
   registerBtn: { marginTop: Spacing.xl },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.xl },
+  loginRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.xl,
+  },
   loginText: { fontSize: Typography.base, color: Colors.textSecondary },
   loginLink: { fontSize: Typography.base, color: Colors.primaryLight, fontWeight: '700' },
 });

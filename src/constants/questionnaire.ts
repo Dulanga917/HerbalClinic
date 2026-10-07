@@ -1,4 +1,7 @@
-export type QuestionnaireLang = 'en' | 'si';
+import type { Language } from '../i18n/types';
+
+/** Questionnaire content follows the app-wide language; UI copy lives in `i18n/translations`. */
+export type QuestionnaireLang = Language;
 export type AnswerValue = 'vata' | 'pitta' | 'kapha' | 'skip';
 export type QuestionnaireCategoryId = 'skin' | 'body' | 'hair' | 'womens' | 'mental';
 
@@ -31,54 +34,6 @@ export const QUESTIONNAIRE_CATEGORIES: {
   { id: 'womens', emoji: '🌸', label: { en: "Women's Health", si: "කාන්තා සෞඛ්‍යය" } },
   { id: 'mental', emoji: '🧘', label: { en: 'Mental Well-being', si: "මානසික යහපැවැත්ම" } },
 ];
-
-export const QUESTIONNAIRE_COPY = {
-  title: { en: 'Ayurvedic Treatment', si: "ආයුර්වේද ප්‍රතිකාර" },
-  brand: { en: 'HerbalClinic', si: 'HerbalClinic' },
-  intro: {
-    en: 'Answer a short self-care questionnaire. This is general Ayurvedic guidance, not a medical diagnosis.',
-    si: "කෙටි ස්වයං-රැකවරණ ප්‍රශ්නාවලියකට පිළිතුරු දෙන්න. මෙය සාමාන්‍ය ආයුර්වේද මගපෙන්වීමක් මිස වෛද්‍ය රෝග විනිශ්චයක් නොවේ.",
-  },
-  progress: { en: 'Question {current} of {total}', si: "ප්‍රශ්නය {current} / {total}" },
-  previous: { en: 'Previous', si: "පෙර" },
-  next: { en: 'Next', si: "ඊළඟ" },
-  finish: { en: 'See guidance', si: "මගපෙන්වීම බලන්න" },
-  restart: { en: 'Start again', si: "නැවත ආරම්භ කරන්න" },
-  back: { en: 'Back', si: "ආපසු" },
-  optional: { en: 'Optional — skip if not applicable', si: "විකල්පයි — අදාළ නැතිනම් මඟ හරින්න" },
-  resultTitle: {
-    en: 'Questionnaire self-care guidance',
-    si: "ප්‍රශ්නාවලි මත පදනම් වූ ස්වයං-රැකවරණ මගපෙන්වීම",
-  },
-  resultNotModel: {
-    en: 'This is questionnaire-based Ayurvedic self-care guidance. It is not an AI/model Dosha prediction and has no model confidence score.',
-    si: "මෙය ප්‍රශ්නාවලිය මත පදනම් වූ ආයුර්වේද ස්වයං-රැකවරණ මගපෙන්වීමකි. මෙය AI/ආකෘති Dosha අනාවැකියක් නොවන අතර ආකෘති විශ්වාසයක් නැත.",
-  },
-  tendency: {
-    en: 'Your answers most often align with {dosha}-type self-care.',
-    si: "ඔබේ පිළිතුරු බොහෝ විට {dosha} ආකාරයේ ස්වයං-රැකවරණයට සමීපයි.",
-  },
-  noTendency: {
-    en: 'Your answers do not point to one clear pattern. Here is general Ayurvedic self-care guidance.',
-    si: "ඔබේ පිළිතුරු එක් රටාවකට පැහැදිලිව නොයයි. පහත සාමාන්‍ය ආයුර්වේද ස්වයං-රැකවරණ මගපෙන්වීම බලන්න.",
-  },
-  generalLifestyleOne: {
-    en: 'Warm water, regular sleep, and a simple herbal routine.',
-    si: 'උණුසුම් ජලය, නිතිපතා නින්ද, සහ සරල ඔසු චර්යාවක්.',
-  },
-  generalLifestyleTwo: {
-    en: 'Open the Herb Library or Meditation tabs for more self-care ideas.',
-    si: 'තවත් ස්වයං-රැකවරණ අදහස් සඳහා Herb Library හෝ Meditation ටැබ් විවෘත කරන්න.',
-  },
-  skincare: { en: 'Skincare', si: "සම රැකවරණය" },
-  herbs: { en: 'Recommended herbs', si: "නිර්දේශිත ඔසු" },
-  lifestyle: { en: 'Lifestyle / self-care', si: "ජීවන රටාව / ස්වයං-රැකවරණය" },
-  meditation: { en: 'Meditation', si: "භාවනාව" },
-  disclaimer: {
-    en: 'This questionnaire provides general Ayurvedic self-care guidance and is not a medical diagnosis. Consult a qualified healthcare professional for medical concerns.',
-    si: "මෙම ප්‍රශ්නාවලිය සාමාන්‍ය ආයුර්වේද ස්වයං-රැකවරණ මගපෙන්වීමක් ලබා දෙන අතර වෛද්‍ය රෝග විනිශ්චයක් නොවේ. වෛද්‍ය ගැටලු සඳහා සුදුසුකම් ලත් සෞඛ්‍ය වෘත්තිකයෙකුගෙන් උපදෙස් ගන්න.",
-  },
-};
 
 export const QUESTIONNAIRE_QUESTIONS: QuestionnaireQuestion[] = [
   {

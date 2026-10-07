@@ -18,65 +18,73 @@ import { useAuth } from '../../context/AuthContext';
 import geminiService from '../../services/geminiService';
 import { homeDoshaState } from '../../utils/homeDashboard';
 import { useTopInset } from '../../components/ScreenHeader';
+import { TranslationKey, useLanguage } from '../../i18n';
+import { offlineDailyTip } from '../../services/offlineFallbacks';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<HomeTabParamList, 'Home'>,
   NativeStackScreenProps<MainStackParamList>
 >;
 
-const features = [
+type Feature = {
+  id: string;
+  emoji: string;
+  title: TranslationKey;
+  description: TranslationKey;
+  gradient: string[];
+};
+
+const features: Feature[] = [
   {
     id: 'skin-type',
     emoji: '🔬',
-    title: 'Skin Type Assessment',
-    description: 'On-device Dosha prediction: Vata, Pitta, or Kapha',
+    title: 'feature.skinType.title',
+    description: 'feature.skinType.desc',
     gradient: Colors.gradientGreen,
   },
   {
     id: 'skin-issue',
     emoji: '🩺',
-    title: 'AI Skin Guidance',
-    description: 'Gemini-assisted skin-issue guidance — not a diagnosis',
+    title: 'feature.skinIssue.title',
+    description: 'feature.skinIssue.desc',
     gradient: Colors.gradientVata,
   },
   {
     id: 'herbal',
     emoji: '🌿',
-    title: 'Herb Library',
-    description: 'Ayurvedic herbs and personalized recommendations',
+    title: 'feature.herbal.title',
+    description: 'feature.herbal.desc',
     gradient: Colors.gradientKapha,
   },
   {
     id: 'meditation',
     emoji: '🧘',
-    title: 'Meditation',
-    description: 'Guided sessions for mind-body balance',
+    title: 'feature.meditation.title',
+    description: 'feature.meditation.desc',
     gradient: Colors.gradientAccent,
   },
   {
     id: 'ayurveda-treatment',
     emoji: '📋',
-    title: 'Ayurvedic Treatment',
-    description: 'Bilingual self-care questionnaire (EN / සිංහල)',
+    title: 'feature.treatment.title',
+    description: 'feature.treatment.desc',
     gradient: Colors.gradientGreen,
   },
   {
     id: 'ayurveda-hospitals',
     emoji: '🏥',
-    title: 'Ayurvedic Hospitals',
-    description: 'Find Ayurvedic hospitals and treatment centres in Sri Lanka',
+    title: 'feature.hospitals.title',
+    description: 'feature.hospitals.desc',
     gradient: Colors.gradientKapha,
   },
 ];
 
-const FALLBACK_TIP =
-  'Start the day with warm water and a simple herbal routine. This tip is local guidance, not a Gemini response.';
-
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const topInset = useTopInset();
-  const doshaCard = homeDoshaState(user);
-  const [dailyTip, setDailyTip] = useState(FALLBACK_TIP);
+  const doshaCard = homeDoshaState(user, language);
+  const [dailyTip, setDailyTip] = useState(() => offlineDailyTip(undefined, language));
   const [tipOffline, setTipOffline] = useState(true);
   const [tipLoading, setTipLoading] = useState(true);
 
@@ -84,7 +92,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     let cancelled = false;
     setTipLoading(true);
     geminiService
-      .getDailyTip(user?.dosha || undefined)
+      .getDailyTip(user?.dosha || undefined, language)
       .then(result => {
         if (!cancelled && result?.tip) {
           setDailyTip(result.tip);
@@ -93,7 +101,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       })
       .catch(() => {
         if (!cancelled) {
-          setDailyTip(FALLBACK_TIP);
+          setDailyTip(offlineDailyTip(undefined, language));
           setTipOffline(true);
         }
       })
@@ -105,7 +113,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return () => {
       cancelled = true;
     };
-  }, [user?.dosha]);
+  }, [user?.dosha, language]);
 
   const handleFeaturePress = (featureId: string) => {
     switch (featureId) {
@@ -148,14 +156,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}>
           <Text style={styles.greeting}>{doshaCard.greeting} 🌿</Text>
-          <Text style={styles.heroTitle}>HerbalClinic</Text>
-          <Text style={styles.heroSubtitle}>Your Ayurvedic self-care companion</Text>
+          <Text style={styles.heroTitle}>{t('common.appName')}</Text>
+          <Text style={styles.heroSubtitle}>{t('home.tagline')}</Text>
         </LinearGradient>
 
         <View style={styles.section}>
           <View style={styles.doshaCard}>
             <Text style={styles.doshaEyebrow}>
-              {doshaCard.hasDosha ? 'Your Ayurvedic Dosha' : 'Your Dosha'}
+              {doshaCard.hasDosha ? t('home.yourAyurvedicDosha') : t('home.yourDosha')}
             </Text>
             <Text style={styles.doshaValue}>{doshaCard.doshaLabel}</Text>
             <Text style={styles.doshaSubtitle}>{doshaCard.subtitle}</Text>
@@ -169,8 +177,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   })
                 }
                 accessibilityRole="button"
-                accessibilityLabel="Take Assessment">
-                <Text style={styles.assessBtnText}>Take Assessment</Text>
+                accessibilityLabel={t('home.takeAssessment')}>
+                <Text style={styles.assessBtnText}>{t('home.takeAssessment')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -178,7 +186,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Features */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Core Features</Text>
+          <Text style={styles.sectionTitle}>{t('home.coreFeatures')}</Text>
           <View style={styles.featuresGrid}>
             {features.map(f => (
               <TouchableOpacity

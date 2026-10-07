@@ -28,6 +28,19 @@ Return ONLY valid JSON (no markdown, no explanation) with this structure:
 }
 `;
 
+// Appended after the English instructions so every safety rule above still applies unchanged.
+const SINHALA_OUTPUT_INSTRUCTION = `
+Language:
+- Write every human-readable text value in natural, simple Sinhala that an ordinary Sri Lankan user can easily understand. Avoid awkward word-for-word translation.
+- Keep all JSON keys, the "status" values, and emoji exactly as specified above, in English/ASCII.
+- For herb names, use the common Sinhala name only when you are certain of it; otherwise keep the English name.
+- All of the rules above still apply in Sinhala: no diagnosis, no disease names, no severity, percentages, probabilities, or confidence scores, no prescription medicines, and no dosages.
+`;
+
+function withLanguage(prompt, language) {
+  return language === 'si' ? `${prompt}\n${SINHALA_OUTPUT_INSTRUCTION}` : prompt;
+}
+
 function getApiKey() {
   const key = String(process.env.GEMINI_API_KEY || '').trim();
   if (!key || key === 'your_gemini_api_key_here') {
@@ -57,10 +70,10 @@ async function callGemini(request, readResponse) {
   }
 }
 
-async function analyseSkinIssue({ imageBase64, mimeType = 'image/jpeg' }) {
+async function analyseSkinIssue({ imageBase64, mimeType = 'image/jpeg', language = 'en' }) {
   return callGemini(
     [
-      SKIN_ISSUE_PROMPT,
+      withLanguage(SKIN_ISSUE_PROMPT, language),
       {
         inlineData: {
           mimeType,
@@ -72,7 +85,7 @@ async function analyseSkinIssue({ imageBase64, mimeType = 'image/jpeg' }) {
   );
 }
 
-async function getHerbalRecommendations(condition, dosha) {
+function herbalRecommendationsPrompt(condition, dosha, language = 'en') {
   const prompt = `
 You are an Ayurvedic herbalist AI.
 Provide 5 herbal remedies for "${condition}"${dosha ? ` for ${dosha} dosha` : ''}.
@@ -82,18 +95,32 @@ Return ONLY valid JSON array:
   { "name": "<herb>", "emoji": "<emoji>", "benefit": "<benefit>", "usage": "<how to prepare and use>" }
 ]
 `;
-  return callGemini(prompt, parseJsonContent);
+  return withLanguage(prompt, language);
 }
 
-async function getDailyTip(dosha) {
+function dailyTipPrompt(dosha, language = 'en') {
   const prompt = `Give one short, practical Ayurvedic wellness tip${
     dosha ? ` for ${dosha} dosha` : ''
   }. Return only the tip text, no quotes, no markdown, max 2 sentences.`;
-  return callGemini(prompt, text => String(text || '').trim());
+  return language === 'si'
+    ? `${prompt} Write the tip in natural, simple Sinhala that an ordinary Sri Lankan user can easily understand.`
+    : prompt;
+}
+
+async function getHerbalRecommendations(condition, dosha, language = 'en') {
+  return callGemini(herbalRecommendationsPrompt(condition, dosha, language), parseJsonContent);
+}
+
+async function getDailyTip(dosha, language = 'en') {
+  return callGemini(dailyTipPrompt(dosha, language), text => String(text || '').trim());
 }
 
 module.exports = {
   SKIN_ISSUE_PROMPT,
+  SINHALA_OUTPUT_INSTRUCTION,
+  withLanguage,
+  herbalRecommendationsPrompt,
+  dailyTipPrompt,
   analyseSkinIssue,
   getHerbalRecommendations,
   getDailyTip,

@@ -26,9 +26,12 @@ import {
   validateName,
   validatePassword,
 } from '../constants/passwordPolicy';
-import { friendlyErrorMessage } from '../utils/userMessages';
+import { describeError, resolveMessage, UserMessage } from '../utils/userMessages';
+import { useLanguage } from '../i18n/LanguageContext';
+import { en } from '../i18n/translations/en';
 
-export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.';
+export const SESSION_EXPIRED_MESSAGE = en['auth.sessionExpired'];
+const SESSION_EXPIRED: UserMessage = { key: 'auth.sessionExpired' };
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -52,7 +55,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionUnverified, setSessionUnverified] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { language } = useLanguage();
+  // Stored untranslated so a visible error follows a later language change.
+  const [error, setError] = useState<UserMessage | null>(null);
   const tokenRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
 
@@ -101,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSessionToken(null);
           setUser(null);
           setSessionUnverified(false);
-          setError(SESSION_EXPIRED_MESSAGE);
+          setError(SESSION_EXPIRED);
         }
         return;
       }
@@ -138,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setSessionToken(null);
               setUser(null);
               setSessionUnverified(false);
-              setError(SESSION_EXPIRED_MESSAGE);
+              setError(SESSION_EXPIRED);
             }
           });
       }),
@@ -165,9 +170,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await loginAccount(emailResult.value, passwordResult.value);
       await persistSession(result.token, result.user);
     } catch (e: unknown) {
-      const message = friendlyErrorMessage(e, 'Could not sign in. Please try again.');
+      const message = describeError(e, 'auth.error.signInFailed');
       setError(message);
-      throw new Error(message);
+      throw new Error(resolveMessage(message, language));
     } finally {
       setLoading(false);
     }

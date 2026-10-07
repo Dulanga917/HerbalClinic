@@ -88,6 +88,43 @@ test('prompt no longer forces a condition, severity, confidence, or dermatologis
   assert.match(prompt, /must not diagnose/i);
 });
 
+test('English prompts are unchanged and Sinhala only appends a language instruction', () => {
+  assert.equal(gemini.withLanguage(gemini.SKIN_ISSUE_PROMPT, 'en'), gemini.SKIN_ISSUE_PROMPT);
+  assert.equal(gemini.withLanguage(gemini.SKIN_ISSUE_PROMPT, undefined), gemini.SKIN_ISSUE_PROMPT);
+
+  const sinhala = gemini.withLanguage(gemini.SKIN_ISSUE_PROMPT, 'si');
+  assert.ok(sinhala.startsWith(gemini.SKIN_ISSUE_PROMPT), 'every English safety rule is kept first');
+  assert.match(sinhala, /Sinhala/);
+  assert.match(sinhala, /Keep all JSON keys, the "status" values/);
+  assert.match(sinhala, /no diagnosis/i);
+  assert.match(sinhala, /confidence scores/i);
+  assert.match(sinhala, /only when you are certain/i);
+  assert.doesNotMatch(sinhala, /"severity"|"confidence"/);
+
+  const herbsEn = gemini.herbalRecommendationsPrompt('Acne', 'Pitta');
+  assert.doesNotMatch(herbsEn, /Sinhala/);
+  assert.match(gemini.herbalRecommendationsPrompt('Acne', 'Pitta', 'si'), /Sinhala/);
+  assert.doesNotMatch(gemini.dailyTipPrompt(null, 'en'), /Sinhala/);
+  assert.match(gemini.dailyTipPrompt('Vata', 'si'), /for Vata dosha[\s\S]*Sinhala/);
+});
+
+test('the Sinhala skin prompt is what reaches the provider and keeps the same response handling', async () => {
+  let sent;
+  const body = { status: 'no_clear_concern', observations: 'සම සමබරව පෙනේ.' };
+  await withFakeModel(
+    async request => {
+      sent = request;
+      return { response: { text: () => JSON.stringify(body) } };
+    },
+    async () => {
+      assert.deepEqual(await gemini.analyseSkinIssue({ ...IMAGE, language: 'si' }), body);
+    },
+  );
+  assert.ok(sent[0].startsWith(gemini.SKIN_ISSUE_PROMPT));
+  assert.match(sent[0], /Sinhala/);
+  assert.equal(sent[1].inlineData.mimeType, 'image/jpeg');
+});
+
 test('missing or placeholder key throws GEMINI_UNAVAILABLE without key details', async () => {
   const originalKey = process.env.GEMINI_API_KEY;
   try {

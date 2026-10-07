@@ -9,6 +9,7 @@ import { it, expect, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import ProfileScreen from '../src/screens/home/ProfileScreen';
 import { ApiError, fetchScanHistory, ScanRecord } from '../src/services/apiClient';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
 
 const mockLogout = jest.fn(async () => undefined);
 
@@ -61,6 +62,50 @@ it('renders the authenticated user name and email', () => {
   expect(labels).not.toContain('Plans');
   expect(labels).toContain('Meditation Sessions');
   expect(labels).not.toContain('Meditation History');
+});
+
+it('changes the app language from Profile immediately, including Scan History', async () => {
+  mockedHistory.mockResolvedValueOnce({
+    scans: [
+      { id: 2, dosha: null, confidence: null, imageReference: 'b.jpg', createdAt: '2026-09-30T10:00:00Z' },
+      { id: 1, dosha: 'Vata', confidence: 82, imageReference: 'c.jpg', createdAt: '2026-09-29T10:00:00Z' },
+    ],
+  });
+  const storage = createMemoryLanguageStorage();
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={storage}>
+        <ProfileScreen navigation={{ navigate: jest.fn() } as never} route={{} as never} />
+      </LanguageProvider>,
+    );
+  });
+  const flatten = (children: unknown): string =>
+    Array.isArray(children) ? children.map(flatten).join('') : children == null ? '' : String(children);
+  const text = () => root.root.findAllByType(Text).map(node => flatten(node.props.children)).join('\n');
+
+  expect(text()).toContain('Language');
+  expect(text()).toContain('Meditation Sessions');
+
+  act(() => root.root.findByProps({ testID: 'language-option-si' }).props.onPress());
+  expect(storage.value()).toBe('si');
+  expect(text()).toContain(translate('si', 'language.label'));
+  expect(text()).toContain('දෝෂය: වාත (Vata)');
+  expect(text()).toContain('Ada Lovelace');
+  expect(text()).not.toContain('Meditation Sessions');
+  expect(text()).toContain(translate('si', 'profile.signOut'));
+
+  const history = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === translate('si', 'profile.menu.history'))!;
+  await act(async () => {
+    history.props.onPress();
+  });
+  expect(text()).toContain(translate('si', 'result.modelConfidence', { value: 82 }));
+  expect(text()).toContain(translate('si', 'profile.historyAiTitle'));
+  expect(text()).toContain(translate('si', 'profile.historyAiMeta'));
+  act(() => root.unmount());
+  setCurrentLanguage('en');
 });
 
 it('shows model confidence only for Dosha scans in Scan History', async () => {

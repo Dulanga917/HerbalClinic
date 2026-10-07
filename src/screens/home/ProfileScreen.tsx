@@ -18,24 +18,30 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 import { useAuth } from '../../context/AuthContext';
 import Config from '../../constants/config';
 import { fetchScanHistory, isSessionInvalid, ScanRecord } from '../../services/apiClient';
-import { friendlyErrorMessage } from '../../utils/userMessages';
+import { describeError, resolveMessage } from '../../utils/userMessages';
 import { useTopInset } from '../../components/ScreenHeader';
+import LanguageSelector from '../../components/LanguageSelector';
+import { TranslationKey, useLanguage } from '../../i18n';
+import { doshaLabel as formatDosha } from '../../i18n/content';
 
 type Props = BottomTabScreenProps<HomeTabParamList, 'Profile'>;
 
-const menuItems = [
-  { id: 'history', emoji: '📋', title: 'Scan History', description: 'Saved assessments for this account' },
-  { id: 'treatments', emoji: '🌿', title: 'Herb Library', description: 'Open Ayurvedic herb recommendations' },
-  { id: 'meditation', emoji: '🧘', title: 'Meditation Sessions', description: 'Open guided meditation sessions' },
-  { id: 'settings', emoji: '⚙️', title: 'Settings', description: 'Account and API details for this build' },
-  { id: 'about', emoji: 'ℹ️', title: 'About HerbalClinic', description: 'Version 1.0.0 — Final Year Project' },
+const menuItems: { id: string; emoji: string; title: TranslationKey; description: TranslationKey }[] = [
+  { id: 'history', emoji: '📋', title: 'profile.menu.history', description: 'profile.menu.historyDesc' },
+  { id: 'treatments', emoji: '🌿', title: 'profile.menu.herbs', description: 'profile.menu.herbsDesc' },
+  { id: 'meditation', emoji: '🧘', title: 'profile.menu.meditation', description: 'profile.menu.meditationDesc' },
+  { id: 'settings', emoji: '⚙️', title: 'profile.menu.settings', description: 'profile.menu.settingsDesc' },
+  { id: 'about', emoji: 'ℹ️', title: 'profile.menu.about', description: 'profile.menu.aboutDesc' },
 ];
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout, sessionToken } = useAuth();
-  const displayName = user?.name?.trim() || 'HerbalClinic member';
-  const displayEmail = user?.email?.trim() || 'No email on file';
-  const doshaLabel = user?.dosha ? `Dosha: ${user.dosha}` : 'Dosha: Not analyzed yet';
+  const { language, t } = useLanguage();
+  const displayName = user?.name?.trim() || t('profile.member');
+  const displayEmail = user?.email?.trim() || t('profile.noEmail');
+  const doshaLabel = user?.dosha
+    ? t('profile.dosha', { dosha: formatDosha(user.dosha, language) })
+    : t('profile.doshaNone');
   const scanCount = String(user?.scanCount ?? 0);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -48,7 +54,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await logout();
     } catch {
-      Alert.alert('Sign out failed', 'Could not sign out. Please try again.');
+      Alert.alert(t('profile.signOutFailedTitle'), t('profile.signOutFailedBody'));
     } finally {
       setSigningOut(false);
     }
@@ -58,15 +64,15 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     if (signingOut) {
       return;
     }
-    Alert.alert('Sign out?', 'You will need to sign in again to use HerbalClinic.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: signOut },
+    Alert.alert(t('profile.signOutConfirmTitle'), t('profile.signOutConfirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.signOut'), style: 'destructive', onPress: signOut },
     ]);
   };
 
   const openScanHistory = async () => {
     if (!sessionToken) {
-      Alert.alert('Sign in required', 'Please sign in again to view scan history.');
+      Alert.alert(t('profile.signInRequiredTitle'), t('profile.signInRequiredBody'));
       return;
     }
     setHistoryVisible(true);
@@ -80,8 +86,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
       Alert.alert(
-        'Scan History',
-        friendlyErrorMessage(error, 'Could not load scan history. Please try again.'),
+        t('profile.menu.history'),
+        resolveMessage(describeError(error, 'profile.historyLoadFailed'), language),
       );
     } finally {
       setHistoryLoading(false);
@@ -101,14 +107,17 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         break;
       case 'settings':
         Alert.alert(
-          'Settings',
-          `Signed in as ${displayEmail}.\nAPI: ${Config.API_BASE_URL || 'not configured'}\nNotifications are not available in this build.`,
+          t('profile.menu.settings'),
+          t('profile.settingsBody', {
+            email: displayEmail,
+            api: Config.API_BASE_URL || t('profile.apiNotConfigured'),
+          }),
         );
         break;
       case 'about':
         Alert.alert(
-          'About HerbalClinic',
-          `${Config.APP_NAME} ${Config.VERSION}. Informational Ayurvedic self-care only — not a medical diagnosis. Gemini keys stay on the API server.`,
+          t('profile.menu.about'),
+          t('profile.aboutBody', { app: Config.APP_NAME, version: Config.VERSION }),
         );
         break;
       default:
@@ -137,8 +146,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{scanCount}</Text>
-            <Text style={styles.statLabel}>Saved scans</Text>
+            <Text style={styles.statLabel}>{t('profile.savedScans')}</Text>
           </View>
+        </View>
+
+        <View style={styles.languageCard}>
+          <View style={styles.languageHeader}>
+            <Text style={styles.menuEmoji}>🌐</Text>
+            <View style={styles.menuText}>
+              <Text style={styles.menuTitle}>{t('language.label')}</Text>
+              <Text style={styles.menuDesc}>{t('language.description')}</Text>
+            </View>
+          </View>
+          <LanguageSelector style={styles.languageSelector} />
         </View>
 
         <View style={styles.menuSection}>
@@ -149,11 +169,11 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               activeOpacity={0.75}
               onPress={() => handleMenuPress(item.id)}
               accessibilityRole="button"
-              accessibilityLabel={item.title}>
+              accessibilityLabel={t(item.title)}>
               <Text style={styles.menuEmoji}>{item.emoji}</Text>
               <View style={styles.menuText}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuDesc}>{item.description}</Text>
+                <Text style={styles.menuTitle}>{t(item.title)}</Text>
+                <Text style={styles.menuDesc}>{t(item.description)}</Text>
               </View>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
@@ -166,7 +186,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           disabled={signingOut}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Sign Out"
+          accessibilityLabel={t('profile.signOut')}
           accessibilityState={{ disabled: signingOut, busy: signingOut }}>
           <LinearGradient
             colors={['#7A2010', '#FA5252']}
@@ -176,10 +196,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             {signingOut ? (
               <View style={styles.signOutBusy}>
                 <ActivityIndicator size="small" color={Colors.textPrimary} />
-                <Text style={styles.signOutText}>Signing out…</Text>
+                <Text style={styles.signOutText}>{t('profile.signingOut')}</Text>
               </View>
             ) : (
-              <Text style={styles.signOutText}>🚪  Sign Out</Text>
+              <Text style={styles.signOutText}>🚪  {t('profile.signOut')}</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -194,14 +214,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         onRequestClose={() => setHistoryVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Scan History</Text>
+            <Text style={styles.modalTitle}>{t('profile.menu.history')}</Text>
             {historyLoading ? (
               <View style={styles.historyLoading} accessibilityLiveRegion="polite">
                 <ActivityIndicator color={Colors.primaryLight} />
-                <Text style={styles.historyLoadingText}>Loading history…</Text>
+                <Text style={styles.historyLoadingText}>{t('profile.historyLoading')}</Text>
               </View>
             ) : scans.length === 0 ? (
-              <Text style={styles.historyEmpty}>No saved scans for this account yet.</Text>
+              <Text style={styles.historyEmpty}>{t('profile.historyEmpty')}</Text>
             ) : (
               <FlatList
                 testID="scan-history-list"
@@ -214,17 +234,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.historyEmoji}>{scan.dosha ? '🔬' : '🩺'}</Text>
                     <View style={styles.historyText}>
                       <Text style={[styles.historyKind, !scan.dosha && styles.historyKindAi]}>
-                        {scan.dosha ? 'Skin Type Assessment · on-device' : 'Gemini-assisted guidance'}
+                        {scan.dosha ? t('profile.historyKindType') : t('profile.historyKindAi')}
                       </Text>
                       <Text style={styles.menuTitle}>
-                        {scan.dosha ? `Dosha: ${scan.dosha}` : 'AI skin guidance'}
+                        {scan.dosha
+                          ? t('profile.dosha', { dosha: formatDosha(scan.dosha, language) })
+                          : t('profile.historyAiTitle')}
                       </Text>
                       <Text style={styles.historyMeta}>
                         {!scan.dosha
-                          ? 'General guidance, no confidence score'
+                          ? t('profile.historyAiMeta')
                           : scan.confidence != null
-                            ? `${scan.confidence}% model confidence`
-                            : 'No confidence stored'}
+                            ? t('result.modelConfidence', { value: scan.confidence })
+                            : t('profile.historyNoConfidence')}
                         {scan.createdAt ? ` · ${scan.createdAt.slice(0, 10)}` : ''}
                       </Text>
                     </View>
@@ -236,8 +258,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               style={styles.closeBtn}
               onPress={() => setHistoryVisible(false)}
               accessibilityRole="button"
-              accessibilityLabel="Close Scan History">
-              <Text style={styles.closeText}>Close</Text>
+              accessibilityLabel={t('profile.closeHistoryA11y')}>
+              <Text style={styles.closeText}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -276,7 +298,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primaryLight,
   },
-  doshaText: { fontSize: Typography.sm, color: Colors.primaryLight, fontWeight: '600' },
+  doshaText: { fontSize: Typography.sm, color: Colors.primaryLight, fontWeight: '600', textAlign: 'center' },
   statsRow: {
     marginHorizontal: Spacing.xl,
     marginTop: -Spacing.lg,
@@ -291,7 +313,18 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: Typography['2xl'], fontWeight: '800', color: Colors.primaryLight },
   statLabel: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2 },
-  menuSection: { padding: Spacing.xl, paddingTop: Spacing['2xl'], gap: Spacing.sm },
+  languageCard: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  languageHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  languageSelector: { marginTop: Spacing.md },
+  menuSection: { padding: Spacing.xl, paddingTop: Spacing.base, gap: Spacing.sm },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,7 +339,7 @@ const styles = StyleSheet.create({
   menuEmoji: { fontSize: 28 },
   menuText: { flex: 1 },
   menuTitle: { fontSize: Typography.base, fontWeight: '600', color: Colors.textPrimary },
-  menuDesc: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 2 },
+  menuDesc: { fontSize: Typography.sm, lineHeight: 20, color: Colors.textSecondary, marginTop: 2 },
   menuArrow: { fontSize: 24, color: Colors.textSecondary },
   signOutWrapper: { marginHorizontal: Spacing.xl, borderRadius: BorderRadius.lg, overflow: 'hidden' },
   signOutBtn: {

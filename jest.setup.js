@@ -34,7 +34,10 @@ jest.mock('react-native-image-picker', () => ({
 }));
 
 jest.mock('react-native-fs', () => ({
+  DocumentDirectoryPath: '/mock/documents',
   readFile: jest.fn(),
+  exists: jest.fn(async () => false),
+  writeFile: jest.fn(async () => {}),
 }));
 
 jest.mock('react-native-keychain', () => ({

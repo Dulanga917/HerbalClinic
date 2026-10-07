@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { Colors, Typography, Spacing } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../i18n';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Splash'>;
@@ -14,6 +15,7 @@ const MIN_SPLASH_MS = 1200;
 
 const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const { loading, user } = useAuth();
+  const { t } = useLanguage();
   const [minElapsed, setMinElapsed] = useState(false);
 
   useEffect(() => {
@@ -38,15 +40,15 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.logoContainer}>
         <Text style={styles.emoji}>🌿</Text>
         <Text style={styles.appName}>HerbalClinic</Text>
-        <Text style={styles.tagline}>Ayurvedic self-care companion</Text>
+        <Text style={styles.tagline}>{t('splash.tagline')}</Text>
         {minElapsed && loading ? (
           <View style={styles.statusRow} accessibilityLiveRegion="polite">
             <ActivityIndicator color={Colors.textPrimary} size="small" />
-            <Text style={styles.statusText}>Checking your sign-in…</Text>
+            <Text style={styles.statusText}>{t('splash.checking')}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={styles.footer}>Informational guidance — not a medical diagnosis</Text>
+      <Text style={styles.footer}>{t('splash.footer')}</Text>
     </LinearGradient>
   );
 };
@@ -59,6 +61,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
   },
   emoji: {
     fontSize: 72,
@@ -74,7 +77,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.md,
     color: 'rgba(240,244,241,0.85)',
     marginTop: Spacing.sm,
-    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   statusRow: {
     flexDirection: 'row',
@@ -89,6 +92,9 @@ const styles = StyleSheet.create({
   footer: {
     position: 'absolute',
     bottom: Spacing['3xl'],
+    left: Spacing.xl,
+    right: Spacing.xl,
+    textAlign: 'center',
     fontSize: Typography.sm,
     color: 'rgba(240,244,241,0.85)',
   },

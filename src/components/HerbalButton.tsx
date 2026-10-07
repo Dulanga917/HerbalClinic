@@ -197,6 +197,8 @@ const styles = StyleSheet.create({
     fontSize: Typography.md,
     fontWeight: '700',
     letterSpacing: 0.3,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   textPrimary: {
     color: Colors.textPrimary,

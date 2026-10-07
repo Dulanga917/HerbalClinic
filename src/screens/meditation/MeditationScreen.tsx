@@ -12,7 +12,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { MEDITATION_SESSIONS } from '../../constants/ayurveda';
 import ScreenHeader from '../../components/ScreenHeader';
+import { useLanguage } from '../../i18n';
+import { localizeMeditation } from '../../i18n/content';
 
+// Timer lengths come from the English source ("10 min"); localized text is display-only.
 const durationToSeconds = (duration: string): number => {
   const minutes = Number.parseInt(duration, 10);
   return Number.isFinite(minutes) && minutes > 0 ? minutes * 60 : 10 * 60;
@@ -28,11 +31,13 @@ const MeditationScreen: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
+  const { language, t } = useLanguage();
 
   const session = useMemo(
     () => MEDITATION_SESSIONS.find(item => item.id === activeId) || null,
     [activeId],
   );
+  const sessionText = session ? localizeMeditation(session, language) : null;
 
   // One interval per run: depending on `remaining` would tear down and recreate it every second.
   useEffect(() => {
@@ -52,14 +57,24 @@ const MeditationScreen: React.FC = () => {
   }, [running, remaining]);
 
   const fullDuration = session ? durationToSeconds(session.duration) : 0;
-  const timerStatus = running
-    ? 'In progress'
-    : remaining === 0
-      ? 'Session complete'
-      : remaining < fullDuration
-        ? 'Paused'
-        : 'Ready to begin';
-  const primaryLabel = running ? 'Pause' : remaining === 0 ? 'Restart' : remaining < fullDuration ? 'Resume' : 'Start';
+  const timerStatus = t(
+    running
+      ? 'meditation.statusRunning'
+      : remaining === 0
+        ? 'meditation.statusComplete'
+        : remaining < fullDuration
+          ? 'meditation.statusPaused'
+          : 'meditation.statusReady',
+  );
+  const primaryLabel = t(
+    running
+      ? 'meditation.pause'
+      : remaining === 0
+        ? 'meditation.restart'
+        : remaining < fullDuration
+          ? 'meditation.resume'
+          : 'meditation.start',
+  );
   const resetDisabled = !running && remaining === fullDuration;
 
   const toggleTimer = () => {
@@ -99,29 +114,26 @@ const MeditationScreen: React.FC = () => {
 
       <ScreenHeader
         emoji="🧘"
-        title="Meditation"
-        subtitle="Mind-body balance through Ayurvedic practice"
+        title={t('feature.meditation.title')}
+        subtitle={t('meditation.subtitle')}
         colors={Colors.gradientVata}
       />
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.quoteCard}>
-          <Text style={styles.quoteText}>
-            "The secret of health for both mind and body is not to mourn for the past, worry about the
-            future, or anticipate troubles, but to live in the present moment wisely."
-          </Text>
-          <Text style={styles.quoteAuthor}>— Buddha</Text>
+          <Text style={styles.quoteText}>{t('meditation.quote')}</Text>
+          <Text style={styles.quoteAuthor}>{t('meditation.quoteAuthor')}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Guided Sessions</Text>
-        {MEDITATION_SESSIONS.map(s => (
+        <Text style={styles.sectionTitle}>{t('meditation.guided')}</Text>
+        {MEDITATION_SESSIONS.map(raw => localizeMeditation(raw, language)).map(s => (
           <TouchableOpacity
             key={s.id}
             style={styles.sessionCard}
             activeOpacity={0.85}
             onPress={() => openSession(s.id)}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${s.title}`}>
+            accessibilityLabel={t('common.open', { title: s.title })}>
             <LinearGradient
               colors={[s.color, Colors.surface]}
               style={styles.sessionGradient}
@@ -155,19 +167,22 @@ const MeditationScreen: React.FC = () => {
                 onPress={closeSession}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel="Close session">
+                accessibilityLabel={t('meditation.closeSessionA11y')}>
                 <Text style={styles.modalCloseIconText}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalScrollView} contentContainerStyle={styles.modalScroll}>
-              <Text style={styles.modalEmoji}>{session?.emoji}</Text>
-              <Text style={styles.modalTitle}>{session?.title}</Text>
-              <Text style={styles.modalSub}>{session?.description}</Text>
+              <Text style={styles.modalEmoji}>{sessionText?.emoji}</Text>
+              <Text style={styles.modalTitle}>{sessionText?.title}</Text>
+              <Text style={styles.modalSub}>{sessionText?.description}</Text>
               <View style={styles.clockCard}>
                 <Text
                   style={styles.clock}
                   accessibilityRole="timer"
-                  accessibilityLabel={`${Math.floor(remaining / 60)} minutes ${remaining % 60} seconds remaining`}>
+                  accessibilityLabel={t('meditation.timerA11y', {
+                    minutes: Math.floor(remaining / 60),
+                    seconds: remaining % 60,
+                  })}>
                   {formatClock(remaining)}
                 </Text>
                 <Text style={[styles.timerStatus, running && styles.timerStatusActive]}>{timerStatus}</Text>

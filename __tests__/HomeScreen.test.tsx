@@ -8,6 +8,8 @@ import { Text, TouchableOpacity } from 'react-native';
 import { expect, it, jest } from '@jest/globals';
 import renderer, { act } from 'react-test-renderer';
 import HomeScreen from '../src/screens/home/HomeScreen';
+import geminiService from '../src/services/geminiService';
+import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
 
 jest.mock('../src/context/AuthContext', () => ({
   useAuth: () => ({
@@ -54,6 +56,42 @@ it('shows the saved Dosha and thesis feature names', async () => {
   expect(flat).toContain('Ayurvedic Hospitals');
   expect(flat).toContain('Find Ayurvedic hospitals and treatment centres in Sri Lanka');
   expect(flat).not.toContain('AI Chat');
+});
+
+it('shows Home in Sinhala and asks for the daily tip in Sinhala', async () => {
+  const getDailyTip = geminiService.getDailyTip as unknown as jest.Mock;
+  getDailyTip.mockClear();
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={createMemoryLanguageStorage('si')}>
+        <HomeScreen navigation={{ navigate: jest.fn() } as never} route={{} as never} />
+      </LanguageProvider>,
+    );
+  });
+  const flat = root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity);
+
+  expect(flat).toContain('ආයුබෝවන්, Ada');
+  expect(flat).toContain('පිත (Pitta)');
+  expect(flat).toContain(translate('si', 'home.coreFeatures'));
+  expect(flat).toContain(translate('si', 'feature.herbal.title'));
+  expect(flat).toContain(translate('si', 'feature.hospitals.title'));
+  expect(flat).toContain(translate('si', 'home.disclaimer'));
+  expect(flat).not.toContain('Herb Library');
+  expect(flat).not.toContain('Core Features');
+  expect(getDailyTip).toHaveBeenCalledWith('Pitta', 'si');
+
+  expect(
+    root.root
+      .findAllByType(TouchableOpacity)
+      .some(
+        node =>
+          node.props.accessibilityLabel ===
+          translate('si', 'common.open', { title: translate('si', 'feature.hospitals.title') }),
+      ),
+  ).toBe(true);
+  act(() => root.unmount());
+  setCurrentLanguage('en');
 });
 
 it('routes every Home feature card, including Ayurvedic Hospitals', async () => {

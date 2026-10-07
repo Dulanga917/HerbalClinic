@@ -1,5 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
-import { filterHerbs, herbDisplayName, listHerbs } from '../src/utils/herbLibrary';
+import {
+  filterHerbs,
+  herbAlternateName,
+  herbDisplayName,
+  listHerbs,
+} from '../src/utils/herbLibrary';
 import { offlineHerbalRecommendations } from '../src/services/offlineFallbacks';
 
 const DEVANAGARI = /[\u0900-\u097F]/;
@@ -7,17 +12,41 @@ const DEVANAGARI = /[\u0900-\u097F]/;
 describe('herb library', () => {
   const herbs = listHerbs();
 
-  it('shows English names with verified Sinhala common names', () => {
-    expect(Object.fromEntries(herbs.map(herb => [herb.id, herbDisplayName(herb)]))).toEqual({
-      turmeric: 'Turmeric (කහ)',
-      neem: 'Neem (කොහොඹ)',
-      aloeVera: 'Aloe Vera (කෝමාරිකා)',
-      sandalwood: 'Sandalwood (සුදු හඳුන්)',
-      manjistha: 'Manjistha (වැල්මදට)',
-      licorice: 'Licorice Root (වැල්මී)',
-      ashwagandha: 'Ashwagandha (අමුක්කරා)',
+  it('shows English herb names in English mode', () => {
+    expect(Object.fromEntries(herbs.map(herb => [herb.id, herbDisplayName(herb, 'en')]))).toEqual({
+      turmeric: 'Turmeric',
+      neem: 'Neem',
+      aloeVera: 'Aloe Vera',
+      sandalwood: 'Sandalwood',
+      manjistha: 'Manjistha',
+      licorice: 'Licorice Root',
+      ashwagandha: 'Ashwagandha',
       jojoba: 'Jojoba Oil',
     });
+    expect(herbDisplayName(herbs[0])).toBe(herbDisplayName(herbs[0], 'en'));
+  });
+
+  it('shows verified Sinhala common names in Sinhala mode and never invents one for Jojoba Oil', () => {
+    expect(Object.fromEntries(herbs.map(herb => [herb.id, herbDisplayName(herb, 'si')]))).toEqual({
+      turmeric: 'කහ',
+      neem: 'කොහොඹ',
+      aloeVera: 'කෝමාරිකා',
+      sandalwood: 'සුදු හඳුන්',
+      manjistha: 'වැල්මදට',
+      licorice: 'වැල්මී',
+      ashwagandha: 'අමුක්කරා',
+      jojoba: 'Jojoba Oil',
+    });
+  });
+
+  it('offers the other-language name as a secondary label, and none for Jojoba Oil', () => {
+    const turmeric = herbs.find(herb => herb.id === 'turmeric')!;
+    const jojoba = herbs.find(herb => herb.id === 'jojoba')!;
+    expect(herbAlternateName(turmeric, 'en')).toBe('කහ');
+    expect(herbAlternateName(turmeric, 'si')).toBe('Turmeric');
+    expect(herbAlternateName(jojoba, 'en')).toBeNull();
+    expect(herbAlternateName(jojoba, 'si')).toBeNull();
+    expect(turmeric.botanical).toBe('Curcuma longa');
   });
 
   it('contains no Devanagari text in any herb field', () => {
@@ -26,13 +55,22 @@ describe('herb library', () => {
     }
   });
 
-  it('uses the Sinhala display names in offline recommendations', () => {
-    const names = offlineHerbalRecommendations('acne').map(herb => herb.name);
-    expect(names).toEqual(['Neem (කොහොඹ)', 'Turmeric (කහ)', 'Sandalwood (සුදු හඳුන්)']);
+  it('uses the active-language herb names in offline recommendations', () => {
+    expect(offlineHerbalRecommendations('acne').map(herb => herb.name)).toEqual([
+      'Neem',
+      'Turmeric',
+      'Sandalwood',
+    ]);
+    expect(offlineHerbalRecommendations('acne', undefined, 'si').map(herb => herb.name)).toEqual([
+      'කොහොඹ',
+      'කහ',
+      'සුදු හඳුන්',
+    ]);
   });
 
-  it('searches by Sinhala and botanical names', () => {
+  it('searches by English, Sinhala and botanical names in either language', () => {
     expect(filterHerbs(herbs, 'කහ', 'all').map(herb => herb.id)).toEqual(['turmeric']);
+    expect(filterHerbs(herbs, 'turmeric', 'all').map(herb => herb.id)).toEqual(['turmeric']);
     expect(filterHerbs(herbs, 'withania', 'all').map(herb => herb.id)).toEqual(['ashwagandha']);
   });
 
