@@ -272,8 +272,8 @@ export const si: Record<TranslationKey, string> = {
   // Meditation
   'meditation.subtitle': 'ආයුර්වේද පුහුණුව හරහා සිත සහ කය සමබර කරගන්න',
   'meditation.quote':
-    '"සිතේ සහ කයේ සෞඛ්‍යයේ රහස නම් අතීතය ගැන ශෝක නොවී, අනාගතය ගැන කනස්සල්ලට පත් නොවී, කරදර කල් ඇතිව නොසිතා, වර්තමාන මොහොතේ නුවණින් ජීවත් වීමයි."',
-  'meditation.quoteAuthor': '— බුදුරජාණන් වහන්සේ',
+    'මොහොතකට නවතින්න, සෙමින් හුස්ම ගන්න, මේ මොහොත ගැන අවධානයෙන් සිටින්න. දිනපතා සන්සුන්ව ගත කරන විනාඩි කිහිපයක් ඔබේ සිත සහ කය වඩාත් සමබර වීමට උපකාරී විය හැකිය.',
+  'meditation.quoteAuthor': '— HerbalClinic',
   'meditation.guided': 'මඟපෙන්වන භාවනා',
   'meditation.statusRunning': 'සිදුවෙමින් පවතී',
   'meditation.statusComplete': 'භාවනාව අවසන්',

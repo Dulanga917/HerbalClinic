@@ -58,14 +58,11 @@ it('registers a user without keeping a demo password in the client', async () =>
     user: mockUser,
   });
 
+  let register!: ReturnType<typeof useAuth>['register'];
   const TestComponent = () => {
-    const { user, register, error } = useAuth();
-
-    React.useEffect(() => {
-      register('Ada', 'ada@example.com', 'password1').catch(() => {});
-    }, []);
-
-    return <Text>{user ? user.email : error ?? 'none'}</Text>;
+    const auth = useAuth();
+    register = auth.register;
+    return <Text>{auth.user ? auth.user.email : auth.error ?? 'none'}</Text>;
   };
 
   let root: renderer.ReactTestRenderer;
@@ -76,7 +73,10 @@ it('registers a user without keeping a demo password in the client', async () =>
         <TestComponent />
       </AuthProvider>,
     );
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 20));
+  });
+  await act(async () => {
+    await register('Ada', 'ada@example.com', 'password1').catch(() => {});
   });
 
   expect(apiClient.registerAccount).toHaveBeenCalledWith(
@@ -94,14 +94,11 @@ it('logs in through the API and stores only a session token', async () => {
     user: mockUser,
   });
 
+  let login!: ReturnType<typeof useAuth>['login'];
   const TestComponent = () => {
-    const { user, login } = useAuth();
-
-    React.useEffect(() => {
-      login('ada@example.com', 'password1').catch(() => {});
-    }, []);
-
-    return <Text>{user ? user.email : 'none'}</Text>;
+    const auth = useAuth();
+    login = auth.login;
+    return <Text>{auth.user ? auth.user.email : 'none'}</Text>;
   };
 
   let root: renderer.ReactTestRenderer;
@@ -112,7 +109,10 @@ it('logs in through the API and stores only a session token', async () => {
         <TestComponent />
       </AuthProvider>,
     );
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 20));
+  });
+  await act(async () => {
+    await login('ada@example.com', 'password1').catch(() => {});
   });
 
   expect(apiClient.loginAccount).toHaveBeenCalledWith('ada@example.com', 'password1');
@@ -124,16 +124,11 @@ it('clears the session on logout', async () => {
   mockedApi.fetchCurrentUser.mockResolvedValue({ user: mockUser });
   mockedApi.logoutAccount.mockResolvedValue({ ok: true });
 
+  let logout!: ReturnType<typeof useAuth>['logout'];
   const TestComponent = () => {
-    const { user, logout } = useAuth();
-
-    React.useEffect(() => {
-      if (user) {
-        logout().catch(() => {});
-      }
-    }, [user]);
-
-    return <Text>{user ? user.email : 'signed-out'}</Text>;
+    const auth = useAuth();
+    logout = auth.logout;
+    return <Text>{auth.user ? auth.user.email : 'signed-out'}</Text>;
   };
 
   let root: renderer.ReactTestRenderer;
@@ -144,7 +139,12 @@ it('clears the session on logout', async () => {
         <TestComponent />
       </AuthProvider>,
     );
-    await new Promise(resolve => setTimeout(resolve, 80));
+    await new Promise(resolve => setTimeout(resolve, 20));
+  });
+  expect(root!.root.findByType(Text).props.children).toBe('ada@example.com');
+
+  await act(async () => {
+    await logout().catch(() => {});
   });
 
   expect(apiClient.logoutAccount).toHaveBeenCalled();

@@ -266,8 +266,8 @@ export const en = {
   // Meditation
   'meditation.subtitle': 'Mind-body balance through Ayurvedic practice',
   'meditation.quote':
-    '"The secret of health for both mind and body is not to mourn for the past, worry about the future, or anticipate troubles, but to live in the present moment wisely."',
-  'meditation.quoteAuthor': '— Buddha',
+    'Pause, breathe slowly, and notice this moment. A few calm minutes each day can help your mind and body feel more balanced.',
+  'meditation.quoteAuthor': '— HerbalClinic',
   'meditation.guided': 'Guided Sessions',
   'meditation.statusRunning': 'In progress',
   'meditation.statusComplete': 'Session complete',
