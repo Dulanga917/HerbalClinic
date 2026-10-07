@@ -1,6 +1,7 @@
 import { DOSHAS, HERBS, SKIN_ISSUES } from '../constants/ayurveda';
 import { API_UNREACHABLE, GEMINI_UNAVAILABLE } from './apiClient';
 import type { OfflineSkinGuidance } from '../utils/skinGuidance';
+import { herbDisplayName } from '../utils/herbLibrary';
 
 type HerbRecommendation = {
   name: string;
@@ -10,7 +11,7 @@ type HerbRecommendation = {
 };
 
 const herbToRecommendation = (herb: (typeof HERBS)[keyof typeof HERBS]): HerbRecommendation => ({
-  name: herb.name,
+  name: herbDisplayName(herb),
   emoji: herb.emoji,
   benefit: herb.benefits[0] || herb.description,
   usage: herb.usage,

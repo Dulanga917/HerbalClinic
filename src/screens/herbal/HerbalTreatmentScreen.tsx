@@ -15,7 +15,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import geminiService, { HerbRecommendation } from '../../services/geminiService';
-import { filterHerbs, listHerbs, HerbDoshaFilter, HerbRecord } from '../../utils/herbLibrary';
+import {
+  filterHerbs,
+  herbDisplayName,
+  listHerbs,
+  HerbDoshaFilter,
+  HerbRecord,
+} from '../../utils/herbLibrary';
 import { friendlyErrorMessage } from '../../utils/userMessages';
 import ScreenHeader from '../../components/ScreenHeader';
 
@@ -171,7 +177,7 @@ const HerbalTreatmentScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel={`Open ${herb.name} details`}>
               <Text style={styles.herbEmoji}>{herb.emoji}</Text>
-              <Text style={styles.herbName}>{herb.name}</Text>
+              <Text style={styles.herbName}>{herbDisplayName(herb)}</Text>
               <Text style={styles.herbBenefit}>{herb.benefits[0]}</Text>
               <View style={styles.doshaBadge}>
                 <Text style={styles.doshaText}>{herb.doshas.map(d => d[0].toUpperCase() + d.slice(1)).join(' · ')}</Text>
@@ -199,8 +205,8 @@ const HerbalTreatmentScreen: React.FC = () => {
         <View style={styles.modalBackdrop}>
           <ScrollView style={styles.modalCard} contentContainerStyle={styles.modalScroll}>
             <Text style={styles.modalEmoji}>{selectedHerb?.emoji}</Text>
-            <Text style={styles.modalTitle}>{selectedHerb?.name}</Text>
-            <Text style={styles.modalSub}>{selectedHerb?.sanskrit}</Text>
+            <Text style={styles.modalTitle}>{selectedHerb ? herbDisplayName(selectedHerb) : ''}</Text>
+            <Text style={styles.modalSub}>{selectedHerb?.botanical}</Text>
             <Text style={styles.modalBody}>{selectedHerb?.description}</Text>
             <Text style={styles.modalLabel}>How to use</Text>
             <Text style={styles.modalBody}>{selectedHerb?.usage}</Text>

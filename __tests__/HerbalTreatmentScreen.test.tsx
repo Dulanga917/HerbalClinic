@@ -45,6 +45,28 @@ const hasAncestor = (node: ReactTestInstance, type: unknown) => {
   return false;
 };
 
+it('shows Sinhala common names on herb cards and in the detail modal without Devanagari', async () => {
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(<HerbalTreatmentScreen />);
+  });
+  const texts = () => root.root.findAllByType(Text).map(node => node.props.children).flat(Infinity);
+  expect(texts()).toContain('Turmeric (කහ)');
+  expect(texts()).toContain('Jojoba Oil');
+
+  const card = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'Open Turmeric details')!;
+  act(() => card.props.onPress());
+  const detail = root.root.findAllByType(Modal)[0];
+  expect(detail.props.visible).toBe(true);
+  const detailTexts = detail.findAllByType(Text).map(node => node.props.children).flat(Infinity);
+  expect(detailTexts).toContain('Turmeric (කහ)');
+  expect(detailTexts).toContain('Curcuma longa');
+  expect(texts().join(' ')).not.toMatch(/[\u0900-\u097F]/);
+  act(() => root.unmount());
+});
+
 it('pins the herbal plan Close control outside the scrolling plan content', async () => {
   let root!: renderer.ReactTestRenderer;
   await act(async () => {

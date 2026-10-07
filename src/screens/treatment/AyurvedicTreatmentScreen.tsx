@@ -28,6 +28,7 @@ import {
   getQuestionAt,
   localize,
 } from '../../utils/questionnaireLogic';
+import { herbDisplayName } from '../../utils/herbLibrary';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'AyurvedicTreatment'>;
 
@@ -167,7 +168,7 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.sectionTitle}>{t('herbs')}</Text>
                 {result.guidance.herbs.map(herb => (
                   <Text key={herb.id} style={styles.bullet}>
-                    {herb.emoji} {herb.name} — {herb.benefits[0]}
+                    {herb.emoji} {herbDisplayName(herb)} — {herb.benefits[0]}
                   </Text>
                 ))}
                 <Text style={styles.sectionTitle}>{t('lifestyle')}</Text>

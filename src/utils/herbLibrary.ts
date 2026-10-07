@@ -5,6 +5,10 @@ export type HerbDoshaFilter = 'all' | 'vata' | 'pitta' | 'kapha';
 
 export const listHerbs = (): HerbRecord[] => Object.values(HERBS);
 
+/** English name with the Sinhala common name in parentheses, e.g. "Turmeric (කහ)". */
+export const herbDisplayName = (herb: Pick<HerbRecord, 'name' | 'sinhala'>): string =>
+  herb.sinhala ? `${herb.name} (${herb.sinhala})` : herb.name;
+
 export const filterHerbs = (
   herbs: readonly HerbRecord[],
   query: string,
@@ -23,7 +27,8 @@ export const filterHerbs = (
 
     const haystack = [
       herb.name,
-      herb.sanskrit,
+      herb.sinhala ?? '',
+      herb.botanical,
       herb.description,
       ...herb.benefits,
       ...herb.skinIssues,

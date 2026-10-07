@@ -65,7 +65,8 @@ export const HERBS = {
   turmeric: {
     id: 'turmeric',
     name: 'Turmeric',
-    sanskrit: 'Haridra (हरिद्रा)',
+    sinhala: 'කහ',
+    botanical: 'Curcuma longa',
     emoji: '🌿',
     color: '#F4A261',
     benefits: ['Anti-inflammatory', 'Antioxidant', 'Brightening', 'Antimicrobial'],
@@ -78,7 +79,8 @@ export const HERBS = {
   neem: {
     id: 'neem',
     name: 'Neem',
-    sanskrit: 'Nimba (निम्ब)',
+    sinhala: 'කොහොඹ',
+    botanical: 'Azadirachta indica',
     emoji: '🍃',
     color: '#52B788',
     benefits: ['Antimicrobial', 'Anti-fungal', 'Purifying', 'Anti-acne'],
@@ -91,7 +93,8 @@ export const HERBS = {
   aloeVera: {
     id: 'aloeVera',
     name: 'Aloe Vera',
-    sanskrit: 'Kumari (कुमारी)',
+    sinhala: 'කෝමාරිකා',
+    botanical: 'Aloe vera',
     emoji: '🌱',
     color: '#74C69D',
     benefits: ['Deep hydration', 'Soothing', 'Wound healing', 'Anti-aging'],
@@ -104,7 +107,8 @@ export const HERBS = {
   sandalwood: {
     id: 'sandalwood',
     name: 'Sandalwood',
-    sanskrit: 'Chandan (चंदन)',
+    sinhala: 'සුදු හඳුන්',
+    botanical: 'Santalum album',
     emoji: '🪵',
     color: '#DEB887',
     benefits: ['Cooling', 'Anti-inflammatory', 'Brightening', 'Anti-aging'],
@@ -117,7 +121,8 @@ export const HERBS = {
   manjistha: {
     id: 'manjistha',
     name: 'Manjistha',
-    sanskrit: 'मञ्जिष्ठा',
+    sinhala: 'වැල්මදට',
+    botanical: 'Rubia cordifolia',
     emoji: '🌺',
     color: '#C06C84',
     benefits: ['Blood purifier', 'Anti-pigmentation', 'Lymph cleansing', 'Brightening'],
@@ -130,7 +135,8 @@ export const HERBS = {
   licorice: {
     id: 'licorice',
     name: 'Licorice Root',
-    sanskrit: 'Yashtimadhu (यष्टिमधु)',
+    sinhala: 'වැල්මී',
+    botanical: 'Glycyrrhiza glabra',
     emoji: '🌾',
     color: '#D4A017',
     benefits: ['Skin brightening', 'Anti-pigmentation', 'Soothing', 'Anti-inflammatory'],
@@ -143,7 +149,8 @@ export const HERBS = {
   ashwagandha: {
     id: 'ashwagandha',
     name: 'Ashwagandha',
-    sanskrit: 'अश्वगन्धा',
+    sinhala: 'අමුක්කරා',
+    botanical: 'Withania somnifera',
     emoji: '🌾',
     color: '#C4A35A',
     benefits: ['Adaptogen', 'Stress support', 'Skin vitality'],
@@ -156,7 +163,9 @@ export const HERBS = {
   jojoba: {
     id: 'jojoba',
     name: 'Jojoba Oil',
-    sanskrit: 'Simmondsia chinensis',
+    // No verified Sinhala common name exists for this non-native plant.
+    sinhala: null,
+    botanical: 'Simmondsia chinensis',
     emoji: '🫒',
     color: '#D4C483',
     benefits: ['Moisturising', 'Barrier support', 'Gentle oil'],

@@ -21,6 +21,7 @@ import { analyseDosha, DoshaPrediction } from '../../services/doshaModelService'
 import { saveScan } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { getDoshaGuidance } from '../../utils/doshaGuidance';
+import { herbDisplayName } from '../../utils/herbLibrary';
 import { LiveSkinGuidance, SKIN_GUIDANCE_DISCLAIMER } from '../../utils/skinGuidance';
 import { friendlyErrorMessage } from '../../utils/userMessages';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -283,7 +284,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
                     <View key={herb.id} style={styles.bulletRow}>
                       <Text style={styles.bulletDot}>{herb.emoji}</Text>
                       <Text style={styles.bulletText}>
-                        {herb.name} — {herb.benefits[0]}
+                        {herbDisplayName(herb)} — {herb.benefits[0]}
                       </Text>
                     </View>
                   ))}
