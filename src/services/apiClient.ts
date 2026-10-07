@@ -26,6 +26,9 @@ export const API_UNREACHABLE = 'API_UNREACHABLE';
 export const SESSION_INVALID = 'SESSION_INVALID';
 
 const SESSION_CHECK_TIMEOUT_MS = 15000;
+// Just above the server's worst case for Gemini (two 45 s attempts plus a short retry backoff),
+// so a stalled request ends as API_UNREACHABLE and the offline fallback is shown.
+export const SKIN_ISSUE_TIMEOUT_MS = 100000;
 
 export class ApiError extends Error {
   readonly status: number | null;
@@ -170,6 +173,7 @@ export const analyseSkinIssueRemote = (
     method: 'POST',
     token,
     body: { imageBase64, mimeType, language },
+    timeoutMs: SKIN_ISSUE_TIMEOUT_MS,
   });
 
 export const fetchHerbalRecommendations = (

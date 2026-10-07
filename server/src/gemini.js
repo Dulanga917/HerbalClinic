@@ -56,16 +56,99 @@ function parseJsonContent(text) {
   return JSON.parse(clean);
 }
 
-// Any provider-side failure (bad or revoked key, quota, outage, network, blocked or
+// Mutable only so tests can shorten the waits; production always uses these values.
+const RETRY_POLICY = {
+  maxAttempts: 2,
+  attemptTimeoutMs: 45000,
+  retryDelayMs: 1500,
+};
+
+const TRANSIENT_NETWORK_PATTERN = /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|UND_ERR_/i;
+
+function timeoutError() {
+  const error = new Error(`Gemini did not respond within ${RETRY_POLICY.attemptTimeoutMs} ms.`);
+  error.name = 'GeminiTimeoutError';
+  return error;
+}
+
+// Only temporary provider conditions are retried; anything else (invalid key, quota,
+// bad request, safety block) would fail the same way again.
+function classifyFailure(error) {
+  if (error && error.name === 'GeminiTimeoutError') {
+    return { category: 'timeout', retryable: true };
+  }
+  const status = error && typeof error.status === 'number' ? error.status : null;
+  if (status === 503) {
+    return { category: 'provider_unavailable', retryable: true };
+  }
+  if (status !== null) {
+    return { category: `http_${status}`, retryable: false };
+  }
+  if (TRANSIENT_NETWORK_PATTERN.test(String((error && error.message) || ''))) {
+    return { category: 'network', retryable: true };
+  }
+  return { category: 'provider_error', retryable: false };
+}
+
+// Metadata only: never the key, prompt, image data, provider message, or user details.
+function logFailure({ attempt, category, status, elapsedMs, willRetry }) {
+  console.warn(
+    `Gemini request failed (model=${MODEL_NAME}, attempt=${attempt}/${RETRY_POLICY.maxAttempts}, ` +
+      `category=${category}, httpStatus=${status ?? 'none'}, elapsedMs=${elapsedMs}, willRetry=${willRetry})`,
+  );
+}
+
+async function generateWithTimeout(model, request) {
+  const controller = new AbortController();
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(timeoutError());
+    }, RETRY_POLICY.attemptTimeoutMs);
+  });
+  try {
+    return await Promise.race([model.generateContent(request, { signal: controller.signal }), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Any provider-side failure (bad or revoked key, quota, outage, timeout, network, blocked or
 // unparseable output) means the photo was not analysed, so the client should fall back.
 async function callGemini(request, readResponse) {
   const apiKey = getApiKey();
+  const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL_NAME });
+
+  let result;
+  for (let attempt = 1; ; attempt += 1) {
+    const startedAt = Date.now();
+    try {
+      result = await generateWithTimeout(model, request);
+      break;
+    } catch (error) {
+      const { category, retryable } = classifyFailure(error);
+      const willRetry = retryable && attempt < RETRY_POLICY.maxAttempts;
+      logFailure({
+        attempt,
+        category,
+        status: typeof error?.status === 'number' ? error.status : null,
+        elapsedMs: Date.now() - startedAt,
+        willRetry,
+      });
+      if (!willRetry) {
+        throw geminiUnavailable(error);
+      }
+      await wait(RETRY_POLICY.retryDelayMs);
+    }
+  }
+
   try {
-    const client = new GoogleGenerativeAI(apiKey);
-    const model = client.getGenerativeModel({ model: MODEL_NAME });
-    const result = await model.generateContent(request);
     return readResponse(result.response.text());
   } catch (error) {
+    console.warn(`Gemini response was unusable (model=${MODEL_NAME}, category=unusable_response)`);
     throw geminiUnavailable(error);
   }
 }
@@ -116,6 +199,7 @@ async function getDailyTip(dosha, language = 'en') {
 }
 
 module.exports = {
+  RETRY_POLICY,
   SKIN_ISSUE_PROMPT,
   SINHALA_OUTPUT_INSTRUCTION,
   withLanguage,

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import {
+  analyseSkinIssueRemote,
   API_UNREACHABLE,
   ApiError,
   fetchCurrentUser,
@@ -9,6 +10,7 @@ import {
   loginAccount,
   SESSION_INVALID,
   setSessionInvalidListener,
+  SKIN_ISSUE_TIMEOUT_MS,
 } from '../src/services/apiClient';
 
 type FetchResult = { status: number; body: unknown } | Error;
@@ -126,6 +128,38 @@ describe('apiClient session error classification', () => {
     expect(error.code).toBe(API_UNREACHABLE);
     expect(isSessionInvalid(error)).toBe(false);
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('times out a stalled skin guidance request at SKIN_ISSUE_TIMEOUT_MS as API_UNREACHABLE', async () => {
+    jest.useFakeTimers();
+    const listener = listen();
+    (global as { fetch: unknown }).fetch = jest.fn(
+      (_url: unknown, init: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+        }),
+    );
+    let settled = false;
+    const pending = analyseSkinIssueRemote('valid-token', 'AAAA').catch(e => {
+      settled = true;
+      return e;
+    });
+    jest.advanceTimersByTime(SKIN_ISSUE_TIMEOUT_MS - 1);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    jest.advanceTimersByTime(1);
+    const error = await pending;
+    expect(SKIN_ISSUE_TIMEOUT_MS).toBe(100000);
+    expect(error.code).toBe(API_UNREACHABLE);
+    expect(isSessionInvalid(error)).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('does not add a timeout to unrelated API requests', async () => {
+    mockFetch({ status: 200, body: { scans: [] } });
+    await fetchScanHistory('valid-token');
+    const init = (global.fetch as jest.Mock).mock.calls[0][1] as { signal?: AbortSignal };
+    expect(init.signal).toBeUndefined();
   });
 
   it('stops notifying a listener after it unsubscribes', async () => {
