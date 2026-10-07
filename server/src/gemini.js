@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { geminiUnavailable } = require('./aiGuidance');
 
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-3.8-flash';
 
 const SKIN_ISSUE_PROMPT = `
 You support an academic Ayurvedic wellness app. You are not a doctor or dermatologist and you must not diagnose.
