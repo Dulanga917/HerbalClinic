@@ -159,28 +159,30 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
               ) : (
                 <Text style={styles.optionEmoji}>🖼️</Text>
               )}
-              <Text style={styles.optionLabel}>{hasImage ? 'Change Photo' : 'Gallery'}</Text>
+              <Text style={styles.optionLabel}>
+                {hasImage ? t('camera.changePhoto') : t('camera.gallery')}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.stepLabel}>{hasImage ? 'Ready' : '2. Analyse'}</Text>
+        <Text style={styles.stepLabel}>{hasImage ? t('camera.readyStep') : t('camera.analyseStep')}</Text>
         <HerbalButton
-          title={isSkinType ? '✨  Classify on Device' : '✨  Get AI Skin Guidance'}
-          accessibilityLabel={isSkinType ? 'Classify on Device' : 'Get AI Skin Guidance'}
+          title={`✨  ${t(isSkinType ? 'camera.classify' : 'camera.getGuidance')}`}
+          accessibilityLabel={t(isSkinType ? 'camera.classify' : 'camera.getGuidance')}
           onPress={handleAnalyse}
           disabled={!hasImage || picking !== null}
         />
         <Text style={styles.actionHint}>
-          {hasImage ? privacyNote : 'Add a photo first to continue.'}
+          {hasImage ? privacyNote : t('camera.addPhotoFirst')}
         </Text>
 
         <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>📌 Tips for Best Results</Text>
-          {tips.map((tip, i) => (
-            <View key={i} style={styles.tipRow}>
+          <Text style={styles.tipsTitle}>📌 {t('camera.tipsTitle')}</Text>
+          {tips.map(tip => (
+            <View key={tip} style={styles.tipRow}>
               <Text style={styles.tipDot}>•</Text>
-              <Text style={styles.tipText}>{tip}</Text>
+              <Text style={styles.tipText}>{t(tip)}</Text>
             </View>
           ))}
         </View>
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
   },
   placeholderEmoji: { fontSize: 56 },
   placeholderText: { fontSize: Typography.lg, color: Colors.textSecondary, fontWeight: '600' },
-  placeholderHint: { fontSize: Typography.sm, color: Colors.textSecondary, textAlign: 'center' },
+  placeholderHint: { fontSize: Typography.sm, lineHeight: 20, color: Colors.textSecondary, textAlign: 'center' },
   stepLabel: {
     fontSize: Typography.sm,
     color: Colors.textSecondary,
@@ -242,7 +244,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   optionEmoji: { fontSize: 32 },
-  optionLabel: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
+  optionLabel: {
+    fontSize: Typography.md,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
   actionHint: {
     fontSize: Typography.sm,
     color: Colors.textSecondary,

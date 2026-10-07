@@ -53,6 +53,7 @@ export const LanguageProvider = ({ children, storage = fileLanguageStorage }: Pr
       .load()
       .catch(() => null)
       .then(saved => {
+        clearTimeout(timer);
         if (!active) {
           return;
         }

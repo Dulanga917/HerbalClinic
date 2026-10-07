@@ -168,6 +168,32 @@ describe('SkinResultScreen — AI skin guidance', () => {
     expect(scanSaves()).toHaveLength(0);
   });
 
+  it('asks Gemini for Sinhala guidance and shows the Sinhala offline fallback and disclaimer', async () => {
+    mockServer({
+      status: 503,
+      body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' },
+    });
+    const root = await renderScreen('issue', 'si');
+    const text = screenText(root);
+
+    const request = fetchCalls.find(call => call.url.endsWith('/api/v1/skin-issue'));
+    expect(request?.body).toMatchObject({ language: 'si' });
+    expect(text).toContain(translate('si', 'result.offlineBanner'));
+    expect(text).toContain(translate('si', 'result.disclaimer'));
+    expect(text).not.toContain(SKIN_GUIDANCE_DISCLAIMER);
+    expect(text).not.toMatch(/Offline general guidance|undefined/);
+    expect(text).not.toMatch(DIAGNOSTIC_WORDING);
+    expect(scanSaves()).toHaveLength(0);
+    setCurrentLanguage('en');
+  });
+
+  it('sends English as the guidance language by default', async () => {
+    mockServer({ status: 200, body: { analysis: { status: 'no_clear_concern', observations: 'Even tone.' } } });
+    await renderScreen('issue');
+    const request = fetchCalls.find(call => call.url.endsWith('/api/v1/skin-issue'));
+    expect(request?.body).toMatchObject({ language: 'en' });
+  });
+
   it('shows a safe error state for an ordinary server failure', async () => {
     mockServer({ status: 500, body: { error: 'Something went wrong. Please try again.' } });
     const root = await renderScreen('issue');
@@ -200,6 +226,21 @@ describe('SkinResultScreen — TFLite Dosha classifier regression', () => {
     expect(scanSaves()).toHaveLength(1);
     expect(scanSaves()[0].body).toEqual({ dosha: 'Pitta', confidence: 83, imageReference: 'photo-1.jpg' });
     expect(fetchCalls.some(call => call.url.endsWith('/api/v1/skin-issue'))).toBe(false);
+  });
+
+  it('shows the Dosha result in Sinhala without changing the model label or saved confidence', async () => {
+    (analyseDosha as jest.Mock<typeof analyseDosha>).mockResolvedValue({ dosha: 'Pitta', confidence: 83 });
+    mockServer({ status: 500, body: {} });
+    const root = await renderScreen('type', 'si');
+    const text = screenText(root);
+
+    expect(text).toContain(translate('si', 'result.doshaPrediction'));
+    expect(text).toContain('පිත (Pitta)');
+    expect(text).toContain(translate('si', 'result.modelConfidence', { value: 83 }));
+    expect(text).toContain(translate('si', 'result.doshaDisclaimer'));
+    expect(text).not.toMatch(/Dosha prediction|model confidence/);
+    expect(scanSaves()[0].body).toEqual({ dosha: 'Pitta', confidence: 83, imageReference: 'photo-1.jpg' });
+    setCurrentLanguage('en');
   });
 
   it('explains an on-device model failure without exposing model internals', async () => {

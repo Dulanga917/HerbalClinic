@@ -171,6 +171,23 @@ const MEDITATION_TEXT_SI: Record<string, MeditationText> = {
   },
 };
 
+// Official Sinhala names of the administrative districts used in the hospital directory.
+const DISTRICT_SI: Record<string, string> = {
+  Colombo: 'කොළඹ',
+  Gampaha: 'ගම්පහ',
+  Ampara: 'අම්පාර',
+  Hambantota: 'හම්බන්තොට',
+  Batticaloa: 'මඩකලපුව',
+  Anuradhapura: 'අනුරාධපුර',
+  Polonnaruwa: 'පොළොන්නරුව',
+  Kandy: 'මහනුවර',
+  Galle: 'ගාල්ල',
+  Matara: 'මාතර',
+};
+
+export const districtName = (district: string, language: Language): string =>
+  (language === 'si' && DISTRICT_SI[district]) || district;
+
 /** Herb name for the active language: "Turmeric" in English, "කහ" in Sinhala. */
 export const herbDisplayName = (
   herb: Pick<HerbRecord, 'name' | 'sinhala'>,

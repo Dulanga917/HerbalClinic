@@ -193,7 +193,7 @@ const MeditationScreen: React.FC = () => {
                   onPress={toggleTimer}
                   activeOpacity={0.75}
                   accessibilityRole="button"
-                  accessibilityLabel={`${primaryLabel} session timer`}>
+                  accessibilityLabel={t('meditation.primaryA11y', { label: primaryLabel })}>
                   <Text style={styles.timerBtnText}>{primaryLabel}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -202,19 +202,19 @@ const MeditationScreen: React.FC = () => {
                   disabled={resetDisabled}
                   activeOpacity={0.75}
                   accessibilityRole="button"
-                  accessibilityLabel="Reset session timer"
+                  accessibilityLabel={t('meditation.resetA11y')}
                   accessibilityState={{ disabled: resetDisabled }}>
-                  <Text style={styles.timerBtnText}>Reset</Text>
+                  <Text style={styles.timerBtnText}>{t('meditation.reset')}</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.sectionTitle}>Steps</Text>
-              {(session?.steps || []).map(step => (
+              <Text style={styles.sectionTitle}>{t('meditation.steps')}</Text>
+              {(sessionText?.steps || []).map(step => (
                 <Text key={step} style={styles.step}>
                   • {step}
                 </Text>
               ))}
-              <Text style={styles.sectionTitle}>Benefits</Text>
-              {(session?.benefits || []).map(benefit => (
+              <Text style={styles.sectionTitle}>{t('meditation.benefits')}</Text>
+              {(sessionText?.benefits || []).map(benefit => (
                 <Text key={benefit} style={styles.step}>
                   • {benefit}
                 </Text>
@@ -223,8 +223,8 @@ const MeditationScreen: React.FC = () => {
                 style={styles.closeBtn}
                 onPress={closeSession}
                 accessibilityRole="button"
-                accessibilityLabel="Close">
-                <Text style={styles.closeText}>Close</Text>
+                accessibilityLabel={t('common.close')}>
+                <Text style={styles.closeText}>{t('common.close')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   sessionEmoji: { fontSize: 36 },
   sessionText: { flex: 1 },
   sessionTitle: { fontSize: Typography.md, fontWeight: '700', color: Colors.textPrimary },
-  sessionMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: Spacing.xs },
+  sessionMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 4, gap: Spacing.xs },
   sessionType: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.85)' },
   sessionDot: { color: 'rgba(255,255,255,0.6)' },
   sessionDuration: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.85)' },
@@ -303,7 +303,13 @@ const styles = StyleSheet.create({
   modalScroll: { paddingBottom: Spacing.xl },
   modalEmoji: { fontSize: 44, textAlign: 'center' },
   modalTitle: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
-  modalSub: { fontSize: Typography.sm, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.md },
+  modalSub: {
+    fontSize: Typography.sm,
+    lineHeight: 21,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
   clockCard: {
     alignItems: 'center',
     backgroundColor: Colors.surfaceElevated,
@@ -334,7 +340,7 @@ const styles = StyleSheet.create({
   },
   timerBtnPrimary: { backgroundColor: Colors.primary, borderColor: Colors.primaryLight },
   timerBtnDisabled: { opacity: 0.4 },
-  timerBtnText: { color: Colors.textPrimary, fontWeight: '700', fontSize: Typography.md },
+  timerBtnText: { color: Colors.textPrimary, fontWeight: '700', fontSize: Typography.md, textAlign: 'center' },
   step: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 22, marginBottom: 4 },
   closeBtn: {
     marginTop: Spacing.xl,

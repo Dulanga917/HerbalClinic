@@ -201,9 +201,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
       await persistSession(result.token, result.user);
     } catch (e: unknown) {
-      const message = friendlyErrorMessage(e, 'Could not create the account. Please try again.');
+      const message = describeError(e, 'auth.error.registerFailed');
       setError(message);
-      throw new Error(message);
+      throw new Error(resolveMessage(message, language));
     } finally {
       setLoading(false);
     }
@@ -250,7 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         register,
         logout,
         refreshUser,
-        error,
+        error: error ? resolveMessage(error, language) : null,
         clearError,
       }}>
       {children}

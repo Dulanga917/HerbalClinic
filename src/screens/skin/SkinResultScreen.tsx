@@ -145,9 +145,10 @@ const confStyles = StyleSheet.create({
 const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const { imageUri, analysisType } = route.params;
   const { sessionToken, refreshUser } = useAuth();
+  const { language, t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UserMessage | null>(null);
   const analysingRef = useRef(false);
 
   useEffect(() => {
@@ -180,7 +181,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           }
         }
       } else {
-        const res = await geminiService.analyseSkinIssue(imageUri);
+        const res = await geminiService.analyseSkinIssue(imageUri, language);
         setResult(res);
         // Offline guidance did not look at the photo, so it is never recorded as a scan.
         if (sessionToken && res.kind === 'live') {
@@ -195,7 +196,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       }
     } catch (e: unknown) {
-      setError(friendlyErrorMessage(e, analysisType === 'type' ? DOSHA_MODEL_FAILURE : undefined));
+      setError(describeError(e, analysisType === 'type' ? 'result.modelFailure' : 'error.generic'));
     } finally {
       analysingRef.current = false;
       setLoading(false);
@@ -206,9 +207,10 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const doshaResult = isSkinType ? (result as DoshaPrediction | null) : null;
   const skinGuidance = !isSkinType ? (result as SkinGuidanceResult | null) : null;
   const liveGuidance = skinGuidance?.kind === 'live' ? skinGuidance : null;
-  const offlineGuidance = skinGuidance?.kind === 'offline' ? skinGuidance : null;
-  const liveHeading = liveGuidance ? liveGuidanceHeading(liveGuidance) : null;
-  const guidance = doshaResult ? getDoshaGuidance(doshaResult.dosha) : null;
+  // Offline guidance is static app text, so it is rebuilt to follow the current language.
+  const offlineGuidance = skinGuidance?.kind === 'offline' ? offlineSkinGuidance(language) : null;
+  const liveHeading = liveGuidance ? liveGuidanceHeading(liveGuidance, t) : null;
+  const guidance = doshaResult ? getDoshaGuidance(doshaResult.dosha, language) : null;
 
   return (
     <View style={styles.container}>
@@ -216,8 +218,8 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <ScreenHeader
         variant="compact"
-        eyebrow={isSkinType ? 'On-device Dosha prediction' : 'General self-care guidance'}
-        title={isSkinType ? 'Skin Type Result' : 'AI Skin Guidance'}
+        eyebrow={t(isSkinType ? 'result.eyebrowType' : 'result.eyebrowIssue')}
+        title={t(isSkinType ? 'result.titleType' : 'feature.skinIssue.title')}
         emoji={isSkinType ? '🔬' : '🩺'}
         colors={isSkinType ? Colors.gradientGreen : Colors.gradientVata}
         onBack={() => navigation.goBack()}
@@ -227,19 +229,17 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         <Image
           source={{ uri: imageUri }}
           style={styles.imagePreview}
-          accessibilityLabel="Photo used for this result"
+          accessibilityLabel={t('result.photoA11y')}
         />
 
         {loading && (
           <View style={styles.loadingCard} accessibilityLiveRegion="polite">
             <ActivityIndicator size="large" color={Colors.primaryLight} />
             <Text style={styles.loadingTitle}>
-              {isSkinType ? 'Analyzing with your on-device model...' : 'Requesting AI skin guidance...'}
+              {t(isSkinType ? 'result.loadingType' : 'result.loadingIssue')}
             </Text>
             <Text style={styles.loadingSubtitle}>
-              {isSkinType
-                ? 'Classifying the image as Vata, Pitta, or Kapha'
-                : 'Preparing general Ayurvedic self-care suggestions'}
+              {t(isSkinType ? 'result.loadingTypeSub' : 'result.loadingIssueSub')}
             </Text>
           </View>
         )}
@@ -247,11 +247,11 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         {error && !loading && (
           <View style={styles.errorCard} accessibilityRole="alert">
             <Text style={styles.errorEmoji}>⚠️</Text>
-            <Text style={styles.errorTitle}>Analysis Failed</Text>
-            <Text style={styles.errorMsg}>{error}</Text>
-            <HerbalButton title="Try Again" onPress={runAnalysis} style={styles.errorAction} />
+            <Text style={styles.errorTitle}>{t('result.failedTitle')}</Text>
+            <Text style={styles.errorMsg}>{resolveMessage(error, language)}</Text>
+            <HerbalButton title={t('result.tryAgain')} onPress={runAnalysis} style={styles.errorAction} />
             <HerbalButton
-              title="Choose Another Photo"
+              title={t('result.chooseAnother')}
               variant="secondary"
               onPress={() => navigation.goBack()}
               style={styles.errorAction}
@@ -264,9 +264,9 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           <>
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
-                <View>
-                  <Text style={styles.resultLabel}>Dosha prediction</Text>
-                  <Text style={styles.resultValue}>{doshaResult.dosha}</Text>
+                <View style={styles.resultHeaderCopy}>
+                  <Text style={styles.resultLabel}>{t('result.doshaPrediction')}</Text>
+                  <Text style={styles.resultValue}>{doshaLabel(doshaResult.dosha, language)}</Text>
                 </View>
               </View>
               <ConfidenceBar value={doshaResult.confidence} />
@@ -274,11 +274,13 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
             {guidance ? (
               <>
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>{guidance.emoji} About {guidance.name}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {guidance.emoji} {t('result.about', { name: guidance.name })}
+                  </Text>
                   <Text style={styles.descText}>{guidance.explanation}</Text>
                 </View>
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🌿 Personalized skincare</Text>
+                  <Text style={styles.sectionTitle}>🌿 {t('result.personalizedSkincare')}</Text>
                   {guidance.skincare.map(item => (
                     <View key={item} style={styles.bulletRow}>
                       <Text style={styles.bulletDot}>•</Text>
@@ -287,18 +289,18 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
                   ))}
                 </View>
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🌱 Recommended herbs</Text>
+                  <Text style={styles.sectionTitle}>🌱 {t('result.recommendedHerbs')}</Text>
                   {guidance.herbs.map(herb => (
                     <View key={herb.id} style={styles.bulletRow}>
                       <Text style={styles.bulletDot}>{herb.emoji}</Text>
                       <Text style={styles.bulletText}>
-                        {herbDisplayName(herb)} — {herb.benefits[0]}
+                        {herbDisplayName(herb, language)} — {herb.benefits[0]}
                       </Text>
                     </View>
                   ))}
                 </View>
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>💚 Lifestyle / self-care</Text>
+                  <Text style={styles.sectionTitle}>💚 {t('result.lifestyle')}</Text>
                   {guidance.lifestyle.map(item => (
                     <View key={item} style={styles.bulletRow}>
                       <Text style={styles.bulletDot}>•</Text>
@@ -308,7 +310,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
                 {guidance.meditation ? (
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>🧘 Recommended meditation</Text>
+                    <Text style={styles.sectionTitle}>🧘 {t('result.recommendedMeditation')}</Text>
                     <Text style={styles.descText}>
                       {guidance.meditation.title} ({guidance.meditation.duration}) — {guidance.meditation.subtitle}
                     </Text>
@@ -317,10 +319,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
               </>
             ) : null}
             <View style={styles.disclaimerCard}>
-              <Text style={styles.disclaimerText}>
-                This is an experimental Dosha prediction for informational self-care only.
-                Model confidence is not medical accuracy and this is not a diagnosis.
-              </Text>
+              <Text style={styles.disclaimerText}>{t('result.doshaDisclaimer')}</Text>
             </View>
           </>
         )}
@@ -329,20 +328,18 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         {!loading && offlineGuidance && (
           <>
             <View style={styles.offlineBanner}>
-              <Text style={styles.offlineBannerText}>
-                Offline general guidance — your photo was not analysed.
-              </Text>
+              <Text style={styles.offlineBannerText}>{t('result.offlineBanner')}</Text>
             </View>
             <View style={styles.resultCard}>
-              <Text style={styles.resultLabel}>General skincare guidance</Text>
+              <Text style={styles.resultLabel}>{t('result.generalSkincare')}</Text>
               <Text style={styles.descText}>{offlineGuidance.summary}</Text>
             </View>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>💚 Self-care suggestions</Text>
+              <Text style={styles.sectionTitle}>💚 {t('result.selfCare')}</Text>
               <BulletList items={offlineGuidance.tips} />
             </View>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>🌿 Herbs used in Ayurvedic skincare</Text>
+              <Text style={styles.sectionTitle}>🌿 {t('result.herbsUsed')}</Text>
               <View style={styles.herbGrid}>
                 {offlineGuidance.herbs.map((h, i) => (
                   <HerbCard key={i} herb={h} index={i} />
@@ -362,21 +359,19 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={styles.descText}>{liveGuidance.observations}</Text>
               ) : null}
               {liveGuidance.status === 'unable_to_assess' ? (
-                <Text style={styles.descText}>Try a clear, well-lit close-up photo of the skin.</Text>
+                <Text style={styles.descText}>{t('result.unableTip')}</Text>
               ) : null}
-              <Text style={styles.aiNote}>
-                Generated by Gemini AI. It can be inaccurate and does not replace an examination.
-              </Text>
+              <Text style={styles.aiNote}>{t('result.aiNote')}</Text>
             </View>
             {liveGuidance.factors.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🔍 Possible contributing factors</Text>
+                <Text style={styles.sectionTitle}>🔍 {t('result.factors')}</Text>
                 <BulletList items={liveGuidance.factors} />
               </View>
             ) : null}
             {liveGuidance.herbs.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🌿 Herbs used in Ayurvedic skincare</Text>
+                <Text style={styles.sectionTitle}>🌿 {t('result.herbsUsed')}</Text>
                 <View style={styles.herbGrid}>
                   {liveGuidance.herbs.map((h, i) => (
                     <HerbCard key={i} herb={h} index={i} />
@@ -386,7 +381,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
             ) : null}
             {liveGuidance.selfCare.length > 0 ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>💚 Self-care suggestions</Text>
+                <Text style={styles.sectionTitle}>💚 {t('result.selfCare')}</Text>
                 <BulletList items={liveGuidance.selfCare} />
               </View>
             ) : null}
@@ -395,15 +390,15 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {!loading && skinGuidance && (
           <View style={styles.disclaimerCard}>
-            <Text style={styles.disclaimerText}>⚕️ {SKIN_GUIDANCE_DISCLAIMER}</Text>
+            <Text style={styles.disclaimerText}>⚕️ {t('result.disclaimer')}</Text>
           </View>
         )}
 
         {!loading && result && (
           <HerbalButton
-            title="📷  Scan Again"
-            accessibilityLabel="Scan Again"
-            accessibilityHint="Returns to the photo screen"
+            title={`📷  ${t('result.scanAgain')}`}
+            accessibilityLabel={t('result.scanAgain')}
+            accessibilityHint={t('result.scanAgainHint')}
             variant="outline"
             onPress={() => navigation.goBack()}
             style={styles.scanAgainBtn}
@@ -439,8 +434,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
-  loadingTitle: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
-  loadingSubtitle: { fontSize: Typography.sm, color: Colors.textSecondary, textAlign: 'center' },
+  loadingTitle: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
+  loadingSubtitle: { fontSize: Typography.sm, lineHeight: 20, color: Colors.textSecondary, textAlign: 'center' },
 
   // Error
   errorCard: {
@@ -467,6 +462,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  resultHeaderCopy: { flex: 1 },
   resultLabel: { fontSize: Typography.sm, color: Colors.textSecondary, fontWeight: '600' },
   resultValue: { fontSize: Typography['2xl'], fontWeight: '800', color: Colors.textPrimary },
   doshaBadge: {
@@ -481,7 +477,7 @@ const styles = StyleSheet.create({
   doshaValue: { fontSize: Typography.base, fontWeight: '700', color: Colors.primaryLight },
   descText: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20, marginTop: Spacing.md },
   guidanceValue: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary, marginTop: 2 },
-  aiNote: { fontSize: Typography.xs, color: Colors.textMuted, lineHeight: 16, marginTop: Spacing.md },
+  aiNote: { fontSize: Typography.xs, color: Colors.textMuted, lineHeight: 17, marginTop: Spacing.md },
   offlineBanner: {
     backgroundColor: Colors.surfaceElevated,
     borderRadius: BorderRadius.lg,

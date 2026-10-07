@@ -77,6 +77,7 @@ export const en = {
   'error.generic': 'Something went wrong. Please try again.',
   'error.tooManyAttempts': 'Too many attempts. Please wait a few minutes and try again.',
   'error.tooManyRequests': 'Too many requests. Please slow down and try again shortly.',
+  'error.tooManyAnalyses': 'Too many analysis requests. Please wait a minute and try again.',
   'error.signInToAnalyse': 'Please sign in again to run this analysis.',
   'error.apiNotConfigured': 'The HerbalClinic API address is not configured for this build.',
   'error.photoTooLarge': 'The photo is too large. Please use an image under 6 MB.',

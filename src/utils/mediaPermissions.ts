@@ -6,7 +6,8 @@ import {
   check,
   request,
 } from 'react-native-permissions';
-import { TranslationKey, translateCurrent } from '../i18n/translate';
+import { translateCurrent } from '../i18n/translate';
+import type { TranslationKey } from '../i18n/translations/en';
 
 export type MediaPermissionResult = 'granted' | 'denied' | 'blocked';
 

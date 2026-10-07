@@ -195,7 +195,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.85}
                 onPress={() => handleFeaturePress(f.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Open ${f.title}`}>
+                accessibilityLabel={t('common.open', { title: t(f.title) })}>
                 <LinearGradient
                   colors={f.gradient}
                   style={styles.featureGradient}
@@ -207,8 +207,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                       <Text style={styles.featureChevronText}>›</Text>
                     </View>
                   </View>
-                  <Text style={styles.featureTitle}>{f.title}</Text>
-                  <Text style={styles.featureDesc}>{f.description}</Text>
+                  <Text style={styles.featureTitle}>{t(f.title)}</Text>
+                  <Text style={styles.featureDesc}>{t(f.description)}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             ))}
@@ -217,18 +217,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Daily Tip */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Daily Ayurveda Tip</Text>
+          <Text style={styles.sectionTitle}>{t('home.dailyTip')}</Text>
           <View style={styles.tipCard}>
             <Text style={styles.tipEmoji}>💡</Text>
             {tipLoading ? (
               <View style={styles.tipLoading} accessibilityLiveRegion="polite">
                 <ActivityIndicator size="small" color={Colors.primaryLight} />
-                <Text style={styles.tipLoadingText}>Loading today's tip…</Text>
+                <Text style={styles.tipLoadingText}>{t('home.tipLoading')}</Text>
               </View>
             ) : (
               <View style={styles.tipCopy}>
                 {tipOffline ? (
-                  <Text style={styles.offlineLabel}>Offline guidance — not a live Gemini response</Text>
+                  <Text style={styles.offlineLabel}>{t('home.tipOffline')}</Text>
                 ) : null}
                 <Text style={styles.tipText}>{dailyTip}</Text>
               </View>
@@ -236,9 +236,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        <Text style={styles.homeDisclaimer}>
-          Informational Ayurvedic self-care only. Not a medical diagnosis.
-        </Text>
+        <Text style={styles.homeDisclaimer}>{t('home.disclaimer')}</Text>
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -259,7 +257,12 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     letterSpacing: 1,
   },
-  heroSubtitle: { fontSize: Typography.md, color: 'rgba(240,244,241,0.85)', marginTop: Spacing.xs },
+  heroSubtitle: {
+    fontSize: Typography.md,
+    lineHeight: 24,
+    color: 'rgba(240,244,241,0.85)',
+    marginTop: Spacing.xs,
+  },
   section: { padding: Spacing.xl, paddingTop: Spacing['2xl'] },
   doshaCard: {
     backgroundColor: Colors.card,
@@ -305,10 +308,12 @@ const styles = StyleSheet.create({
     fontSize: Typography.xs,
     color: Colors.accent,
     fontWeight: '700',
+    lineHeight: 18,
     marginBottom: Spacing.xs,
   },
   homeDisclaimer: {
     fontSize: Typography.xs,
+    lineHeight: 18,
     color: Colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: Spacing.xl,
@@ -361,7 +366,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: Spacing.xs,
   },
-  featureDesc: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.88)', lineHeight: 19 },
+  featureDesc: { fontSize: Typography.sm, color: 'rgba(255,255,255,0.88)', lineHeight: 20 },
   tipLoading: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 28 },
   tipLoadingText: { fontSize: Typography.sm, color: Colors.textSecondary },
   tipCard: {
