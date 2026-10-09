@@ -11,7 +11,12 @@ import {
   offlineSkinGuidance,
 } from './offlineFallbacks';
 import { getSessionToken } from './sessionStorage';
-import { parseSkinGuidance, SkinGuidanceResult } from '../utils/skinGuidance';
+import {
+  fieldsNotInLanguage,
+  parseSkinGuidance,
+  SkinGuidanceResult,
+  withVerifiedHerbNames,
+} from '../utils/skinGuidance';
 import type { Language } from '../i18n/types';
 
 export type { SkinGuidanceResult } from '../utils/skinGuidance';
@@ -75,7 +80,12 @@ class GeminiService {
       }
       throw error;
     }
-    return parseSkinGuidance(analysis) ?? offlineSkinGuidance(language);
+    const guidance = parseSkinGuidance(analysis);
+    // Text in the wrong language is never shown as localized live guidance.
+    if (!guidance || fieldsNotInLanguage(guidance, language).length > 0) {
+      return offlineSkinGuidance(language);
+    }
+    return { ...withVerifiedHerbNames(guidance, language), language };
   }
 
   async getHerbalRecommendations(

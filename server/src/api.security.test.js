@@ -34,6 +34,18 @@ function makeGeminiStub() {
     calls,
     analyseSkinIssue: async input => {
       calls.push(['analyseSkinIssue', input]);
+      if (input.language === 'si') {
+        return {
+          status: 'possible_concern',
+          concern: 'පෙනෙන වියළි බව',
+          observations: 'සම මඳක් වියළි ලෙස පෙනේ.',
+          factors: ['වියළි කාලගුණය'],
+          herbs: [{ name: 'කෝමාරිකා', emoji: '🌵', benefit: 'සමට සිසිලසක් ලබා දෙයි', usage: 'ජෙල් ස්වල්පයක් ආලේප කරන්න' }],
+          selfCare: ['දිනපතා සම තෙත් කරන්න'],
+          severity: 'Severe',
+          confidence: 97,
+        };
+      }
       return {
         status: 'possible_concern',
         concern: 'Visible dryness',
@@ -705,6 +717,46 @@ test('unusable Gemini output becomes GEMINI_UNAVAILABLE instead of reaching the 
       assert.doesNotMatch(res.text, /Eczema|Severe|99/);
     }
   } finally {
+    await api.close();
+  }
+});
+
+test('Sinhala skin guidance that stays in English is regenerated once, then becomes GEMINI_UNAVAILABLE', async () => {
+  const gemini = makeGeminiStub();
+  const english = {
+    status: 'no_clear_concern',
+    observations: 'The skin tone looks even overall.',
+    selfCare: ['Keep the skin clean and moisturised'],
+  };
+  gemini.analyseSkinIssue = async (input, options) => {
+    gemini.calls.push(['analyseSkinIssue', input, options]);
+    return english;
+  };
+  const api = await start({ gemini, rateLimits: { ai: { limit: 100 } } });
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const { token } = await newSession();
+    const res = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg', language: 'si' },
+    });
+    assert.equal(res.status, 503);
+    assert.deepEqual(res.json, { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' });
+    assert.doesNotMatch(res.text, /skin tone|moisturised/);
+    assert.equal(gemini.calls.length, 2);
+    assert.equal(gemini.calls[1][1].strictLanguage, true);
+    assert.deepEqual(gemini.calls[1][2], { maxAttempts: 1 });
+
+    const englishRes = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg', language: 'en' },
+    });
+    assert.equal(englishRes.status, 200);
+    assert.equal(englishRes.json.analysis.observations, 'The skin tone looks even overall.');
+    assert.equal(gemini.calls.length, 3, 'English guidance is not regenerated');
+  } finally {
+    console.warn = originalWarn;
     await api.close();
   }
 });

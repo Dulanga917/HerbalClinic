@@ -150,6 +150,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const [result, setResult] = useState<AnalysisResult>(null);
   const [error, setError] = useState<UserMessage | null>(null);
   const analysingRef = useRef(false);
+  const liveScanSavedRef = useRef(false);
 
   useEffect(() => {
     runAnalysis();
@@ -184,7 +185,9 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         const res = await geminiService.analyseSkinIssue(imageUri, language);
         setResult(res);
         // Offline guidance did not look at the photo, so it is never recorded as a scan.
-        if (sessionToken && res.kind === 'live') {
+        // Re-analysing the same photo in another language is not a new scan.
+        if (sessionToken && res.kind === 'live' && !liveScanSavedRef.current) {
+          liveScanSavedRef.current = true;
           try {
             await saveScan(sessionToken, {
               imageReference: imageUri.split('/').pop(),
@@ -207,6 +210,8 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const doshaResult = isSkinType ? (result as DoshaPrediction | null) : null;
   const skinGuidance = !isSkinType ? (result as SkinGuidanceResult | null) : null;
   const liveGuidance = skinGuidance?.kind === 'live' ? skinGuidance : null;
+  // Live AI text cannot follow a language switch, so it is hidden rather than shown under the new headings.
+  const liveInOtherLanguage = Boolean(liveGuidance?.language && liveGuidance.language !== language);
   // Offline guidance is static app text, so it is rebuilt to follow the current language.
   const offlineGuidance = skinGuidance?.kind === 'offline' ? offlineSkinGuidance(language) : null;
   const liveHeading = liveGuidance ? liveGuidanceHeading(liveGuidance, t) : null;
@@ -349,8 +354,19 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           </>
         )}
 
+        {!loading && liveInOtherLanguage && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>{t('result.languageChanged')}</Text>
+            <HerbalButton
+              title={t('result.analyseAgainInLanguage')}
+              onPress={runAnalysis}
+              style={styles.errorAction}
+            />
+          </View>
+        )}
+
         {/* Live AI skin guidance */}
-        {!loading && liveGuidance && liveHeading && (
+        {!loading && liveGuidance && liveHeading && !liveInOtherLanguage && (
           <>
             <View style={styles.resultCard}>
               <Text style={styles.resultLabel}>{liveHeading.label}</Text>

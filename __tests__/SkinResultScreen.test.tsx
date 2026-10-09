@@ -11,7 +11,13 @@ import RNFS from 'react-native-fs';
 import SkinResultScreen from '../src/screens/skin/SkinResultScreen';
 import { analyseDosha } from '../src/services/doshaModelService';
 import { SKIN_GUIDANCE_DISCLAIMER } from '../src/utils/skinGuidance';
-import { LanguageProvider, createMemoryLanguageStorage, setCurrentLanguage, translate } from '../src/i18n';
+import {
+  LanguageProvider,
+  createMemoryLanguageStorage,
+  setCurrentLanguage,
+  translate,
+  useLanguage,
+} from '../src/i18n';
 
 const mockRefreshUser = jest.fn(async () => undefined);
 
@@ -184,6 +190,109 @@ describe('SkinResultScreen — AI skin guidance', () => {
     expect(text).not.toMatch(/Offline general guidance|undefined/);
     expect(text).not.toMatch(DIAGNOSTIC_WORDING);
     expect(scanSaves()).toHaveLength(0);
+    setCurrentLanguage('en');
+  });
+
+  const SINHALA_ANALYSIS = {
+    status: 'possible_concern',
+    concern: 'පෙනෙන වියළි බව',
+    observations: 'සම මඳක් වියළි ලෙස පෙනේ.',
+    factors: ['වියළි කාලගුණය'],
+    herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'සමට සිසිලසක් ලබා දෙයි', usage: 'ජෙල් ස්වල්පයක් ආලේප කරන්න' }],
+    selfCare: ['දිනපතා සම තෙත් කරන්න'],
+  };
+
+  it('shows complete Sinhala live guidance with the verified Sinhala herb name', async () => {
+    mockServer({ status: 200, body: { analysis: SINHALA_ANALYSIS } });
+    const root = await renderScreen('issue', 'si');
+    const text = screenText(root);
+
+    expect(text).toContain(translate('si', 'result.possibleConcern'));
+    expect(text).toContain('සම මඳක් වියළි ලෙස පෙනේ.');
+    expect(text).toContain('වියළි කාලගුණය');
+    expect(text).toContain('කෝමාරිකා');
+    expect(text).toContain(translate('si', 'result.disclaimer'));
+    expect(text).not.toContain('Aloe Vera');
+    expect(text).not.toContain(translate('si', 'result.offlineBanner'));
+    expect(scanSaves()).toHaveLength(1);
+    setCurrentLanguage('en');
+  });
+
+  it('never shows English AI prose under Sinhala headings; it shows the Sinhala offline fallback', async () => {
+    mockServer({
+      status: 200,
+      body: {
+        analysis: {
+          ...SINHALA_ANALYSIS,
+          observations: 'The skin looks a little dry in this photo.',
+          factors: ['Dry weather and low humidity'],
+        },
+      },
+    });
+    const root = await renderScreen('issue', 'si');
+    const text = screenText(root);
+
+    expect(text).toContain(translate('si', 'result.offlineBanner'));
+    expect(text).not.toMatch(/looks a little dry|low humidity/);
+    expect(text).toContain(translate('si', 'result.disclaimer'));
+    expect(scanSaves()).toHaveLength(0);
+    setCurrentLanguage('en');
+  });
+
+  it('hides live guidance after a language switch and re-analyses in the new language without a second scan', async () => {
+    const replies: Reply[] = [
+      { status: 200, body: { analysis: { status: 'no_clear_concern', observations: 'Even tone overall.' } } },
+      { status: 200, body: { analysis: SINHALA_ANALYSIS } },
+    ];
+    fetchCalls = [];
+    (global as { fetch: unknown }).fetch = jest.fn(async (url: string, init?: { body?: string }) => {
+      fetchCalls.push({ url, body: init?.body ? JSON.parse(init.body) : null });
+      const reply = url.endsWith('/api/v1/skin-issue') ? replies.shift()! : { status: 201, body: { user: { id: '1' } } };
+      return { ok: reply.status < 300, status: reply.status, json: async () => reply.body };
+    });
+
+    let switchLanguage!: (language: 'en' | 'si') => void;
+    const LanguageSwitch = () => {
+      switchLanguage = useLanguage().setLanguage;
+      return null;
+    };
+    const route = { params: { imageUri: 'file:///data/photo-1.jpg', analysisType: 'issue' } } as never;
+    let root!: ReactTestRenderer;
+    const settle = async () => {
+      for (let i = 0; i < 5; i += 1) {
+        await act(async () => {
+          await new Promise<void>(resolve => setImmediate(() => resolve()));
+        });
+      }
+    };
+    await act(async () => {
+      root = renderer.create(
+        <LanguageProvider storage={createMemoryLanguageStorage('en')}>
+          <LanguageSwitch />
+          <SkinResultScreen navigation={{ goBack: jest.fn() } as never} route={route} />
+        </LanguageProvider>,
+      );
+    });
+    await settle();
+    expect(screenText(root)).toContain('Even tone overall.');
+
+    await act(async () => switchLanguage('si'));
+    let text = screenText(root);
+    expect(text).not.toContain('Even tone overall.');
+    expect(text).toContain(translate('si', 'result.languageChanged'));
+
+    const again = root.root.findAll(
+      node => node.props.title === translate('si', 'result.analyseAgainInLanguage') && typeof node.props.onPress === 'function',
+    )[0];
+    await act(async () => again.props.onPress());
+    await settle();
+    text = screenText(root);
+
+    const requests = fetchCalls.filter(call => call.url.endsWith('/api/v1/skin-issue'));
+    expect(requests.map(call => call.body?.language)).toEqual(['en', 'si']);
+    expect(text).toContain('සම මඳක් වියළි ලෙස පෙනේ.');
+    expect(text).not.toContain(translate('si', 'result.languageChanged'));
+    expect(scanSaves()).toHaveLength(1);
     setCurrentLanguage('en');
   });
 

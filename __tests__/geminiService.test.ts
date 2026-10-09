@@ -76,6 +76,58 @@ describe('geminiService skin guidance', () => {
     );
   });
 
+  const sinhalaAnalysis = {
+    status: 'possible_concern',
+    concern: 'පෙනෙන වියළි බව',
+    observations: 'සම මඳක් වියළි ලෙස පෙනේ.',
+    factors: ['වියළි කාලගුණය'],
+    herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'සමට සිසිලසක් ලබා දෙයි', usage: 'ජෙල් ස්වල්පයක් ආලේප කරන්න' }],
+    selfCare: ['දිනපතා සම තෙත් කරන්න'],
+  };
+
+  it('returns complete Sinhala guidance as live, tagged with its language and verified herb names', async () => {
+    mockFetch({ status: 200, body: { analysis: sinhalaAnalysis } });
+    const result = await geminiService.analyseSkinIssue('file:///photo.jpg', 'si');
+    expect(result.kind).toBe('live');
+    if (result.kind === 'live') {
+      expect(result.language).toBe('si');
+      expect(result.observations).toBe('සම මඳක් වියළි ලෙස පෙනේ.');
+      expect(result.herbs[0].name).toBe('කෝමාරිකා');
+    }
+  });
+
+  it('uses the Sinhala offline fallback when Sinhala guidance comes back in English', async () => {
+    mockFetch({
+      status: 200,
+      body: { analysis: { status: 'no_clear_concern', observations: 'The skin tone looks even.', factors: ['Dry weather'] } },
+    });
+    const result = await geminiService.analyseSkinIssue('file:///photo.jpg', 'si');
+    expect(result.kind).toBe('offline');
+    if (result.kind === 'offline') {
+      expect(result.summary).toMatch(/[\u0D80-\u0DFF]/);
+      expect(result.summary).not.toMatch(/even/);
+    }
+  });
+
+  it('uses the offline fallback when one nested Sinhala field is still English', async () => {
+    mockFetch({
+      status: 200,
+      body: {
+        analysis: {
+          ...sinhalaAnalysis,
+          herbs: [{ ...sinhalaAnalysis.herbs[0], usage: 'Apply a little fresh gel to the dry area' }],
+        },
+      },
+    });
+    expect((await geminiService.analyseSkinIssue('file:///photo.jpg', 'si')).kind).toBe('offline');
+  });
+
+  it('tags English live guidance with English', async () => {
+    mockFetch({ status: 200, body: { analysis: { status: 'no_clear_concern', observations: 'Even tone.' } } });
+    const result = await geminiService.analyseSkinIssue('file:///photo.jpg', 'en');
+    expect(result.kind === 'live' && result.language).toBe('en');
+  });
+
   it('returns validated live guidance without any confidence or severity field', async () => {
     mockFetch({
       status: 200,

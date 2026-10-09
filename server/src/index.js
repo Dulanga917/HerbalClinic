@@ -20,8 +20,8 @@ const defaultGemini = require('./gemini');
 const {
   GEMINI_UNAVAILABLE,
   GEMINI_UNAVAILABLE_MESSAGE,
+  analyseSkinGuidanceInLanguage,
   geminiUnavailable,
-  normaliseSkinGuidance,
 } = require('./aiGuidance');
 const { loadConfig, loadDatabaseConfig, checkStartupConfig } = require('./config');
 const {
@@ -218,9 +218,9 @@ function createApp({
         badRequest(res, input.message);
         return;
       }
-      const analysis = normaliseSkinGuidance(await gemini.analyseSkinIssue(input.value));
+      const analysis = await analyseSkinGuidanceInLanguage(gemini, input.value);
       if (!analysis) {
-        throw geminiUnavailable(new Error('Gemini returned an unusable skin guidance response.'));
+        throw geminiUnavailable(new Error('Gemini returned unusable or wrong-language skin guidance.'));
       }
       res.json({ analysis });
     } catch (error) {

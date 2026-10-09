@@ -1,3 +1,6 @@
+import { HERBS } from '../constants/ayurveda';
+import type { Language } from '../i18n/types';
+
 export const SKIN_GUIDANCE_DISCLAIMER =
   'This information is for general educational and self-care purposes and is not a medical diagnosis. Consult a qualified healthcare professional for medical concerns.';
 
@@ -18,6 +21,8 @@ export interface LiveSkinGuidance {
   factors: string[];
   herbs: SkinGuidanceHerb[];
   selfCare: string[];
+  /** Language the guidance text was generated in; unset only for payloads not yet language-checked. */
+  language?: Language;
 }
 
 export interface OfflineSkinGuidance {
@@ -95,3 +100,64 @@ export const parseSkinGuidance = (raw: unknown): LiveSkinGuidance | null => {
     guidance.selfCare.length > 0;
   return hasContent ? guidance : null;
 };
+
+const SINHALA_LETTERS = /[\u0D80-\u0DFF]/g;
+const LATIN_LETTERS = /[A-Za-z]/g;
+// Four or more English words in a row is untranslated prose, not a kept herb or technical name.
+const ENGLISH_PHRASE = /[A-Za-z]+(?:[\s,'-]+[A-Za-z]+){3,}/;
+// Within Sinhala text, short Latin terms (botanical names, "Aloe Vera") may stay; bracketed ones always may.
+const MAX_LATIN_SHARE_IN_SINHALA = 0.3;
+
+const countMatches = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;
+
+const textMatchesLanguage = (text: string, language: Language): boolean => {
+  if (!text) {
+    return true;
+  }
+  const unbracketed = text.replace(/\([^)]*\)/g, ' ');
+  if (language === 'si') {
+    const sinhala = countMatches(text, SINHALA_LETTERS);
+    const latin = countMatches(unbracketed, LATIN_LETTERS);
+    return (
+      sinhala > 0 &&
+      !ENGLISH_PHRASE.test(unbracketed) &&
+      latin / (latin + sinhala) <= MAX_LATIN_SHARE_IN_SINHALA
+    );
+  }
+  return countMatches(unbracketed, SINHALA_LETTERS) === 0;
+};
+
+/**
+ * User-facing fields that are not written in the requested language (mirrors the server check).
+ * Herb names are exempt: an English or botanical name is kept when no verified Sinhala name exists.
+ */
+export const fieldsNotInLanguage = (guidance: LiveSkinGuidance, language: Language): string[] => {
+  const fields: [string, string][] = [
+    ['concern', guidance.concern ?? ''],
+    ['observations', guidance.observations],
+    ...guidance.factors.map((item, i): [string, string] => [`factors[${i}]`, item]),
+    ...guidance.selfCare.map((item, i): [string, string] => [`selfCare[${i}]`, item]),
+    ...guidance.herbs.flatMap((herb, i): [string, string][] => [
+      [`herbs[${i}].benefit`, herb.benefit],
+      [`herbs[${i}].usage`, herb.usage],
+    ]),
+  ];
+  return fields.filter(([, text]) => !textMatchesLanguage(text, language)).map(([name]) => name);
+};
+
+const normaliseName = (name: string) => name.trim().toLowerCase();
+
+const KNOWN_HERBS = Object.values(HERBS).map(herb => ({
+  names: [herb.name, herb.botanical, herb.sinhala].filter(Boolean).map(name => normaliseName(String(name))),
+  en: herb.name,
+  si: herb.sinhala ?? herb.name,
+}));
+
+/** Replaces herb names the app already knows with its verified name for the language; others are kept. */
+export const withVerifiedHerbNames = (guidance: LiveSkinGuidance, language: Language): LiveSkinGuidance => ({
+  ...guidance,
+  herbs: guidance.herbs.map(herb => {
+    const known = KNOWN_HERBS.find(entry => entry.names.includes(normaliseName(herb.name)));
+    return known ? { ...herb, name: known[language] } : herb;
+  }),
+});

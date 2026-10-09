@@ -32,9 +32,15 @@ Return ONLY valid JSON (no markdown, no explanation) with this structure:
 const SINHALA_OUTPUT_INSTRUCTION = `
 Language:
 - Write every human-readable text value in natural, simple Sinhala that an ordinary Sri Lankan user can easily understand. Avoid awkward word-for-word translation.
+- This applies to every string in the JSON: "concern", "observations", every item in "factors" and "selfCare", and the "benefit" and "usage" of every herb. The <...> placeholders above only describe the content; write that content in Sinhala script. Do not leave any sentence or list item in English.
 - Keep all JSON keys, the "status" values, and emoji exactly as specified above, in English/ASCII.
-- For herb names, use the common Sinhala name only when you are certain of it; otherwise keep the English name.
+- For herb names, use the common Sinhala name only when you are certain of it; otherwise keep the English name. A botanical or technical term that has no clear Sinhala equivalent may stay in English inside brackets.
 - All of the rules above still apply in Sinhala: no diagnosis, no disease names, no severity, percentages, probabilities, or confidence scores, no prescription medicines, and no dosages.
+`;
+
+// Used once, only after an answer still contained English text in Sinhala mode.
+const SINHALA_STRICT_INSTRUCTION = `
+Important: a previous answer to this request still contained English sentences. Write the value of "concern", "observations", every "factors" and "selfCare" item, and every herb "benefit" and "usage" entirely in Sinhala script. English is allowed only for an herb name or a bracketed botanical term.
 `;
 
 function withLanguage(prompt, language) {
@@ -91,9 +97,9 @@ function classifyFailure(error) {
 }
 
 // Metadata only: never the key, prompt, image data, provider message, or user details.
-function logFailure({ attempt, category, status, elapsedMs, willRetry }) {
+function logFailure({ attempt, maxAttempts, category, status, elapsedMs, willRetry }) {
   console.warn(
-    `Gemini request failed (model=${MODEL_NAME}, attempt=${attempt}/${RETRY_POLICY.maxAttempts}, ` +
+    `Gemini request failed (model=${MODEL_NAME}, attempt=${attempt}/${maxAttempts}, ` +
       `category=${category}, httpStatus=${status ?? 'none'}, elapsedMs=${elapsedMs}, willRetry=${willRetry})`,
   );
 }
@@ -118,7 +124,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Any provider-side failure (bad or revoked key, quota, outage, timeout, network, blocked or
 // unparseable output) means the photo was not analysed, so the client should fall back.
-async function callGemini(request, readResponse) {
+async function callGemini(request, readResponse, { maxAttempts = RETRY_POLICY.maxAttempts } = {}) {
   const apiKey = getApiKey();
   const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL_NAME });
 
@@ -130,9 +136,10 @@ async function callGemini(request, readResponse) {
       break;
     } catch (error) {
       const { category, retryable } = classifyFailure(error);
-      const willRetry = retryable && attempt < RETRY_POLICY.maxAttempts;
+      const willRetry = retryable && attempt < maxAttempts;
       logFailure({
         attempt,
+        maxAttempts,
         category,
         status: typeof error?.status === 'number' ? error.status : null,
         elapsedMs: Date.now() - startedAt,
@@ -153,10 +160,14 @@ async function callGemini(request, readResponse) {
   }
 }
 
-async function analyseSkinIssue({ imageBase64, mimeType = 'image/jpeg', language = 'en' }) {
+async function analyseSkinIssue(
+  { imageBase64, mimeType = 'image/jpeg', language = 'en', strictLanguage = false },
+  options = {},
+) {
+  const prompt = withLanguage(SKIN_ISSUE_PROMPT, language);
   return callGemini(
     [
-      withLanguage(SKIN_ISSUE_PROMPT, language),
+      strictLanguage && language === 'si' ? `${prompt}\n${SINHALA_STRICT_INSTRUCTION}` : prompt,
       {
         inlineData: {
           mimeType,
@@ -165,6 +176,7 @@ async function analyseSkinIssue({ imageBase64, mimeType = 'image/jpeg', language
       },
     ],
     parseJsonContent,
+    options,
   );
 }
 
@@ -202,6 +214,7 @@ module.exports = {
   RETRY_POLICY,
   SKIN_ISSUE_PROMPT,
   SINHALA_OUTPUT_INSTRUCTION,
+  SINHALA_STRICT_INSTRUCTION,
   withLanguage,
   herbalRecommendationsPrompt,
   dailyTipPrompt,

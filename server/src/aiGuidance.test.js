@@ -1,7 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { GEMINI_UNAVAILABLE, normaliseSkinGuidance } = require('./aiGuidance');
+const {
+  GEMINI_UNAVAILABLE,
+  LANGUAGE_RETRY_WINDOW_MS,
+  analyseSkinGuidanceInLanguage,
+  fieldsNotInLanguage,
+  normaliseSkinGuidance,
+} = require('./aiGuidance');
 const gemini = require('./gemini');
 
 const IMAGE = { imageBase64: 'AAAA', mimeType: 'image/jpeg' };
@@ -372,4 +378,202 @@ test('a retried Sinhala request sends the same Sinhala prompt and image on both 
   const english = scripted(() => ok(body));
   await withFakeModel(english.generateContent, () => gemini.analyseSkinIssue(IMAGE));
   assert.equal(english.calls[0].request[0], gemini.SKIN_ISSUE_PROMPT);
+});
+
+// ─── Response language completeness ───────────────────────────────────────────
+
+const SINHALA_GUIDANCE = {
+  status: 'possible_concern',
+  concern: 'පෙනෙන වියළි බව',
+  observations: 'සම මඳක් වියළි ලෙස පෙනේ.',
+  factors: ['වියළි කාලගුණය', 'ප්‍රමාණවත් ජලය නොබීම'],
+  herbs: [
+    {
+      name: 'Aloe Vera',
+      emoji: '🌵',
+      benefit: 'සමට සිසිලසක් සහ තෙතමනයක් ලබා දෙයි',
+      usage: 'Aloe Vera ජෙල් ස්වල්පයක් සමේ මෘදු ලෙස ආලේප කරන්න',
+    },
+    { name: 'කහ', emoji: '🟡', benefit: 'කහ (Curcuma longa) සමේ පැහැය සමබර කිරීමට උපකාරී වේ', usage: 'කිරි සමඟ මිශ්‍ර කර ආලේප කරන්න' },
+  ],
+  selfCare: ['දිනපතා සම තෙත් කරන්න', 'වේදනාව හෝ පැතිරීමක් ඇත්නම් සුදුසුකම් ලත් සෞඛ්‍ය වෘත්තිකයෙකු හමුවන්න'],
+};
+
+const ENGLISH_GUIDANCE = {
+  status: 'possible_concern',
+  concern: 'Visible dryness',
+  observations: 'The skin looks a little dry.',
+  factors: ['Dry weather', 'Not drinking enough water'],
+  herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'Soothing and hydrating', usage: 'Apply a little fresh gel' }],
+  selfCare: ['Moisturise daily', 'See a qualified healthcare professional if it spreads or hurts'],
+};
+
+const normalised = raw => normaliseSkinGuidance(raw);
+
+test('fully Sinhala guidance passes, keeping English herb names and bracketed botanical terms', () => {
+  assert.deepEqual(fieldsNotInLanguage(normalised(SINHALA_GUIDANCE), 'si'), []);
+});
+
+test('English guidance in Sinhala mode fails on every user-facing field, including nested herbs', () => {
+  assert.deepEqual(fieldsNotInLanguage(normalised(ENGLISH_GUIDANCE), 'si'), [
+    'concern',
+    'observations',
+    'factors[0]',
+    'factors[1]',
+    'selfCare[0]',
+    'selfCare[1]',
+    'herbs[0].benefit',
+    'herbs[0].usage',
+  ]);
+});
+
+test('mixed Sinhala/English guidance is caught field by field, inside arrays and nested objects', () => {
+  const mixed = normalised({
+    ...SINHALA_GUIDANCE,
+    factors: ['වියළි කාලගුණය', 'Exposure to harsh soaps and hot water'],
+    herbs: [{ ...SINHALA_GUIDANCE.herbs[0], usage: 'Apply a thin layer of fresh gel twice a day' }],
+    selfCare: ['දිනපතා සම තෙත් කරන්න', 'සම තෙත් කරන්න, avoid scratching the dry patches at night'],
+  });
+  assert.deepEqual(fieldsNotInLanguage(mixed, 'si'), ['factors[1]', 'selfCare[1]', 'herbs[0].usage']);
+});
+
+test('Sinhala text dominated by English letters fails even without a long English phrase', () => {
+  const guidance = normalised({ ...SINHALA_GUIDANCE, observations: 'Skin texture සහ tone balance OK' });
+  assert.deepEqual(fieldsNotInLanguage(guidance, 'si'), ['observations']);
+});
+
+test('English mode passes English guidance and rejects Sinhala prose', () => {
+  assert.deepEqual(fieldsNotInLanguage(normalised(ENGLISH_GUIDANCE), 'en'), []);
+  assert.deepEqual(
+    fieldsNotInLanguage(normalised({ ...ENGLISH_GUIDANCE, observations: 'සම මඳක් වියළි ලෙස පෙනේ.' }), 'en'),
+    ['observations'],
+  );
+  const bracketed = normalised({ ...ENGLISH_GUIDANCE, herbs: [{ ...ENGLISH_GUIDANCE.herbs[0], benefit: 'Turmeric (කහ) evens tone' }] });
+  assert.deepEqual(fieldsNotInLanguage(bracketed, 'en'), []);
+});
+
+// A stand-in for the gemini module: plays the given raw outputs in order and records each call.
+function fakeProvider(...outputs) {
+  const calls = [];
+  return {
+    calls,
+    analyseSkinIssue: async (input, options) => {
+      calls.push({ input, options });
+      const output = outputs[Math.min(calls.length, outputs.length) - 1];
+      if (output instanceof Error) {
+        throw output;
+      }
+      return output;
+    },
+  };
+}
+
+function captureWarnings(run) {
+  const original = console.warn;
+  const logs = [];
+  console.warn = (...args) => logs.push(args.join(' '));
+  return Promise.resolve()
+    .then(() => run(logs))
+    .finally(() => {
+      console.warn = original;
+    });
+}
+
+const SI_INPUT = { imageBase64: 'AAAA', mimeType: 'image/jpeg', language: 'si' };
+
+test('English live guidance is returned after one provider call', async () => {
+  const provider = fakeProvider(ENGLISH_GUIDANCE);
+  const result = await analyseSkinGuidanceInLanguage(provider, { ...SI_INPUT, language: 'en' });
+  assert.equal(result.observations, 'The skin looks a little dry.');
+  assert.equal(provider.calls.length, 1);
+});
+
+test('complete Sinhala guidance is returned after one provider call', async () => {
+  const provider = fakeProvider(SINHALA_GUIDANCE);
+  const result = await analyseSkinGuidanceInLanguage(provider, SI_INPUT);
+  assert.deepEqual(result, normalised(SINHALA_GUIDANCE));
+  assert.equal(provider.calls.length, 1);
+});
+
+test('English text in Sinhala mode triggers one strict, single-attempt regeneration', async () => {
+  const provider = fakeProvider(ENGLISH_GUIDANCE, SINHALA_GUIDANCE);
+  await captureWarnings(async logs => {
+    const result = await analyseSkinGuidanceInLanguage(provider, SI_INPUT);
+    assert.deepEqual(result, normalised(SINHALA_GUIDANCE));
+    assert.equal(provider.calls.length, 2);
+    assert.equal(provider.calls[0].input.strictLanguage, undefined);
+    assert.deepEqual(provider.calls[1].input, { ...SI_INPUT, strictLanguage: true });
+    assert.deepEqual(provider.calls[1].options, { maxAttempts: 1 });
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /language=si, attempt=1, fields=concern\|observations\|.*willRegenerate=true/);
+    assert.doesNotMatch(logs[0], /dry|weather|Aloe|AAAA/i, 'logs name fields, never their content or image');
+  });
+});
+
+test('Sinhala that is still incomplete after regeneration returns null (offline fallback)', async () => {
+  const mixed = { ...SINHALA_GUIDANCE, selfCare: ['Moisturise twice a day with a gentle cream'] };
+  const provider = fakeProvider(ENGLISH_GUIDANCE, mixed);
+  await captureWarnings(async logs => {
+    assert.equal(await analyseSkinGuidanceInLanguage(provider, SI_INPUT), null);
+    assert.equal(provider.calls.length, 2);
+    assert.match(logs[1], /attempt=2, fields=selfCare\[0\], willRegenerate=false/);
+  });
+});
+
+test('no regeneration once the first answer took longer than the retry window', async () => {
+  const provider = fakeProvider(ENGLISH_GUIDANCE, SINHALA_GUIDANCE);
+  let clock = 0;
+  const now = () => clock;
+  provider.analyseSkinIssue = (original => async (...args) => {
+    clock += LANGUAGE_RETRY_WINDOW_MS + 1;
+    return original(...args);
+  })(provider.analyseSkinIssue);
+  await captureWarnings(async logs => {
+    assert.equal(await analyseSkinGuidanceInLanguage(provider, SI_INPUT, { now }), null);
+    assert.equal(provider.calls.length, 1);
+    assert.match(logs[0], /willRegenerate=false/);
+  });
+});
+
+test('a provider failure during regeneration propagates as GEMINI_UNAVAILABLE', async () => {
+  const unavailable = Object.assign(new Error('AI guidance is temporarily unavailable.'), { code: GEMINI_UNAVAILABLE });
+  const provider = fakeProvider(ENGLISH_GUIDANCE, unavailable);
+  await captureWarnings(() =>
+    assert.rejects(analyseSkinGuidanceInLanguage(provider, SI_INPUT), error => error.code === GEMINI_UNAVAILABLE),
+  );
+});
+
+test('unusable first output is not regenerated', async () => {
+  const provider = fakeProvider({ issue: 'Eczema', severity: 'Severe' });
+  assert.equal(await analyseSkinGuidanceInLanguage(provider, SI_INPUT), null);
+  assert.equal(provider.calls.length, 1);
+});
+
+test('the Sinhala prompt names every user-facing field and the strict prompt is only used when asked', async () => {
+  for (const field of ['"concern"', '"observations"', '"factors"', '"selfCare"', '"benefit"', '"usage"']) {
+    assert.ok(gemini.SINHALA_OUTPUT_INSTRUCTION.includes(field), field);
+  }
+  assert.doesNotMatch(gemini.SINHALA_STRICT_INSTRUCTION, /"severity"|"confidence"|diagnos/i);
+
+  const fake = scripted(() => ok(SINHALA_GUIDANCE));
+  await withFakeModel(fake.generateContent, async () => {
+    await gemini.analyseSkinIssue({ ...IMAGE, language: 'si', strictLanguage: true });
+    await gemini.analyseSkinIssue({ ...IMAGE, language: 'si' });
+    await gemini.analyseSkinIssue({ ...IMAGE, language: 'en', strictLanguage: true });
+  });
+  const sinhalaPrompt = gemini.withLanguage(gemini.SKIN_ISSUE_PROMPT, 'si');
+  assert.equal(fake.calls[0].request[0], `${sinhalaPrompt}\n${gemini.SINHALA_STRICT_INSTRUCTION}`);
+  assert.equal(fake.calls[1].request[0], sinhalaPrompt);
+  assert.equal(fake.calls[2].request[0], gemini.SKIN_ISSUE_PROMPT, 'English never gets the Sinhala instructions');
+});
+
+test('a single-attempt call (used for regeneration) does not retry a 503', async () => {
+  const fake = scripted(() => {
+    throw providerError(503);
+  });
+  await withFakeModel(fake.generateContent, async logs => {
+    await assertUnavailable(gemini.analyseSkinIssue({ ...IMAGE, language: 'si', strictLanguage: true }, { maxAttempts: 1 }));
+    assert.equal(fake.calls.length, 1);
+    assert.match(logs[0], /attempt=1\/1, category=provider_unavailable, .*willRetry=false/);
+  });
 });
