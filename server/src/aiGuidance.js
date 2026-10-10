@@ -1,3 +1,5 @@
+const { imageRejected, logImageRejection, normaliseImageCheck } = require('./imageCheck');
+
 const GEMINI_UNAVAILABLE = 'GEMINI_UNAVAILABLE';
 const GEMINI_UNAVAILABLE_MESSAGE = 'AI guidance is temporarily unavailable.';
 
@@ -133,16 +135,34 @@ function fieldsNotInLanguage(guidance, language) {
 const LANGUAGE_RETRY_WINDOW_MS = 45000;
 
 /**
- * Runs skin guidance and only returns it when every user-facing field is in the requested
- * language. One bounded, stricter regeneration is tried; otherwise null (offline fallback).
+ * Guidance is only read from an answer whose own image check passed. A failed check throws
+ * IMAGE_REJECTED (no guidance is produced); a missing or malformed check makes the answer unusable.
+ */
+function readCheckedGuidance(raw) {
+  const imageCheck = normaliseImageCheck(raw && raw.imageCheck, 'skin');
+  if (!imageCheck) {
+    return null;
+  }
+  if (!imageCheck.isValid) {
+    logImageRejection('skin', raw.imageCheck, imageCheck);
+    throw imageRejected(imageCheck);
+  }
+  const guidance = normaliseSkinGuidance(raw);
+  return guidance ? { imageCheck, guidance } : null;
+}
+
+/**
+ * Runs skin guidance and only returns { imageCheck, guidance } when the photo passed the image
+ * check and every user-facing field is in the requested language. One bounded, stricter
+ * regeneration is tried; otherwise null (offline fallback).
  */
 async function analyseSkinGuidanceInLanguage(gemini, input, { now = Date.now } = {}) {
   const startedAt = now();
-  const first = normaliseSkinGuidance(await gemini.analyseSkinIssue(input));
+  const first = readCheckedGuidance(await gemini.analyseSkinIssue(input));
   if (!first) {
     return null;
   }
-  const mismatched = fieldsNotInLanguage(first, input.language);
+  const mismatched = fieldsNotInLanguage(first.guidance, input.language);
   if (mismatched.length === 0) {
     return first;
   }
@@ -154,13 +174,13 @@ async function analyseSkinGuidanceInLanguage(gemini, input, { now = Date.now } =
   if (!willRegenerate) {
     return null;
   }
-  const second = normaliseSkinGuidance(
+  const second = readCheckedGuidance(
     await gemini.analyseSkinIssue({ ...input, strictLanguage: true }, { maxAttempts: 1 }),
   );
   if (!second) {
     return null;
   }
-  const stillMismatched = fieldsNotInLanguage(second, input.language);
+  const stillMismatched = fieldsNotInLanguage(second.guidance, input.language);
   if (stillMismatched.length > 0) {
     console.warn(
       `Skin guidance language check failed (language=${input.language}, attempt=2, ` +

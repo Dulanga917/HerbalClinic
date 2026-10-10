@@ -28,14 +28,28 @@ const PNG_BYTES = Buffer.concat([
   Buffer.alloc(64, 2),
 ]);
 
+const VALID_FACE_CHECK = {
+  isValid: true,
+  imageCategory: 'human_face',
+  humanSkinVisible: true,
+  faceCount: 1,
+  quality: 'good',
+  reason: 'ok',
+};
+
 function makeGeminiStub() {
   const calls = [];
   return {
     calls,
+    checkSkinImage: async input => {
+      calls.push(['checkSkinImage', input]);
+      return { isValid: true, reason: 'ok', imageCategory: 'human_face' };
+    },
     analyseSkinIssue: async input => {
       calls.push(['analyseSkinIssue', input]);
       if (input.language === 'si') {
         return {
+          imageCheck: VALID_FACE_CHECK,
           status: 'possible_concern',
           concern: 'පෙනෙන වියළි බව',
           observations: 'සම මඳක් වියළි ලෙස පෙනේ.',
@@ -47,6 +61,7 @@ function makeGeminiStub() {
         };
       }
       return {
+        imageCheck: VALID_FACE_CHECK,
         status: 'possible_concern',
         concern: 'Visible dryness',
         observations: 'The skin looks a little dry.',
@@ -677,6 +692,7 @@ test('missing GEMINI_API_KEY returns the stable GEMINI_UNAVAILABLE contract on e
     const { token } = await newSession();
     const requests = [
       ['/api/v1/skin-issue', { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' }],
+      ['/api/v1/skin-image-check', { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' }],
       ['/api/v1/herbal-recommendations', { condition: 'Acne' }],
       ['/api/v1/daily-tip', {}],
     ];
@@ -702,12 +718,14 @@ test('unusable Gemini output becomes GEMINI_UNAVAILABLE instead of reaching the 
     null,
     { issue: 'Eczema', severity: 'Severe', confidence: 99 },
     { status: 'possible_concern', concern: '', factors: 'not-an-array' },
+    { status: 'possible_concern', concern: 'Eczema', observations: 'Severe 99' },
+    { imageCheck: { isValid: true }, status: 'possible_concern', concern: 'Eczema', observations: 'Severe 99' },
   ];
   gemini.analyseSkinIssue = async () => outputs.shift();
   const api = await start({ gemini, rateLimits: { ai: { limit: 100 } } });
   try {
     const { token } = await newSession();
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 7; i += 1) {
       const res = await api.request('POST', '/api/v1/skin-issue', {
         token,
         body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' },
@@ -724,6 +742,7 @@ test('unusable Gemini output becomes GEMINI_UNAVAILABLE instead of reaching the 
 test('Sinhala skin guidance that stays in English is regenerated once, then becomes GEMINI_UNAVAILABLE', async () => {
   const gemini = makeGeminiStub();
   const english = {
+    imageCheck: VALID_FACE_CHECK,
     status: 'no_clear_concern',
     observations: 'The skin tone looks even overall.',
     selfCare: ['Keep the skin clean and moisturised'],

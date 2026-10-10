@@ -33,12 +33,15 @@ export const SKIN_ISSUE_TIMEOUT_MS = 100000;
 export class ApiError extends Error {
   readonly status: number | null;
   readonly code: string | null;
+  /** The server's image-check verdict when a photo was rejected (code IMAGE_REJECTED). */
+  readonly imageCheck: unknown;
 
-  constructor(message: string, status: number | null, code: string | null) {
+  constructor(message: string, status: number | null, code: string | null, imageCheck?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.imageCheck = imageCheck;
   }
 }
 
@@ -109,6 +112,7 @@ const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promis
       typeof payload.error === 'string' ? payload.error : 'Request failed. Please try again.',
       response.status,
       sessionRejected ? SESSION_INVALID : typeof payload.code === 'string' ? payload.code : null,
+      payload.imageCheck,
     );
     if (sessionRejected && options.token) {
       sessionInvalidListener?.(options.token);
@@ -169,10 +173,19 @@ export const analyseSkinIssueRemote = (
   mimeType = 'image/jpeg',
   language: GuidanceLanguage = 'en',
 ) =>
-  apiRequest<{ analysis: unknown }>('/api/v1/skin-issue', {
+  apiRequest<{ analysis: unknown; imageCheck?: unknown }>('/api/v1/skin-issue', {
     method: 'POST',
     token,
     body: { imageBase64, mimeType, language },
+    timeoutMs: SKIN_ISSUE_TIMEOUT_MS,
+  });
+
+/** Asks the server whether a Skin Type photo clearly shows one face; it never classifies the photo. */
+export const checkSkinImageRemote = (token: string, imageBase64: string, mimeType = 'image/jpeg') =>
+  apiRequest<{ imageCheck: unknown }>('/api/v1/skin-image-check', {
+    method: 'POST',
+    token,
+    body: { imageBase64, mimeType },
     timeoutMs: SKIN_ISSUE_TIMEOUT_MS,
   });
 

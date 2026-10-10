@@ -24,6 +24,12 @@ import { getDoshaGuidance } from '../../utils/doshaGuidance';
 import { herbDisplayName } from '../../utils/herbLibrary';
 import { LiveSkinGuidance } from '../../utils/skinGuidance';
 import { describeError, resolveMessage, UserMessage } from '../../utils/userMessages';
+import {
+  IMAGE_CHECK_UNAVAILABLE,
+  ImageRejectedError,
+  ImageRejection,
+  imageRejectionKey,
+} from '../../utils/imageCheck';
 import { offlineSkinGuidance } from '../../services/offlineFallbacks';
 import ScreenHeader from '../../components/ScreenHeader';
 import HerbalButton from '../../components/HerbalButton';
@@ -149,6 +155,8 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult>(null);
   const [error, setError] = useState<UserMessage | null>(null);
+  const [rejection, setRejection] = useState<ImageRejection | null>(null);
+  const [checkingPhoto, setCheckingPhoto] = useState(false);
   const analysingRef = useRef(false);
   const liveScanSavedRef = useRef(false);
 
@@ -165,8 +173,13 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       setLoading(true);
       setError(null);
+      setRejection(null);
 
       if (analysisType === 'type') {
+        // The on-device classifier labels any image, so the photo must pass the server check first.
+        setCheckingPhoto(true);
+        await geminiService.checkSkinTypePhoto(imageUri);
+        setCheckingPhoto(false);
         const res = await analyseDosha(imageUri);
         setResult(res);
         if (sessionToken) {
@@ -184,9 +197,14 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       } else {
         const res = await geminiService.analyseSkinIssue(imageUri, language);
         setResult(res);
-        // Offline guidance did not look at the photo, so it is never recorded as a scan.
-        // Re-analysing the same photo in another language is not a new scan.
-        if (sessionToken && res.kind === 'live' && !liveScanSavedRef.current) {
+        // Offline guidance did not look at the photo and "unable to assess" assessed nothing,
+        // so neither is recorded as a scan. Re-analysing in another language is not a new scan.
+        if (
+          sessionToken &&
+          res.kind === 'live' &&
+          res.status !== 'unable_to_assess' &&
+          !liveScanSavedRef.current
+        ) {
           liveScanSavedRef.current = true;
           try {
             await saveScan(sessionToken, {
@@ -199,9 +217,17 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       }
     } catch (e: unknown) {
-      setError(describeError(e, analysisType === 'type' ? 'result.modelFailure' : 'error.generic'));
+      setResult(null);
+      if (e instanceof ImageRejectedError) {
+        setRejection(e.imageCheck);
+      } else if (e instanceof Error && (e as { code?: unknown }).code === IMAGE_CHECK_UNAVAILABLE) {
+        setError({ key: 'imageCheck.unavailable' });
+      } else {
+        setError(describeError(e, analysisType === 'type' ? 'result.modelFailure' : 'error.generic'));
+      }
     } finally {
       analysingRef.current = false;
+      setCheckingPhoto(false);
       setLoading(false);
     }
   };
@@ -241,11 +267,31 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.loadingCard} accessibilityLiveRegion="polite">
             <ActivityIndicator size="large" color={Colors.primaryLight} />
             <Text style={styles.loadingTitle}>
-              {t(isSkinType ? 'result.loadingType' : 'result.loadingIssue')}
+              {t(checkingPhoto ? 'imageCheck.checking' : isSkinType ? 'result.loadingType' : 'result.loadingIssue')}
             </Text>
             <Text style={styles.loadingSubtitle}>
-              {t(isSkinType ? 'result.loadingTypeSub' : 'result.loadingIssueSub')}
+              {t(
+                checkingPhoto
+                  ? 'imageCheck.checkingSub'
+                  : isSkinType
+                    ? 'result.loadingTypeSub'
+                    : 'result.loadingIssueSub',
+              )}
             </Text>
+          </View>
+        )}
+
+        {rejection && !loading && (
+          <View style={styles.errorCard} accessibilityRole="alert">
+            <Text style={styles.errorEmoji}>📷</Text>
+            <Text style={styles.rejectionTitle}>{t('imageCheck.title')}</Text>
+            <Text style={styles.errorMsg}>{t(imageRejectionKey(rejection.reason))}</Text>
+            <Text style={styles.rejectionNote}>{t('imageCheck.noResult')}</Text>
+            <HerbalButton
+              title={t('imageCheck.retake')}
+              onPress={() => navigation.goBack()}
+              style={styles.errorAction}
+            />
           </View>
         )}
 
@@ -467,6 +513,8 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.error },
   errorMsg: { fontSize: Typography.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   errorAction: { marginTop: Spacing.xs },
+  rejectionTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.warning, textAlign: 'center' },
+  rejectionNote: { fontSize: Typography.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
 
   // Result
   resultCard: {

@@ -1,11 +1,22 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { geminiUnavailable } = require('./aiGuidance');
+const {
+  imageCheckFields,
+  imageCheckPrompt,
+  logImageRejection,
+  normaliseImageCheck,
+} = require('./imageCheck');
 
 const MODEL_NAME = 'gemini-3.8-flash';
 
 const SKIN_ISSUE_PROMPT = `
 You support an academic Ayurvedic wellness app. You are not a doctor or dermatologist and you must not diagnose.
 Look at the photo and give general, informational Ayurvedic skincare guidance only.
+
+Image check (do this first, and fill in "imageCheck"):
+Decide whether this photo is suitable for a skin assessment.
+${imageCheckFields('skin')}
+If "isValid" is false, do not describe or assess anything: use "unable_to_assess", leave "concern" and "observations" empty, and leave every list empty.
 
 Rules:
 - Do not name a disease and do not give a diagnosis. Describe at most one possible visible skin concern in plain everyday words (for example "visible dryness" or "uneven tone").
@@ -17,6 +28,7 @@ Rules:
 
 Return ONLY valid JSON (no markdown, no explanation) with this structure:
 {
+  "imageCheck": { "isValid": <true|false>, "imageCategory": "<category>", "humanSkinVisible": <true|false>, "faceCount": <number>, "quality": "<quality>", "reason": "<reason>" },
   "status": "possible_concern" | "no_clear_concern" | "unable_to_assess",
   "concern": "<short plain-language description of a possible visible concern, or an empty string>",
   "observations": "<1-2 sentences of general observations about what is visible>",
@@ -33,7 +45,7 @@ const SINHALA_OUTPUT_INSTRUCTION = `
 Language:
 - Write every human-readable text value in natural, simple Sinhala that an ordinary Sri Lankan user can easily understand. Avoid awkward word-for-word translation.
 - This applies to every string in the JSON: "concern", "observations", every item in "factors" and "selfCare", and the "benefit" and "usage" of every herb. The <...> placeholders above only describe the content; write that content in Sinhala script. Do not leave any sentence or list item in English.
-- Keep all JSON keys, the "status" values, and emoji exactly as specified above, in English/ASCII.
+- Keep all JSON keys, the "status" values, every "imageCheck" value, and emoji exactly as specified above, in English/ASCII.
 - For herb names, use the common Sinhala name only when you are certain of it; otherwise keep the English name. A botanical or technical term that has no clear Sinhala equivalent may stay in English inside brackets.
 - All of the rules above still apply in Sinhala: no diagnosis, no disease names, no severity, percentages, probabilities, or confidence scores, no prescription medicines, and no dosages.
 `;
@@ -180,6 +192,35 @@ async function analyseSkinIssue(
   );
 }
 
+/**
+ * Skin Type Assessment photo check (one clear face). Resolves to { isValid, reason, imageCategory };
+ * an answer that does not match the schema is unusable and surfaces as GEMINI_UNAVAILABLE.
+ */
+async function checkSkinImage({ imageBase64, mimeType = 'image/jpeg' }) {
+  return callGemini(
+    [
+      imageCheckPrompt('face'),
+      {
+        inlineData: {
+          mimeType,
+          data: imageBase64,
+        },
+      },
+    ],
+    text => {
+      const raw = parseJsonContent(text);
+      const imageCheck = normaliseImageCheck(raw, 'face');
+      if (!imageCheck) {
+        throw new Error('The image check did not match the expected schema.');
+      }
+      if (!imageCheck.isValid) {
+        logImageRejection('face', raw, imageCheck);
+      }
+      return imageCheck;
+    },
+  );
+}
+
 function herbalRecommendationsPrompt(condition, dosha, language = 'en') {
   const prompt = `
 You are an Ayurvedic herbalist AI.
@@ -219,6 +260,7 @@ module.exports = {
   herbalRecommendationsPrompt,
   dailyTipPrompt,
   analyseSkinIssue,
+  checkSkinImage,
   getHerbalRecommendations,
   getDailyTip,
 };

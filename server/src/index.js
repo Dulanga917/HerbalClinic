@@ -23,6 +23,7 @@ const {
   analyseSkinGuidanceInLanguage,
   geminiUnavailable,
 } = require('./aiGuidance');
+const { IMAGE_REJECTED, IMAGE_REJECTED_MESSAGE } = require('./imageCheck');
 const { loadConfig, loadDatabaseConfig, checkStartupConfig } = require('./config');
 const {
   createRateLimiters,
@@ -80,6 +81,10 @@ function handleError(res, error) {
     res.status(503).json({ error: GEMINI_UNAVAILABLE_MESSAGE, code: GEMINI_UNAVAILABLE });
     return;
   }
+  if (error && error.code === IMAGE_REJECTED) {
+    res.status(422).json({ error: IMAGE_REJECTED_MESSAGE, code: IMAGE_REJECTED, imageCheck: error.imageCheck });
+    return;
+  }
   const status = Number.isInteger(error?.status) ? error.status : 500;
   if (status >= 500) {
     logServerError(error);
@@ -123,11 +128,12 @@ function createApp({
     res.status(503).json({ ok: false, status: 'unavailable' });
   });
 
-  // The image route needs a larger body limit, so it is parsed before the default parser.
+  // The image routes need a larger body limit, so they are parsed before the default parser.
   const imageParser = express.json({ limit: IMAGE_BODY_LIMIT });
   const defaultParser = express.json({ limit: JSON_BODY_LIMIT });
+  const imageRoutes = new Set(['/api/v1/skin-issue', '/api/v1/skin-image-check']);
   app.use((req, res, next) =>
-    req.path === '/api/v1/skin-issue' ? imageParser(req, res, next) : defaultParser(req, res, next),
+    imageRoutes.has(req.path) ? imageParser(req, res, next) : defaultParser(req, res, next),
   );
   app.use('/api', (req, res, next) => {
     const hasBody = Number(req.headers['content-length'] || 0) > 0;
@@ -218,11 +224,30 @@ function createApp({
         badRequest(res, input.message);
         return;
       }
-      const analysis = await analyseSkinGuidanceInLanguage(gemini, input.value);
-      if (!analysis) {
+      const checked = await analyseSkinGuidanceInLanguage(gemini, input.value);
+      if (!checked) {
         throw geminiUnavailable(new Error('Gemini returned unusable or wrong-language skin guidance.'));
       }
-      res.json({ analysis });
+      res.json({ analysis: checked.guidance, imageCheck: checked.imageCheck });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // Skin Type Assessment runs on the phone, so its photo is checked here first; the app only
+  // classifies (and saves) a photo after this returns isValid: true.
+  app.post('/api/v1/skin-image-check', requireAuth, limiters.ai, async (req, res) => {
+    try {
+      const input = validateImageUpload(req.body);
+      if (!input.ok) {
+        badRequest(res, input.message);
+        return;
+      }
+      const imageCheck = await gemini.checkSkinImage({
+        imageBase64: input.value.imageBase64,
+        mimeType: input.value.mimeType,
+      });
+      res.json({ imageCheck });
     } catch (error) {
       handleError(res, error);
     }

@@ -20,6 +20,7 @@ import HerbalButton from '../../components/HerbalButton';
 import { TranslationKey, useLanguage } from '../../i18n';
 
 const TYPE_TIPS: TranslationKey[] = [
+  'camera.tipFace',
   'camera.tipClearPhoto',
   'camera.tipSteady',
   'camera.tipNoFilters',

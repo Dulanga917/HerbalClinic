@@ -102,7 +102,7 @@ Optional development seeding is disabled by default. If you need a local test us
 
 ## On-device dosha image classifier
 
-The "Dosha Image Classifier" uses `src/assets/ayurvedic_model.tflite` and the output order in `src/assets/dosha-labels.json` (`Kapha`, `Pitta`, `Vata`). It runs locally on Android and does not require a Gemini API key.
+The "Dosha Image Classifier" uses `src/assets/ayurvedic_model.tflite` and the output order in `src/assets/dosha-labels.json` (`Kapha`, `Pitta`, `Vata`). The classification runs locally on Android, but the classifier labels any image, so the app first sends the photo to `POST /api/v1/skin-image-check`. The server asks Gemini whether the photo clearly shows exactly one human face. The model runs only after a valid answer. A rejected photo (objects, furniture, animals, documents, non-facial skin, poor quality) shows a retake message, creates no result, and saves nothing. If the check cannot be completed, no result is created. Skin Type Assessment therefore needs the API and a configured Gemini key.
 
 The app resizes photos to 224 × 224 RGB and normalizes float values to 0–1 before inference. This preprocessing must match the model's training setup. The original training preprocessing and evaluation could not be verified, so treat predictions as experimental; they are not a medical diagnosis. The supplied dataset was small and had duplicates across splits, so do not treat its reported confidence as clinical reliability.
 

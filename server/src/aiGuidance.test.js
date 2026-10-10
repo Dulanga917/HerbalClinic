@@ -382,7 +382,18 @@ test('a retried Sinhala request sends the same Sinhala prompt and image on both 
 
 // ─── Response language completeness ───────────────────────────────────────────
 
+const VALID_SKIN_CHECK = {
+  isValid: true,
+  imageCategory: 'human_face',
+  humanSkinVisible: true,
+  faceCount: 1,
+  quality: 'good',
+  reason: 'ok',
+};
+const NORMALISED_VALID_CHECK = { isValid: true, reason: 'ok', imageCategory: 'human_face' };
+
 const SINHALA_GUIDANCE = {
+  imageCheck: VALID_SKIN_CHECK,
   status: 'possible_concern',
   concern: 'පෙනෙන වියළි බව',
   observations: 'සම මඳක් වියළි ලෙස පෙනේ.',
@@ -400,6 +411,7 @@ const SINHALA_GUIDANCE = {
 };
 
 const ENGLISH_GUIDANCE = {
+  imageCheck: VALID_SKIN_CHECK,
   status: 'possible_concern',
   concern: 'Visible dryness',
   observations: 'The skin looks a little dry.',
@@ -505,14 +517,15 @@ const SI_INPUT = { imageBase64: 'AAAA', mimeType: 'image/jpeg', language: 'si' }
 test('English live guidance is returned after one provider call', async () => {
   const provider = fakeProvider(ENGLISH_GUIDANCE);
   const result = await analyseSkinGuidanceInLanguage(provider, { ...SI_INPUT, language: 'en' });
-  assert.equal(result.observations, 'The skin looks a little dry.');
+  assert.equal(result.guidance.observations, 'The skin looks a little dry.');
+  assert.deepEqual(result.imageCheck, NORMALISED_VALID_CHECK);
   assert.equal(provider.calls.length, 1);
 });
 
 test('complete Sinhala guidance is returned after one provider call', async () => {
   const provider = fakeProvider(SINHALA_GUIDANCE);
   const result = await analyseSkinGuidanceInLanguage(provider, SI_INPUT);
-  assert.deepEqual(result, normalised(SINHALA_GUIDANCE));
+  assert.deepEqual(result, { imageCheck: NORMALISED_VALID_CHECK, guidance: normalised(SINHALA_GUIDANCE) });
   assert.equal(provider.calls.length, 1);
 });
 
@@ -520,7 +533,7 @@ test('English text in Sinhala mode triggers one strict, single-attempt regenerat
   const provider = fakeProvider(ENGLISH_GUIDANCE, SINHALA_GUIDANCE);
   await captureWarnings(async logs => {
     const result = await analyseSkinGuidanceInLanguage(provider, SI_INPUT);
-    assert.deepEqual(result, normalised(SINHALA_GUIDANCE));
+    assert.deepEqual(result.guidance, normalised(SINHALA_GUIDANCE));
     assert.equal(provider.calls.length, 2);
     assert.equal(provider.calls[0].input.strictLanguage, undefined);
     assert.deepEqual(provider.calls[1].input, { ...SI_INPUT, strictLanguage: true });
@@ -568,6 +581,69 @@ test('unusable first output is not regenerated', async () => {
   const provider = fakeProvider({ issue: 'Eczema', severity: 'Severe' });
   assert.equal(await analyseSkinGuidanceInLanguage(provider, SI_INPUT), null);
   assert.equal(provider.calls.length, 1);
+});
+
+test('guidance without a valid image check is unusable, never shown as photo analysis', async () => {
+  const { imageCheck, ...withoutCheck } = ENGLISH_GUIDANCE;
+  assert.ok(imageCheck);
+  const malformedChecks = [
+    withoutCheck,
+    { ...ENGLISH_GUIDANCE, imageCheck: 'valid' },
+    { ...ENGLISH_GUIDANCE, imageCheck: { ...VALID_SKIN_CHECK, isValid: 'true' } },
+    { ...ENGLISH_GUIDANCE, imageCheck: { ...VALID_SKIN_CHECK, imageCategory: 'person' } },
+    { ...ENGLISH_GUIDANCE, imageCheck: { ...VALID_SKIN_CHECK, faceCount: 1.5 } },
+  ];
+  for (const raw of malformedChecks) {
+    const provider = fakeProvider(raw);
+    assert.equal(await analyseSkinGuidanceInLanguage(provider, { ...SI_INPUT, language: 'en' }), null);
+    assert.equal(provider.calls.length, 1);
+  }
+});
+
+test('a photo that fails the image check throws IMAGE_REJECTED and its guidance is discarded', async () => {
+  const furniture = {
+    ...ENGLISH_GUIDANCE,
+    imageCheck: {
+      isValid: false,
+      imageCategory: 'furniture',
+      humanSkinVisible: false,
+      faceCount: 0,
+      quality: 'good',
+      reason: 'no_human_skin',
+    },
+  };
+  const provider = fakeProvider(furniture);
+  await captureWarnings(async logs => {
+    await assert.rejects(analyseSkinGuidanceInLanguage(provider, { ...SI_INPUT, language: 'en' }), error => {
+      assert.equal(error.code, 'IMAGE_REJECTED');
+      assert.equal(error.status, 422);
+      assert.deepEqual(error.imageCheck, { isValid: false, reason: 'no_human_skin', imageCategory: 'furniture' });
+      assert.doesNotMatch(JSON.stringify(error.imageCheck), /dry|Aloe/i);
+      return true;
+    });
+    assert.equal(provider.calls.length, 1);
+    assert.match(logs[0], /purpose=skin, reason=no_human_skin, category=furniture, modelSaidValid=false/);
+  });
+});
+
+test('a regenerated Sinhala answer must pass the image check too', async () => {
+  const rejected = { ...SINHALA_GUIDANCE, imageCheck: { ...VALID_SKIN_CHECK, quality: 'blurry' } };
+  const provider = fakeProvider(ENGLISH_GUIDANCE, rejected);
+  await captureWarnings(() =>
+    assert.rejects(analyseSkinGuidanceInLanguage(provider, SI_INPUT), error => error.code === 'IMAGE_REJECTED'),
+  );
+  assert.equal(provider.calls.length, 2);
+});
+
+test('the skin prompt asks for the structured image check before any guidance', () => {
+  const prompt = gemini.SKIN_ISSUE_PROMPT;
+  assert.match(prompt, /Image check \(do this first/);
+  for (const field of ['"isValid"', '"imageCategory"', '"humanSkinVisible"', '"faceCount"', '"quality"', '"reason"']) {
+    assert.ok(prompt.includes(field), field);
+  }
+  assert.match(prompt, /furniture, rooms, landscapes, animals, food, documents/);
+  assert.match(prompt, /If you are not sure, it is not valid/);
+  assert.match(gemini.SINHALA_OUTPUT_INSTRUCTION, /every "imageCheck" value/);
 });
 
 test('the Sinhala prompt names every user-facing field and the strict prompt is only used when asked', async () => {

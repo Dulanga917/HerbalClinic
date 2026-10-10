@@ -9,7 +9,7 @@
     "db:migrate": "node scripts/migrate.js",
     "db:copy-sqlite": "node --experimental-sqlite scripts/migrateSqliteToPostgres.js",
     "verify:e2e": "node --experimental-sqlite scripts/e2e-security-check.js",
-    "test": "node --experimental-sqlite --test src/passwordPolicy.test.js src/confidence.test.js src/db.auth.test.js src/api.security.test.js src/aiGuidance.test.js src/database/database.test.js",
+    "test": "node --experimental-sqlite --test src/passwordPolicy.test.js src/confidence.test.js src/db.auth.test.js src/api.security.test.js src/aiGuidance.test.js src/imageCheck.test.js src/database/database.test.js",
     "test:postgres": "node --experimental-sqlite --test --test-concurrency=1 test/postgres.integration.test.js test/migrateSqliteToPostgres.test.js"
   },
   "engines": {
