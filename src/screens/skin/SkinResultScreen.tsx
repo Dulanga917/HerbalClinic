@@ -170,6 +170,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
     analysingRef.current = true;
+    let checking = false;
     try {
       setLoading(true);
       setError(null);
@@ -177,8 +178,10 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
 
       if (analysisType === 'type') {
         // The on-device classifier labels any image, so the photo must pass the server check first.
+        checking = true;
         setCheckingPhoto(true);
         await geminiService.checkSkinTypePhoto(imageUri);
+        checking = false;
         setCheckingPhoto(false);
         const res = await analyseDosha(imageUri);
         setResult(res);
@@ -223,7 +226,13 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       } else if (e instanceof Error && (e as { code?: unknown }).code === IMAGE_CHECK_UNAVAILABLE) {
         setError({ key: 'imageCheck.unavailable' });
       } else {
-        setError(describeError(e, analysisType === 'type' ? 'result.modelFailure' : 'error.generic'));
+        // A failed photo check never reached the on-device model, so it must not be reported as a model failure.
+        const fallback = checking
+          ? 'imageCheck.unavailable'
+          : analysisType === 'type'
+            ? 'result.modelFailure'
+            : 'error.generic';
+        setError(describeError(e, fallback));
       }
     } finally {
       analysingRef.current = false;

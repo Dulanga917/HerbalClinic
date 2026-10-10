@@ -557,6 +557,17 @@ describe('SkinResultScreen — Skin Type photo check', () => {
     setCurrentLanguage('en');
   });
 
+  it('reports a server error during the photo check as a check failure, not an on-device model failure', async () => {
+    mockServer({ status: 500, body: {} }, { status: 413, body: { error: 'Request body is too large.' } });
+    const root = await renderScreen('type');
+    const text = screenText(root);
+
+    expectNoSkinTypeResult(text);
+    expect(text).toContain(translate('en', 'imageCheck.unavailable'));
+    expect(text).not.toContain(translate('en', 'result.modelFailure'));
+    expect(text).not.toMatch(/Request body/);
+  });
+
   it('does not classify when the API cannot be reached', async () => {
     fetchCalls = [];
     (global as { fetch: unknown }).fetch = jest.fn(async (url: string) => {
