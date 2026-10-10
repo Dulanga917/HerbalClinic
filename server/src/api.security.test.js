@@ -521,6 +521,144 @@ test('skin-issue validates the upload before calling Gemini', async () => {
   }
 });
 
+test('skin-issue returns the image check alongside guidance for an accepted photo', async () => {
+  const api = await start();
+  try {
+    const { token } = await newSession();
+    const res = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' },
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json.imageCheck, { isValid: true, reason: 'ok', imageCategory: 'human_face' });
+    assert.equal(res.json.analysis.status, 'possible_concern');
+    assert.equal(res.json.analysis.imageCheck, undefined, 'the raw check is not mixed into the guidance');
+  } finally {
+    await api.close();
+  }
+});
+
+test('skin-issue rejects a photo that fails the image check with 422 and no guidance', async () => {
+  const gemini = makeGeminiStub();
+  gemini.analyseSkinIssue = async () => ({
+    imageCheck: {
+      isValid: false,
+      imageCategory: 'furniture',
+      humanSkinVisible: false,
+      faceCount: 0,
+      quality: 'good',
+      reason: 'no_human_skin',
+    },
+    status: 'possible_concern',
+    concern: 'Visible dryness',
+    observations: 'Wooden surface with a dry finish.',
+  });
+  const api = await start({ gemini });
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const { token } = await newSession();
+    const res = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg' },
+    });
+    assert.equal(res.status, 422);
+    assert.deepEqual(res.json, {
+      error: 'This photo cannot be assessed. Please retake it.',
+      code: 'IMAGE_REJECTED',
+      imageCheck: { isValid: false, reason: 'no_human_skin', imageCategory: 'furniture' },
+    });
+    assert.doesNotMatch(JSON.stringify(res.json), /dryness|Wooden/);
+  } finally {
+    console.warn = originalWarn;
+    await api.close();
+  }
+});
+
+test('skin-image-check requires auth, validates the upload first, and returns only the verdict', async () => {
+  const api = await start({ rateLimits: { ai: { limit: 100 } } });
+  try {
+    const { token } = await newSession();
+    const image = JPEG_BYTES.toString('base64');
+
+    const noAuth = await api.request('POST', '/api/v1/skin-image-check', { body: { imageBase64: image } });
+    assert.equal(noAuth.status, 401);
+
+    const invalid = [
+      {},
+      { imageBase64: 'AAAA' },
+      { imageBase64: Buffer.from('plain text file, not an image at all').toString('base64') },
+      { imageBase64: image, mimeType: 'text/html' },
+    ];
+    for (const body of invalid) {
+      const res = await api.request('POST', '/api/v1/skin-image-check', { token, body });
+      assert.equal(res.status, 400, `expected 400 for ${JSON.stringify(body).slice(0, 60)}`);
+    }
+    assert.equal(api.gemini.calls.length, 0, 'Gemini is not called for an invalid upload');
+
+    const pngLabelledJpeg = await api.request('POST', '/api/v1/skin-image-check', {
+      token,
+      body: { imageBase64: PNG_BYTES.toString('base64'), mimeType: 'image/jpeg' },
+    });
+    assert.equal(pngLabelledJpeg.status, 200);
+    assert.deepEqual(pngLabelledJpeg.json, {
+      imageCheck: { isValid: true, reason: 'ok', imageCategory: 'human_face' },
+    });
+    assert.deepEqual(api.gemini.calls[0], [
+      'checkSkinImage',
+      { imageBase64: PNG_BYTES.toString('base64'), mimeType: 'image/png' },
+    ]);
+
+    const large = Buffer.concat([JPEG_BYTES, Buffer.alloc(2 * 1024 * 1024, 3)]);
+    const largeRes = await api.request('POST', '/api/v1/skin-image-check', {
+      token,
+      body: { imageBase64: large.toString('base64') },
+    });
+    assert.equal(largeRes.status, 200, 'photos over the default 100 kb JSON limit are accepted');
+  } finally {
+    await api.close();
+  }
+});
+
+test('skin-image-check returns rejections as a normal answer and Gemini failures as 503', async () => {
+  const gemini = makeGeminiStub();
+  const verdicts = [
+    { isValid: false, reason: 'no_human_skin', imageCategory: 'animal' },
+    { isValid: false, reason: 'no_human_skin', imageCategory: 'document' },
+    { isValid: false, reason: 'poor_lighting', imageCategory: 'human_face' },
+  ];
+  gemini.checkSkinImage = async () => {
+    const next = verdicts.shift();
+    if (!next) {
+      throw Object.assign(new Error('Skin guidance is temporarily unavailable.'), {
+        status: 503,
+        code: 'GEMINI_UNAVAILABLE',
+      });
+    }
+    return next;
+  };
+  const api = await start({ gemini, rateLimits: { ai: { limit: 100 } } });
+  try {
+    const { token } = await newSession();
+    const body = { imageBase64: JPEG_BYTES.toString('base64') };
+    for (const expected of [
+      { isValid: false, reason: 'no_human_skin', imageCategory: 'animal' },
+      { isValid: false, reason: 'no_human_skin', imageCategory: 'document' },
+      { isValid: false, reason: 'poor_lighting', imageCategory: 'human_face' },
+    ]) {
+      const res = await api.request('POST', '/api/v1/skin-image-check', { token, body });
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.json, { imageCheck: expected });
+    }
+    const unavailable = await api.request('POST', '/api/v1/skin-image-check', { token, body });
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.json.code, 'GEMINI_UNAVAILABLE');
+    assert.equal(unavailable.json.imageCheck, undefined);
+  } finally {
+    await api.close();
+  }
+});
+
 test('Gemini-backed endpoints are rate limited per user', async () => {
   const api = await start({ rateLimits: { ai: { limit: 2 } } });
   try {

@@ -442,7 +442,7 @@ describe('SkinResultScreen — Skin Type photo check', () => {
 
   const expectNoSkinTypeResult = (text: string) => {
     expect(mockAnalyseDosha).not.toHaveBeenCalled();
-    expect(text).not.toMatch(/Dosha prediction|Pitta|model confidence|Personalized skincare/);
+    expect(text).not.toMatch(/Pitta|Vata|Kapha|model confidence|Personalized skincare|Recommended herbs/);
     expect(scanSaves()).toHaveLength(0);
     expect(mockRefreshUser).not.toHaveBeenCalled();
   };
