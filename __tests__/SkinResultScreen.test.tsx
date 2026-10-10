@@ -544,6 +544,39 @@ describe('SkinResultScreen — Skin Type photo check', () => {
     expect(text).not.toMatch(/Offline general guidance|GEMINI|undefined/);
   });
 
+  it('says the AI limit was reached when Gemini quota is used up, without classifying', async () => {
+    mockServer(
+      { status: 500, body: {} },
+      {
+        status: 503,
+        body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE', reason: 'quota_exceeded' },
+      },
+    );
+    const root = await renderScreen('type');
+    const text = screenText(root);
+
+    expectNoSkinTypeResult(text);
+    expect(text).toContain(translate('en', 'imageCheck.quotaExceeded'));
+    expect(text).not.toContain(translate('en', 'imageCheck.unavailable'));
+    expect(text).not.toContain(translate('en', 'result.modelFailure'));
+  });
+
+  it('shows the quota message in Sinhala', async () => {
+    mockServer(
+      { status: 500, body: {} },
+      {
+        status: 503,
+        body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE', reason: 'quota_exceeded' },
+      },
+    );
+    const root = await renderScreen('type', 'si');
+    const text = screenText(root);
+
+    expectNoSkinTypeResult(text);
+    expect(text).toContain(translate('si', 'imageCheck.quotaExceeded'));
+    setCurrentLanguage('en');
+  });
+
   it('fails safe in Sinhala when the check cannot be completed', async () => {
     mockServer(
       { status: 500, body: {} },

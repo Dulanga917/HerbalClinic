@@ -239,6 +239,8 @@ export const en = {
   'imageCheck.retake': 'Retake or Choose Another Photo',
   'imageCheck.unavailable':
     "We couldn't check this photo right now, so no result was created. Please try again in a moment.",
+  'imageCheck.quotaExceeded':
+    'The AI photo-check limit has been reached for now, so no result was created. Please try again later.',
   'imageCheck.noHumanSkin':
     "This photo doesn't seem to show human skin. Please use a photo of a person, not objects, furniture, animals, food, documents, or screenshots.",
   'imageCheck.faceNotVisible': "We couldn't see a face clearly. Please take a photo with your whole face visible.",

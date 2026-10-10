@@ -2,6 +2,8 @@ const { imageRejected, logImageRejection, normaliseImageCheck } = require('./ima
 
 const GEMINI_UNAVAILABLE = 'GEMINI_UNAVAILABLE';
 const GEMINI_UNAVAILABLE_MESSAGE = 'AI guidance is temporarily unavailable.';
+// Set on a GEMINI_UNAVAILABLE error when Gemini refused the call because a usage quota is used up.
+const QUOTA_EXCEEDED = 'quota_exceeded';
 
 const SKIN_GUIDANCE_STATUSES = ['possible_concern', 'no_clear_concern', 'unable_to_assess'];
 const MAX_TEXT_LENGTH = 400;
@@ -195,6 +197,7 @@ module.exports = {
   GEMINI_UNAVAILABLE,
   GEMINI_UNAVAILABLE_MESSAGE,
   LANGUAGE_RETRY_WINDOW_MS,
+  QUOTA_EXCEEDED,
   analyseSkinGuidanceInLanguage,
   fieldsNotInLanguage,
   geminiUnavailable,

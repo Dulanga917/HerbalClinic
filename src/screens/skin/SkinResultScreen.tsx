@@ -25,7 +25,7 @@ import { herbDisplayName } from '../../utils/herbLibrary';
 import { LiveSkinGuidance } from '../../utils/skinGuidance';
 import { describeError, resolveMessage, UserMessage } from '../../utils/userMessages';
 import {
-  IMAGE_CHECK_UNAVAILABLE,
+  ImageCheckUnavailableError,
   ImageRejectedError,
   ImageRejection,
   imageRejectionKey,
@@ -223,8 +223,8 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       setResult(null);
       if (e instanceof ImageRejectedError) {
         setRejection(e.imageCheck);
-      } else if (e instanceof Error && (e as { code?: unknown }).code === IMAGE_CHECK_UNAVAILABLE) {
-        setError({ key: 'imageCheck.unavailable' });
+      } else if (e instanceof ImageCheckUnavailableError) {
+        setError({ key: e.quotaExceeded ? 'imageCheck.quotaExceeded' : 'imageCheck.unavailable' });
       } else {
         // A failed photo check never reached the on-device model, so it must not be reported as a model failure.
         const fallback = checking

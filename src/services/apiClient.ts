@@ -22,6 +22,7 @@ type RequestOptions = {
 };
 
 export const GEMINI_UNAVAILABLE = 'GEMINI_UNAVAILABLE';
+export const QUOTA_EXCEEDED = 'quota_exceeded';
 export const API_UNREACHABLE = 'API_UNREACHABLE';
 export const SESSION_INVALID = 'SESSION_INVALID';
 
@@ -35,13 +36,21 @@ export class ApiError extends Error {
   readonly code: string | null;
   /** The server's image-check verdict when a photo was rejected (code IMAGE_REJECTED). */
   readonly imageCheck: unknown;
+  /** Why the server could not complete the request, e.g. QUOTA_EXCEEDED with GEMINI_UNAVAILABLE. */
+  readonly reason: string | null;
 
-  constructor(message: string, status: number | null, code: string | null, imageCheck?: unknown) {
+  constructor(
+    message: string,
+    status: number | null,
+    code: string | null,
+    details: { imageCheck?: unknown; reason?: unknown } = {},
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
-    this.imageCheck = imageCheck;
+    this.imageCheck = details.imageCheck;
+    this.reason = typeof details.reason === 'string' ? details.reason : null;
   }
 }
 
@@ -112,7 +121,7 @@ const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promis
       typeof payload.error === 'string' ? payload.error : 'Request failed. Please try again.',
       response.status,
       sessionRejected ? SESSION_INVALID : typeof payload.code === 'string' ? payload.code : null,
-      payload.imageCheck,
+      { imageCheck: payload.imageCheck, reason: payload.reason },
     );
     if (sessionRejected && options.token) {
       sessionInvalidListener?.(options.token);

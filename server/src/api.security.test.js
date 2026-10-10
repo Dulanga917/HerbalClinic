@@ -659,6 +659,41 @@ test('skin-image-check returns rejections as a normal answer and Gemini failures
   }
 });
 
+test('skin-image-check reports a used-up Gemini quota with a reason and Retry-After, and logs metadata only', async () => {
+  const gemini = makeGeminiStub();
+  gemini.checkSkinImage = async () => {
+    throw Object.assign(new Error('AI guidance is temporarily unavailable.'), {
+      status: 503,
+      code: 'GEMINI_UNAVAILABLE',
+      reason: 'quota_exceeded',
+      retryAfterSeconds: 54447,
+    });
+  };
+  const api = await start({ gemini });
+  const originalLog = console.log;
+  const logs = [];
+  console.log = (...args) => logs.push(args.join(' '));
+  try {
+    const { token } = await newSession();
+    const imageBase64 = JPEG_BYTES.toString('base64');
+    const res = await api.request('POST', '/api/v1/skin-image-check', { token, body: { imageBase64 } });
+    assert.equal(res.status, 503);
+    assert.deepEqual(res.json, {
+      error: 'AI guidance is temporarily unavailable.',
+      code: 'GEMINI_UNAVAILABLE',
+      reason: 'quota_exceeded',
+    });
+    assert.equal(res.headers['retry-after'], '54447');
+    const line = logs.find(entry => entry.startsWith('Skin image check'));
+    assert.match(line, /status=503, stage=gemini, code=GEMINI_UNAVAILABLE, reason=quota_exceeded/);
+    assert.match(line, new RegExp(`bytes=${JPEG_BYTES.length}, mimeType=image/jpeg, elapsedMs=\\d+`));
+    assert.ok(!line.includes(imageBase64) && !line.includes(token));
+  } finally {
+    console.log = originalLog;
+    await api.close();
+  }
+});
+
 test('Gemini-backed endpoints are rate limited per user', async () => {
   const api = await start({ rateLimits: { ai: { limit: 2 } } });
   try {

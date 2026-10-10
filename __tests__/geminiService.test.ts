@@ -267,6 +267,18 @@ describe('geminiService Skin Type photo check', () => {
     );
   });
 
+  it('marks the unavailable error when the server reports a used-up Gemini quota', async () => {
+    mockFetch({ status: 503, body: { ...UNAVAILABLE.body, reason: 'quota_exceeded' } });
+    const quota = await geminiService.checkSkinTypePhoto('file:///photo.jpg').catch(e => e);
+    expect(quota).toBeInstanceOf(ImageCheckUnavailableError);
+    expect(quota.quotaExceeded).toBe(true);
+
+    mockFetch(UNAVAILABLE);
+    const other = await geminiService.checkSkinTypePhoto('file:///photo.jpg').catch(e => e);
+    expect(other).toBeInstanceOf(ImageCheckUnavailableError);
+    expect(other.quotaExceeded).toBe(false);
+  });
+
   it('passes other server errors through unchanged', async () => {
     mockFetch({ status: 429, body: { error: 'Too many analysis requests. Please wait a minute and try again.' } });
     const error = await geminiService.checkSkinTypePhoto('file:///photo.jpg').catch(e => e);

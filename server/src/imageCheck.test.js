@@ -191,6 +191,59 @@ test('malformed or unparseable checks and provider failures surface as GEMINI_UN
   await withFakeModel(badKey, () => assertUnavailable(gemini.checkSkinImage(IMAGE)));
 });
 
+test('a used-up Gemini quota is reported as quota_exceeded with safe metadata and no retry', async () => {
+  let calls = 0;
+  const quotaError = async () => {
+    calls += 1;
+    throw Object.assign(new Error('[429] secret provider text FAKE-KEY-123'), {
+      status: 429,
+      errorDetails: [
+        { '@type': 'type.googleapis.com/google.rpc.Help' },
+        {
+          '@type': 'type.googleapis.com/google.rpc.QuotaFailure',
+          violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '20' }],
+        },
+        { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '54447s' },
+      ],
+    });
+  };
+  await withFakeModel(quotaError, async logs => {
+    const error = await gemini.checkSkinImage(IMAGE).catch(e => e);
+    assert.equal(error.code, GEMINI_UNAVAILABLE);
+    assert.equal(error.reason, 'quota_exceeded');
+    assert.equal(error.retryAfterSeconds, 54447);
+    assert.equal(calls, 1, 'a quota refusal is not retried');
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /category=http_429, httpStatus=429/);
+    assert.match(logs[0], /quotaId=GenerateRequestsPerDayPerProjectPerModel-FreeTier, retryAfterSeconds=54447/);
+    assert.doesNotMatch(logs[0], /secret provider text|FAKE-KEY|AAAA/);
+  });
+});
+
+test('a 429 without quota details is still quota_exceeded; other failures carry no reason', async () => {
+  await withFakeModel(
+    async () => {
+      throw Object.assign(new Error('[429]'), { status: 429 });
+    },
+    async logs => {
+      const error = await gemini.checkSkinImage(IMAGE).catch(e => e);
+      assert.equal(error.reason, 'quota_exceeded');
+      assert.equal(error.retryAfterSeconds, null);
+      assert.doesNotMatch(logs[0], /quotaId/);
+    },
+  );
+  await withFakeModel(
+    async () => {
+      throw Object.assign(new Error('[503] busy'), { status: 503 });
+    },
+    async () => {
+      const error = await gemini.checkSkinImage(IMAGE).catch(e => e);
+      assert.equal(error.code, GEMINI_UNAVAILABLE);
+      assert.equal(error.reason, undefined);
+    },
+  );
+});
+
 test('checkSkinImage without a configured key fails closed', async () => {
   const originalKey = process.env.GEMINI_API_KEY;
   delete process.env.GEMINI_API_KEY;

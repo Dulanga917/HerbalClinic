@@ -83,10 +83,13 @@ export class ImageRejectedError extends Error {
 /** The photo could not be checked (provider down, or an unusable verdict); nothing was assessed. */
 export class ImageCheckUnavailableError extends Error {
   readonly code = IMAGE_CHECK_UNAVAILABLE;
+  /** True when Gemini refused the check because its usage quota is used up. */
+  readonly quotaExceeded: boolean;
 
-  constructor() {
+  constructor(quotaExceeded = false) {
     super('The photo could not be checked right now.');
     this.name = 'ImageCheckUnavailableError';
+    this.quotaExceeded = quotaExceeded;
   }
 }
 

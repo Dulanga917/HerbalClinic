@@ -20,6 +20,7 @@ const defaultGemini = require('./gemini');
 const {
   GEMINI_UNAVAILABLE,
   GEMINI_UNAVAILABLE_MESSAGE,
+  QUOTA_EXCEEDED,
   analyseSkinGuidanceInLanguage,
   geminiUnavailable,
 } = require('./aiGuidance');
@@ -78,6 +79,13 @@ function logServerError(error) {
 
 function handleError(res, error) {
   if (error && error.code === GEMINI_UNAVAILABLE) {
+    if (error.reason === QUOTA_EXCEEDED) {
+      if (Number.isInteger(error.retryAfterSeconds) && error.retryAfterSeconds > 0) {
+        res.set('Retry-After', String(error.retryAfterSeconds));
+      }
+      res.status(503).json({ error: GEMINI_UNAVAILABLE_MESSAGE, code: GEMINI_UNAVAILABLE, reason: QUOTA_EXCEEDED });
+      return;
+    }
     res.status(503).json({ error: GEMINI_UNAVAILABLE_MESSAGE, code: GEMINI_UNAVAILABLE });
     return;
   }
@@ -237,18 +245,38 @@ function createApp({
   // Skin Type Assessment runs on the phone, so its photo is checked here first; the app only
   // classifies (and saves) a photo after this returns isValid: true.
   app.post('/api/v1/skin-image-check', requireAuth, limiters.ai, async (req, res) => {
+    const startedAt = Date.now();
+    let imageBytes = null;
+    let mimeType = null;
+    // Metadata only: never the photo, base64 data, token, or user details.
+    const logOutcome = details =>
+      console.log(
+        `Skin image check (${details}, bytes=${imageBytes ?? 'unknown'}, mimeType=${mimeType ?? 'unknown'}, ` +
+          `elapsedMs=${Date.now() - startedAt})`,
+      );
     try {
       const input = validateImageUpload(req.body);
       if (!input.ok) {
+        logOutcome('status=400, stage=upload_validation');
         badRequest(res, input.message);
         return;
       }
+      imageBytes = Buffer.byteLength(input.value.imageBase64, 'base64');
+      mimeType = input.value.mimeType;
       const imageCheck = await gemini.checkSkinImage({
         imageBase64: input.value.imageBase64,
         mimeType: input.value.mimeType,
       });
+      logOutcome(
+        `status=200, stage=verdict, isValid=${imageCheck.isValid}, reason=${imageCheck.reason}, ` +
+          `category=${imageCheck.imageCategory}`,
+      );
       res.json({ imageCheck });
     } catch (error) {
+      logOutcome(
+        `status=${error && error.code === GEMINI_UNAVAILABLE ? 503 : error?.status ?? 500}, stage=gemini, ` +
+          `code=${(error && error.code) || 'none'}, reason=${(error && error.reason) || 'none'}`,
+      );
       handleError(res, error);
     }
   });

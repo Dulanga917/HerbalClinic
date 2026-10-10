@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { geminiUnavailable } = require('./aiGuidance');
+const { QUOTA_EXCEEDED, geminiUnavailable } = require('./aiGuidance');
 const {
   imageCheckFields,
   imageCheckPrompt,
@@ -108,11 +108,37 @@ function classifyFailure(error) {
   return { category: 'provider_error', retryable: false };
 }
 
+// Reads only the structured quota fields Google attaches to a 429, never the provider message.
+function quotaInfo(error) {
+  const details = Array.isArray(error && error.errorDetails) ? error.errorDetails : [];
+  let quotaId = null;
+  let retryAfterSeconds = null;
+  for (const detail of details) {
+    const type = String((detail && detail['@type']) || '');
+    if (type.endsWith('QuotaFailure') && Array.isArray(detail.violations)) {
+      const id = detail.violations[0] && detail.violations[0].quotaId;
+      if (typeof id === 'string' && /^[\w-]{1,120}$/.test(id)) {
+        quotaId = id;
+      }
+    } else if (type.endsWith('RetryInfo')) {
+      const match = /^(\d{1,7})(?:\.\d+)?s$/.exec(String(detail.retryDelay || ''));
+      if (match) {
+        retryAfterSeconds = Number(match[1]);
+      }
+    }
+  }
+  return { quotaId, retryAfterSeconds };
+}
+
 // Metadata only: never the key, prompt, image data, provider message, or user details.
-function logFailure({ attempt, maxAttempts, category, status, elapsedMs, willRetry }) {
+function logFailure({ attempt, maxAttempts, category, status, elapsedMs, willRetry, quota }) {
+  const quotaText =
+    quota && (quota.quotaId || quota.retryAfterSeconds !== null)
+      ? `, quotaId=${quota.quotaId ?? 'unknown'}, retryAfterSeconds=${quota.retryAfterSeconds ?? 'unknown'}`
+      : '';
   console.warn(
     `Gemini request failed (model=${MODEL_NAME}, attempt=${attempt}/${maxAttempts}, ` +
-      `category=${category}, httpStatus=${status ?? 'none'}, elapsedMs=${elapsedMs}, willRetry=${willRetry})`,
+      `category=${category}, httpStatus=${status ?? 'none'}, elapsedMs=${elapsedMs}, willRetry=${willRetry}${quotaText})`,
   );
 }
 
@@ -149,16 +175,24 @@ async function callGemini(request, readResponse, { maxAttempts = RETRY_POLICY.ma
     } catch (error) {
       const { category, retryable } = classifyFailure(error);
       const willRetry = retryable && attempt < maxAttempts;
+      const status = typeof error?.status === 'number' ? error.status : null;
+      const quota = status === 429 ? quotaInfo(error) : null;
       logFailure({
         attempt,
         maxAttempts,
         category,
-        status: typeof error?.status === 'number' ? error.status : null,
+        status,
         elapsedMs: Date.now() - startedAt,
         willRetry,
+        quota,
       });
       if (!willRetry) {
-        throw geminiUnavailable(error);
+        const unavailable = geminiUnavailable(error);
+        if (quota) {
+          unavailable.reason = QUOTA_EXCEEDED;
+          unavailable.retryAfterSeconds = quota.retryAfterSeconds;
+        }
+        throw unavailable;
       }
       await wait(RETRY_POLICY.retryDelayMs);
     }

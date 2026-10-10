@@ -5,6 +5,7 @@ import {
   checkSkinImageRemote,
   fetchDailyTip,
   fetchHerbalRecommendations,
+  QUOTA_EXCEEDED,
 } from './apiClient';
 import {
   isGeminiUnavailable,
@@ -93,7 +94,7 @@ class GeminiService {
       response = await checkSkinImageRemote(token, imageBase64);
     } catch (error) {
       if (isGeminiUnavailable(error)) {
-        throw new ImageCheckUnavailableError();
+        throw new ImageCheckUnavailableError(error instanceof ApiError && error.reason === QUOTA_EXCEEDED);
       }
       throw error;
     }
