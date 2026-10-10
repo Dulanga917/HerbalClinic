@@ -70,7 +70,8 @@ it('renders the bilingual questionnaire and keeps answers when language changes'
   expect(labels).toContain('Skin');
   expect(labels).toContain('Body');
   expect(labels).toContain('Hair');
-  expect(labels).toContain("Women's Health");
+  expect(labels).toContain('Reproductive Health');
+  expect(labels).not.toContain("Women's Health");
   expect(labels).toContain('Mental Well-being');
   expect(labels).toContain('Question 1 of 5');
   expect(labels.some(item => String(item).includes('not a medical diagnosis'))).toBe(true);
@@ -166,17 +167,27 @@ it('scrolls back to the top when the question changes', async () => {
   });
 });
 
-it('allows the optional womens-health question to be skipped and shows questionnaire guidance', async () => {
-  const { root } = await renderScreen();
-
+const answerGeneralVata = (root: renderer.ReactTestRenderer) => {
   press(root, 'Dry or tight');
   press(root, 'Next');
   press(root, 'Light, cool, or easily unsettled');
   press(root, 'Next');
   press(root, 'Dry or frizzy');
   press(root, 'Next');
-  press(root, 'Not applicable / skip');
+};
+
+const texts = (root: renderer.ReactTestRenderer) => flatten(root).map(String).join(' ');
+
+it('Not applicable path (e.g. a male user): no follow-ups, guidance shown, pregnancy caution kept visible', async () => {
+  const { root } = await renderScreen();
+
+  answerGeneralVata(root);
+  expect(flatten(root)).toContain('Question 4 of 5');
+  expect(texts(root)).toContain('reproductive-health topics relevant');
+  press(root, 'Not applicable');
   press(root, 'Next');
+  expect(flatten(root)).toContain('Question 5 of 5');
+  expect(texts(root)).not.toContain('pregnant');
   press(root, 'Restless or worried');
   press(root, 'See guidance');
 
@@ -185,6 +196,120 @@ it('allows the optional womens-health question to be skipped and shows questionn
   expect(labels.some(item => String(item).includes('questionnaire-based'))).toBe(true);
   expect(labels.some(item => String(item).includes('no model confidence score'))).toBe(true);
   expect(labels.some(item => String(item).includes('Vata-type self-care'))).toBe(true);
+  expect(texts(root)).toContain('Ashwagandha');
+  expect(texts(root)).toContain('Avoid during pregnancy unless a clinician advises otherwise');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('relevant path for a pregnant user: shows follow-ups and withholds the pregnancy-caution herb', async () => {
+  const { root } = await renderScreen();
+
+  answerGeneralVata(root);
+  press(root, 'Yes, show these questions');
+  expect(flatten(root)).toContain('Question 4 of 7');
+  press(root, 'Next');
+  expect(flatten(root)).toContain('Question 5 of 7');
+  expect(texts(root)).toContain('pregnant, possibly pregnant');
+  press(root, 'Yes');
+  press(root, 'Next');
+  expect(flatten(root)).toContain('Question 6 of 7');
+  press(root, 'Skip');
+  press(root, 'Next');
+  press(root, 'Restless or worried');
+  press(root, 'See guidance');
+
+  const all = texts(root);
+  expect(all).toContain('Vata-type self-care');
+  expect(all).toContain('Not listed because of a pregnancy caution: Ashwagandha');
+  expect(all.split('Ashwagandha')).toHaveLength(2);
+  expect(all).toContain('Aloe Vera');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('relevant path for a user who is not pregnant: no pregnancy caution or withheld herbs', async () => {
+  const { root } = await renderScreen();
+
+  answerGeneralVata(root);
+  press(root, 'Yes, show these questions');
+  press(root, 'Next');
+  press(root, 'No');
+  press(root, 'Next');
+  press(root, 'I prefer calming, warming routines');
+  press(root, 'Next');
+  press(root, 'Restless or worried');
+  press(root, 'See guidance');
+
+  const all = texts(root);
+  expect(all).toContain('Vata-type self-care');
+  expect(all).toContain('Ashwagandha');
+  expect(all).not.toContain('Avoid during pregnancy');
+  expect(all).not.toContain('Not listed because of a pregnancy caution');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('Prefer not to say skips the sensitive follow-ups and keeps the pregnancy caution', async () => {
+  const { root } = await renderScreen();
+
+  answerGeneralVata(root);
+  press(root, 'Prefer not to say');
+  press(root, 'Next');
+  expect(flatten(root)).toContain('Question 5 of 5');
+  press(root, 'Restless or worried');
+  press(root, 'See guidance');
+
+  const all = texts(root);
+  expect(all).toContain('Vata-type self-care');
+  expect(all).toContain('Avoid during pregnancy unless a clinician advises otherwise');
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('changing the relevance answer back hides the follow-ups but keeps them if chosen again', async () => {
+  const { root } = await renderScreen();
+
+  answerGeneralVata(root);
+  press(root, 'Yes, show these questions');
+  press(root, 'Next');
+  press(root, 'Yes');
+  press(root, 'Previous');
+  press(root, 'Not applicable');
+  expect(flatten(root)).toContain('Question 4 of 5');
+
+  press(root, 'Yes, show these questions');
+  press(root, 'Next');
+  const yes = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === 'Yes');
+  expect(yes?.props.accessibilityState.selected).toBe(true);
+
+  act(() => {
+    root.unmount();
+  });
+});
+
+it('shows the conditional questions in Sinhala', async () => {
+  const { root } = await renderScreen(createMemoryLanguageStorage('si'));
+
+  press(root, 'ප්‍රජනක සෞඛ්‍යය');
+  expect(flatten(root)).toContain('ප්‍රශ්නය 4 / 5');
+  press(root, 'ඔව්, මෙම ප්‍රශ්න පෙන්වන්න');
+  expect(flatten(root)).toContain('ප්‍රශ්නය 4 / 7');
+  press(root, 'ඊළඟ');
+  const all = texts(root);
+  expect(all).toContain('ගර්භණීද');
+  expect(all).toContain('පැවසීමට අකමැතියි');
+  expect(all).toContain('මඟ හරින්න');
 
   act(() => {
     root.unmount();

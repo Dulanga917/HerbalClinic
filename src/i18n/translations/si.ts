@@ -376,6 +376,8 @@ export const si: Record<TranslationKey, string> = {
   'questionnaire.herbs': 'නිර්දේශිත ඔසු',
   'questionnaire.lifestyle': 'ජීවන රටාව / ස්වයං-රැකවරණය',
   'questionnaire.meditation': 'භාවනාව',
+  'questionnaire.pregnancyHerbsWithheld':
+    'ගර්භණී සමය පිළිබඳ අවවාදයක් නිසා ලැයිස්තුගත කර නැත: {herbs}. ගර්භණී සමයේදී හෝ මව්කිරි දෙන කාලයේදී ඔසු භාවිතයට පෙර සුදුසුකම් ලත් වෛද්‍යවරයෙකුගෙන් උපදෙස් ගන්න.',
   'questionnaire.disclaimer':
     'මෙම ප්‍රශ්නාවලිය සාමාන්‍ය ආයුර්වේද ස්වයං-රැකවරණ මගපෙන්වීමක් ලබා දෙන අතර වෛද්‍ය රෝග විනිශ්චයක් නොවේ. වෛද්‍ය ගැටලු සඳහා සුදුසුකම් ලත් සෞඛ්‍ය වෘත්තිකයෙකුගෙන් උපදෙස් ගන්න.',
 };

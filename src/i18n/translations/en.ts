@@ -371,6 +371,8 @@ export const en = {
   'questionnaire.herbs': 'Recommended herbs',
   'questionnaire.lifestyle': 'Lifestyle / self-care',
   'questionnaire.meditation': 'Meditation',
+  'questionnaire.pregnancyHerbsWithheld':
+    'Not listed because of a pregnancy caution: {herbs}. Ask a qualified clinician before using herbs during pregnancy or breastfeeding.',
   'questionnaire.disclaimer':
     'This questionnaire provides general Ayurvedic self-care guidance and is not a medical diagnosis. Consult a qualified healthcare professional for medical concerns.',
 };

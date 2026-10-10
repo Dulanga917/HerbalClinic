@@ -177,6 +177,9 @@ export const HERBS = {
   },
 };
 
+/** Herbs whose own caution text above advises against use during pregnancy. */
+export const PREGNANCY_CAUTION_HERB_IDS: ReadonlySet<string> = new Set(['ashwagandha']);
+
 export const SKIN_ISSUES = {
   acne: {
     id: 'acne',

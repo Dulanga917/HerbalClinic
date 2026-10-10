@@ -11,7 +11,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import ScreenHeader from '../../components/ScreenHeader';
 import LanguageSelector from '../../components/LanguageSelector';
-import { AnswerValue, QUESTIONNAIRE_QUESTIONS } from '../../constants/questionnaire';
+import { AnswerValue } from '../../constants/questionnaire';
 import { MainStackParamList } from '../../navigation/types';
 import {
   QuestionnaireAnswers,
@@ -23,6 +23,7 @@ import {
   getCategoryIndex,
   getQuestionAt,
   localize,
+  visibleQuestions,
 } from '../../utils/questionnaireLogic';
 import { herbDisplayName } from '../../utils/herbLibrary';
 import { useLanguage } from '../../i18n';
@@ -41,8 +42,8 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
     scrollRef.current?.scrollTo?.({ y: 0, animated: false });
   }, [index, completed]);
 
-  const question = getQuestionAt(index);
-  const total = QUESTIONNAIRE_QUESTIONS.length;
+  const question = getQuestionAt(index, answers);
+  const total = visibleQuestions(answers).length;
   const categories = useMemo(() => categoryLabels(lang), [lang]);
   const result = completed ? buildQuestionnaireResult(answers, lang) : null;
   const nextEnabled = canAdvance(question, answers);
@@ -97,7 +98,7 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
       <ScrollView ref={scrollRef} style={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.categoryRow}>
           {categories.map(category => {
-            const categoryIndex = getCategoryIndex(category.id);
+            const categoryIndex = getCategoryIndex(category.id, answers);
             const active = !completed && categoryIndex === index;
             return (
               <TouchableOpacity
@@ -138,10 +139,25 @@ const AyurvedicTreatmentScreen: React.FC<Props> = ({ navigation }) => {
                 ))}
                 <Text style={styles.sectionTitle}>{t('questionnaire.herbs')}</Text>
                 {result.guidance.herbs.map(herb => (
-                  <Text key={herb.id} style={styles.bullet}>
-                    {herb.emoji} {herbDisplayName(herb, lang)} — {herb.benefits[0]}
-                  </Text>
+                  <React.Fragment key={herb.id}>
+                    <Text style={styles.bullet}>
+                      {herb.emoji} {herbDisplayName(herb, lang)} — {herb.benefits[0]}
+                    </Text>
+                    {result.pregnancyCautionHerbIds.includes(herb.id) ? (
+                      <Text style={styles.caution}>
+                        ⚠ {t('herbal.caution')}: {herb.caution}
+                      </Text>
+                    ) : null}
+                  </React.Fragment>
                 ))}
+                {result.withheldHerbs.length ? (
+                  <Text style={styles.caution}>
+                    ⚠{' '}
+                    {t('questionnaire.pregnancyHerbsWithheld', {
+                      herbs: result.withheldHerbs.map(herb => herbDisplayName(herb, lang)).join(', '),
+                    })}
+                  </Text>
+                ) : null}
                 <Text style={styles.sectionTitle}>{t('questionnaire.lifestyle')}</Text>
                 {result.guidance.lifestyle.map(item => (
                   <Text key={item} style={styles.bullet}>
@@ -339,6 +355,7 @@ const styles = StyleSheet.create({
   notModel: { color: Colors.accent, fontSize: Typography.sm, lineHeight: 20, marginBottom: Spacing.md },
   sectionTitle: { color: Colors.primaryLight, fontWeight: '700', marginTop: Spacing.md, marginBottom: Spacing.xs },
   bullet: { color: Colors.textSecondary, lineHeight: 22, marginBottom: 4 },
+  caution: { color: Colors.accent, fontSize: Typography.sm, lineHeight: 20, marginBottom: Spacing.sm },
   bottomPad: { height: Spacing['3xl'] },
 });
 

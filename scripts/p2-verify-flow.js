@@ -189,7 +189,7 @@ try {
       'Skin',
       'Body',
       'Hair',
-      "Women's Health",
+      'Reproductive Health',
       'Mental Well-being',
       'Question 1 of 5',
       'not a medical diagnosis',
@@ -204,7 +204,7 @@ try {
       'සම',
       'ශරීරය',
       'කෙස්',
-      'කාන්තා සෞඛ්‍යය',
+      'ප්‍රජනක සෞඛ්‍යය',
       'මානසික යහපැවැත්ම',
       'ප්‍රශ්නය 1 / 5',
     ]);
@@ -241,8 +241,8 @@ try {
     tap('Next');
     tap('Dry or frizzy');
     tap('Next');
-    assertHas('womens', ["Women's Health", 'Not applicable / skip', 'Optional']);
-    tap('Not applicable / skip');
+    assertHas('womens', ['Reproductive Health', 'Not applicable', 'Prefer not to say', 'Optional']);
+    tap('Not applicable');
     tap('Next');
     tap('Restless or worried');
     tap('See guidance');
@@ -267,7 +267,7 @@ try {
     tap('Next');
     tap('Thick or oily');
     tap('Next');
-    tap('Not applicable / skip');
+    tap('Skip');
     tap('Next');
     tap('Restless or worried');
     tap('See guidance');
