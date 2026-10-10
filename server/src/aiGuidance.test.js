@@ -437,6 +437,27 @@ test('mixed Sinhala/English guidance is caught field by field, inside arrays and
   assert.deepEqual(fieldsNotInLanguage(mixed, 'si'), ['factors[1]', 'selfCare[1]', 'herbs[0].usage']);
 });
 
+test('short Sinhala items with an English herb, botanical, or technical term are accepted', () => {
+  const valid = [
+    'UV කිරණ',
+    'SPF ආලේපනය',
+    'Neem පත්‍ර සේදීම',
+    'Aloe Vera ජෙල් ආලේප කරන්න',
+    'Sandalwood පේස්ට් සිසිලසක් ලබා දෙයි',
+    'Gotu Kola කොළ ආහාරයට එක් කරන්න',
+    'Azadirachta indica (කොහොඹ) පත්‍ර තම්බා සිසිල් කළ ජලයෙන් සෝදන්න',
+    'Vitamin E අඩංගු තෙල් ස්වල්පයක් රාත්‍රියේ ආලේප කළ හැකිය.',
+  ];
+  const guidance = normalised({ ...SINHALA_GUIDANCE, factors: valid.slice(0, 4), selfCare: valid.slice(4) });
+  assert.deepEqual(fieldsNotInLanguage(guidance, 'si'), []);
+
+  const untranslated = normalised({
+    ...SINHALA_GUIDANCE,
+    factors: ['Moisturise ලෙස', 'Stay hydrated', 'Use a gentle cleanser සහ'],
+  });
+  assert.deepEqual(fieldsNotInLanguage(untranslated, 'si'), ['factors[0]', 'factors[1]', 'factors[2]']);
+});
+
 test('Sinhala text dominated by English letters fails even without a long English phrase', () => {
   const guidance = normalised({ ...SINHALA_GUIDANCE, observations: 'Skin texture සහ tone balance OK' });
   assert.deepEqual(fieldsNotInLanguage(guidance, 'si'), ['observations']);

@@ -58,6 +58,18 @@ describe('fieldsNotInLanguage', () => {
     expect(fieldsNotInLanguage(mixed, 'si')).toEqual(['factors[1]', 'herbs[0].benefit']);
   });
 
+  it('accepts short Sinhala items with an English herb, botanical, or technical term', () => {
+    const guidance: LiveSkinGuidance = {
+      ...SINHALA,
+      factors: ['UV කිරණ', 'SPF ආලේපනය', 'Neem පත්‍ර සේදීම'],
+      selfCare: ['Sandalwood පේස්ට් සිසිලසක් ලබා දෙයි', 'Gotu Kola කොළ ආහාරයට එක් කරන්න'],
+    };
+    expect(fieldsNotInLanguage(guidance, 'si')).toEqual([]);
+    expect(
+      fieldsNotInLanguage({ ...SINHALA, factors: ['Moisturise ලෙස', 'Use a gentle cleanser සහ'] }, 'si'),
+    ).toEqual(['factors[0]', 'factors[1]']);
+  });
+
   it('flags Sinhala prose in English mode', () => {
     expect(fieldsNotInLanguage({ ...SINHALA, concern: 'Visible dryness' }, 'en')).toContain('observations');
   });

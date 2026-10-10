@@ -105,9 +105,6 @@ const SINHALA_LETTERS = /[\u0D80-\u0DFF]/g;
 const LATIN_LETTERS = /[A-Za-z]/g;
 // Four or more English words in a row is untranslated prose, not a kept herb or technical name.
 const ENGLISH_PHRASE = /[A-Za-z]+(?:[\s,'-]+[A-Za-z]+){3,}/;
-// Within Sinhala text, short Latin terms (botanical names, "Aloe Vera") may stay; bracketed ones always may.
-const MAX_LATIN_SHARE_IN_SINHALA = 0.3;
-
 const countMatches = (text: string, pattern: RegExp) => (text.match(pattern) ?? []).length;
 
 const textMatchesLanguage = (text: string, language: Language): boolean => {
@@ -116,13 +113,11 @@ const textMatchesLanguage = (text: string, language: Language): boolean => {
   }
   const unbracketed = text.replace(/\([^)]*\)/g, ' ');
   if (language === 'si') {
+    // Short Latin terms (herb, botanical, or technical names such as "UV") may stay as long as
+    // Sinhala letters are the majority; bracketed terms are not counted at all.
     const sinhala = countMatches(text, SINHALA_LETTERS);
     const latin = countMatches(unbracketed, LATIN_LETTERS);
-    return (
-      sinhala > 0 &&
-      !ENGLISH_PHRASE.test(unbracketed) &&
-      latin / (latin + sinhala) <= MAX_LATIN_SHARE_IN_SINHALA
-    );
+    return sinhala > latin && !ENGLISH_PHRASE.test(unbracketed);
   }
   return countMatches(unbracketed, SINHALA_LETTERS) === 0;
 };
