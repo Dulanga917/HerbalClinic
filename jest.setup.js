@@ -81,4 +81,11 @@ jest.mock('react-native-fast-tflite', () => ({
   loadTensorflowModel: jest.fn(),
 }));
 
+jest.mock('@react-native-ml-kit/face-detection', () => ({
+  __esModule: true,
+  default: {
+    detect: jest.fn(async () => [{ frame: { width: 400, height: 400, top: 100, left: 100 } }]),
+  },
+}));
+
 jest.mock('react-native-vector-icons/Ionicons', () => 'Icon');

@@ -8,6 +8,7 @@ import { Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import renderer, { act, ReactTestRenderer } from 'react-test-renderer';
 import RNFS from 'react-native-fs';
+import FaceDetection from '@react-native-ml-kit/face-detection';
 import SkinResultScreen from '../src/screens/skin/SkinResultScreen';
 import { analyseDosha } from '../src/services/doshaModelService';
 import { SKIN_GUIDANCE_DISCLAIMER } from '../src/utils/skinGuidance';
@@ -423,59 +424,65 @@ describe('SkinResultScreen — AI skin guidance', () => {
   });
 });
 
-describe('SkinResultScreen — Skin Type photo check', () => {
+describe('SkinResultScreen — Skin Type on-device face check', () => {
   const originalFetch = global.fetch;
   const mockAnalyseDosha = analyseDosha as jest.Mock<typeof analyseDosha>;
+  const mockDetect = FaceDetection.detect as jest.Mock<typeof FaceDetection.detect>;
+  const face = (left: number) => ({
+    frame: { width: 300, height: 300, top: 100, left },
+    rotationX: 0,
+    rotationY: 0,
+    rotationZ: 0,
+  });
 
   beforeEach(() => {
+    (RNFS.readFile as jest.Mock<() => Promise<string>>).mockClear();
     (RNFS.readFile as jest.Mock<() => Promise<string>>).mockResolvedValue('AAAA');
     mockAnalyseDosha.mockReset();
     mockAnalyseDosha.mockResolvedValue({ dosha: 'Pitta', confidence: 83 });
+    mockDetect.mockReset();
+    mockDetect.mockResolvedValue([face(100)]);
     mockRefreshUser.mockClear();
+    mockServer({ status: 500, body: {} });
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
   });
 
-  const checkRequests = () => fetchCalls.filter(call => call.url.endsWith('/api/v1/skin-image-check'));
+  const geminiRequests = () =>
+    fetchCalls.filter(
+      call => call.url.endsWith('/api/v1/skin-image-check') || call.url.endsWith('/api/v1/skin-issue'),
+    );
 
   const expectNoSkinTypeResult = (text: string) => {
     expect(mockAnalyseDosha).not.toHaveBeenCalled();
     expect(text).not.toMatch(/Pitta|Vata|Kapha|model confidence|Personalized skincare|Recommended herbs/);
     expect(scanSaves()).toHaveLength(0);
     expect(mockRefreshUser).not.toHaveBeenCalled();
+    expect(geminiRequests()).toHaveLength(0);
   };
 
-  it('checks a valid face photo on the server before classifying it on-device', async () => {
-    mockServer({ status: 500, body: {} });
+  it('detects one face on-device, then classifies and saves, with no Gemini request', async () => {
     const root = await renderScreen('type');
     const text = screenText(root);
 
-    expect(checkRequests()).toHaveLength(1);
-    expect(checkRequests()[0].body).toEqual({ imageBase64: 'AAAA', mimeType: 'image/jpeg' });
-    expect(mockAnalyseDosha).toHaveBeenCalledTimes(1);
+    expect(mockDetect).toHaveBeenCalledTimes(1);
+    expect(mockDetect.mock.calls[0][0]).toBe('file:///data/photo-1.jpg');
+    expect(mockDetect.mock.invocationCallOrder[0]).toBeLessThan(mockAnalyseDosha.mock.invocationCallOrder[0]);
+    expect(mockAnalyseDosha).toHaveBeenCalledWith('file:///data/photo-1.jpg');
     expect(text).toMatch(/Pitta/);
     expect(scanSaves()).toHaveLength(1);
+    expect(geminiRequests()).toHaveLength(0);
+    expect(RNFS.readFile).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['furniture', 'no_human_skin', /doesn't seem to show human skin/],
-    ['landscape', 'no_human_skin', /doesn't seem to show human skin/],
-    ['animal', 'no_human_skin', /doesn't seem to show human skin/],
-    ['food', 'no_human_skin', /doesn't seem to show human skin/],
-    ['document', 'no_human_skin', /doesn't seem to show human skin/],
-    ['screenshot', 'no_human_skin', /doesn't seem to show human skin/],
-    ['other_object', 'no_human_skin', /doesn't seem to show human skin/],
-    ['human_skin', 'non_facial_skin', /needs a photo of your face/],
-    ['human_face', 'multiple_faces', /more than one face/],
-    ['human_face', 'face_not_visible', /couldn't see a face clearly/],
-    ['human_face', 'poor_lighting', /too dark or too bright/],
-    ['human_face', 'blurry', /The photo is blurry/],
-    ['human_face', 'heavily_filtered', /filtered or edited/],
-    ['unclear', 'unclear', /couldn't clearly check this photo/],
-  ])('rejects a %s photo (%s) without classifying or saving it', async (imageCategory, reason, message) => {
-    mockServer({ status: 500, body: {} }, { status: 200, body: { imageCheck: { isValid: false, reason, imageCategory } } });
+    ['no face', [], /couldn't see a face clearly/],
+    ['two faces', [face(50), face(500)], /more than one face/],
+    ['three faces', [face(10), face(400), face(800)], /more than one face/],
+  ])('rejects a photo with %s without classifying or saving it', async (_label, faces, message) => {
+    mockDetect.mockResolvedValue(faces);
     const root = await renderScreen('type');
     const text = screenText(root);
 
@@ -487,10 +494,7 @@ describe('SkinResultScreen — Skin Type photo check', () => {
   });
 
   it('the retake button returns to the camera screen', async () => {
-    mockServer(
-      { status: 500, body: {} },
-      { status: 200, body: { imageCheck: { isValid: false, reason: 'no_human_skin', imageCategory: 'furniture' } } },
-    );
+    mockDetect.mockResolvedValue([]);
     const goBack = jest.fn();
     const root = await renderScreen('type', undefined, { goBack } as never);
     const retake = root.root.findAll(
@@ -500,132 +504,48 @@ describe('SkinResultScreen — Skin Type photo check', () => {
     expect(goBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the Skin Type rejection in Sinhala', async () => {
-    mockServer(
-      { status: 500, body: {} },
-      { status: 200, body: { imageCheck: { isValid: false, reason: 'non_facial_skin', imageCategory: 'human_skin' } } },
-    );
-    const root = await renderScreen('type', 'si');
-    const text = screenText(root);
-
+  it('shows the no-face and multiple-face rejections in Sinhala', async () => {
+    mockDetect.mockResolvedValue([]);
+    let text = screenText(await renderScreen('type', 'si'));
     expectNoSkinTypeResult(text);
     expect(text).toContain(translate('si', 'imageCheck.title'));
-    expect(text).toContain(translate('si', 'imageCheck.nonFacialSkin'));
+    expect(text).toContain(translate('si', 'imageCheck.faceNotVisible'));
     expect(text).toContain(translate('si', 'imageCheck.retake'));
+
+    mockDetect.mockResolvedValue([face(50), face(500)]);
+    text = screenText(await renderScreen('type', 'si'));
+    expect(text).toContain(translate('si', 'imageCheck.multipleFaces'));
+    expect(mockAnalyseDosha).not.toHaveBeenCalled();
     setCurrentLanguage('en');
   });
 
   it.each([
-    ['a malformed verdict', { imageCheck: { isValid: true } }],
-    ['a contradictory verdict', { imageCheck: { isValid: true, reason: 'ok', imageCategory: 'furniture' } }],
-    ['an unknown reason', { imageCheck: { isValid: false, reason: 'maybe', imageCategory: 'human_face' } }],
-    ['a missing verdict', {}],
-    ['a non-object verdict', { imageCheck: 'valid' }],
-  ])('fails safe on %s: no classification, no save, retry offered', async (_label, body) => {
-    mockServer({ status: 500, body: {} }, { status: 200, body });
-    const root = await renderScreen('type');
-    const text = screenText(root);
-
-    expectNoSkinTypeResult(text);
-    expect(text).toContain(translate('en', 'imageCheck.unavailable'));
-    expect(text).toMatch(/Try Again/);
-  });
-
-  it('fails safe when Gemini is unavailable for the check', async () => {
-    mockServer(
-      { status: 500, body: {} },
-      { status: 503, body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' } },
-    );
-    const root = await renderScreen('type');
-    const text = screenText(root);
-
-    expectNoSkinTypeResult(text);
-    expect(text).toContain(translate('en', 'imageCheck.unavailable'));
-    expect(text).not.toMatch(/Offline general guidance|GEMINI|undefined/);
-  });
-
-  it('says the AI limit was reached when Gemini quota is used up, without classifying', async () => {
-    mockServer(
-      { status: 500, body: {} },
-      {
-        status: 503,
-        body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE', reason: 'quota_exceeded' },
-      },
-    );
-    const root = await renderScreen('type');
-    const text = screenText(root);
-
-    expectNoSkinTypeResult(text);
-    expect(text).toContain(translate('en', 'imageCheck.quotaExceeded'));
-    expect(text).not.toContain(translate('en', 'imageCheck.unavailable'));
-    expect(text).not.toContain(translate('en', 'result.modelFailure'));
-  });
-
-  it('shows the quota message in Sinhala', async () => {
-    mockServer(
-      { status: 500, body: {} },
-      {
-        status: 503,
-        body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE', reason: 'quota_exceeded' },
-      },
-    );
-    const root = await renderScreen('type', 'si');
-    const text = screenText(root);
-
-    expectNoSkinTypeResult(text);
-    expect(text).toContain(translate('si', 'imageCheck.quotaExceeded'));
-    setCurrentLanguage('en');
-  });
-
-  it('fails safe in Sinhala when the check cannot be completed', async () => {
-    mockServer(
-      { status: 500, body: {} },
-      { status: 503, body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' } },
-    );
-    const root = await renderScreen('type', 'si');
-    const text = screenText(root);
-
-    expectNoSkinTypeResult(text);
-    expect(text).toContain(translate('si', 'imageCheck.unavailable'));
-    setCurrentLanguage('en');
-  });
-
-  it('reports a server error during the photo check as a check failure, not an on-device model failure', async () => {
-    mockServer({ status: 500, body: {} }, { status: 413, body: { error: 'Request body is too large.' } });
-    const root = await renderScreen('type');
-    const text = screenText(root);
-
-    expectNoSkinTypeResult(text);
-    expect(text).toContain(translate('en', 'imageCheck.unavailable'));
-    expect(text).not.toContain(translate('en', 'result.modelFailure'));
-    expect(text).not.toMatch(/Request body/);
-  });
-
-  it('does not classify when the API cannot be reached', async () => {
-    fetchCalls = [];
-    (global as { fetch: unknown }).fetch = jest.fn(async (url: string) => {
-      fetchCalls.push({ url, body: null });
-      throw new TypeError('Network request failed');
-    });
+    ['an unreadable or invalid file', () => mockDetect.mockRejectedValue(new Error('Face detection failed'))],
+    ['a malformed detector result', () => mockDetect.mockResolvedValue('faces' as never)],
+  ])('fails safe on %s: no classification, no save, retry offered', async (_label, arrange) => {
+    arrange();
     const root = await renderScreen('type');
     const text = screenText(root);
 
     expectNoSkinTypeResult(text);
     expect(text).toMatch(/Analysis Failed/);
-    expect(text).not.toMatch(/Network request failed/);
+    expect(text).toContain(translate('en', 'faceCheck.failed'));
+    expect(text).not.toContain(translate('en', 'result.modelFailure'));
+    expect(text).not.toMatch(/Face detection failed|undefined/);
+    expect(text).toMatch(/Try Again/);
   });
 
-  it('Try Again re-runs the check and classifies once the check succeeds', async () => {
-    const replies: Reply[] = [
-      { status: 503, body: { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' } },
-      VALID_CHECK_REPLY,
-    ];
-    fetchCalls = [];
-    (global as { fetch: unknown }).fetch = jest.fn(async (url: string, init?: { body?: string }) => {
-      fetchCalls.push({ url, body: init?.body ? JSON.parse(init.body) : null });
-      const reply = url.endsWith('/api/v1/skin-image-check') ? replies.shift()! : { status: 201, body: { user: { id: '1' } } };
-      return { ok: reply.status < 300, status: reply.status, json: async () => reply.body };
-    });
+  it('shows the face-check failure in Sinhala', async () => {
+    mockDetect.mockRejectedValue(new Error('Face detection failed'));
+    const text = screenText(await renderScreen('type', 'si'));
+
+    expectNoSkinTypeResult(text);
+    expect(text).toContain(translate('si', 'faceCheck.failed'));
+    setCurrentLanguage('en');
+  });
+
+  it('Try Again re-runs face detection and classifies once one face is found', async () => {
+    mockDetect.mockRejectedValueOnce(new Error('Face detection failed'));
     const root = await renderScreen('type');
     expect(mockAnalyseDosha).not.toHaveBeenCalled();
 
@@ -639,9 +559,11 @@ describe('SkinResultScreen — Skin Type photo check', () => {
       });
     }
 
+    expect(mockDetect).toHaveBeenCalledTimes(2);
     expect(mockAnalyseDosha).toHaveBeenCalledTimes(1);
     expect(screenText(root)).toMatch(/Pitta/);
     expect(scanSaves()).toHaveLength(1);
+    expect(geminiRequests()).toHaveLength(0);
   });
 });
 

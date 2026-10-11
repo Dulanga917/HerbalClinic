@@ -18,18 +18,14 @@ import geminiService, {
   HerbRecommendation,
 } from '../../services/geminiService';
 import { analyseDosha, DoshaPrediction } from '../../services/doshaModelService';
+import { detectSingleFace, FaceCheckFailedError } from '../../services/faceDetectionService';
 import { saveScan } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { getDoshaGuidance } from '../../utils/doshaGuidance';
 import { herbDisplayName } from '../../utils/herbLibrary';
 import { LiveSkinGuidance } from '../../utils/skinGuidance';
 import { describeError, resolveMessage, UserMessage } from '../../utils/userMessages';
-import {
-  ImageCheckUnavailableError,
-  ImageRejectedError,
-  ImageRejection,
-  imageRejectionKey,
-} from '../../utils/imageCheck';
+import { ImageRejectedError, ImageRejection, imageRejectionKey } from '../../utils/imageCheck';
 import { offlineSkinGuidance } from '../../services/offlineFallbacks';
 import ScreenHeader from '../../components/ScreenHeader';
 import HerbalButton from '../../components/HerbalButton';
@@ -177,10 +173,10 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       setRejection(null);
 
       if (analysisType === 'type') {
-        // The on-device classifier labels any image, so the photo must pass the server check first.
+        // The on-device classifier labels any image, so it only runs on a photo with exactly one face.
         checking = true;
         setCheckingPhoto(true);
-        await geminiService.checkSkinTypePhoto(imageUri);
+        await detectSingleFace(imageUri);
         checking = false;
         setCheckingPhoto(false);
         const res = await analyseDosha(imageUri);
@@ -223,12 +219,12 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
       setResult(null);
       if (e instanceof ImageRejectedError) {
         setRejection(e.imageCheck);
-      } else if (e instanceof ImageCheckUnavailableError) {
-        setError({ key: e.quotaExceeded ? 'imageCheck.quotaExceeded' : 'imageCheck.unavailable' });
+      } else if (e instanceof FaceCheckFailedError) {
+        setError({ key: 'faceCheck.failed' });
       } else {
         // A failed photo check never reached the on-device model, so it must not be reported as a model failure.
         const fallback = checking
-          ? 'imageCheck.unavailable'
+          ? 'faceCheck.failed'
           : analysisType === 'type'
             ? 'result.modelFailure'
             : 'error.generic';
