@@ -5,7 +5,9 @@ import {
   herbDisplayName,
   listHerbs,
 } from '../src/utils/herbLibrary';
-import { offlineHerbalRecommendations } from '../src/services/offlineFallbacks';
+import { offlineDailyTip, offlineHerbalRecommendations } from '../src/services/offlineFallbacks';
+import { DOSHAS, HERBS } from '../src/constants/ayurveda';
+import { localizeDosha, localizeHerb } from '../src/i18n/content';
 
 const DEVANAGARI = /[\u0900-\u097F]/;
 
@@ -99,6 +101,30 @@ describe('herb library', () => {
       expect(herb.description).not.toMatch(/miracle|nature's pharmacy|powerful|detoxif/i);
     }
     expect(herbs.find(herb => herb.id === 'aloeVera')?.description).toContain('moisturise and soothe');
+  });
+
+  it('describes herbs, Dosha routines and offline tips without unsupported medical claims', () => {
+    const englishClaims =
+      /purif|antimicrobial|anti-?(inflammatory|fungal|acne|aging|pigmentation)|wound|lymph|\bheal|adaptogen|stress|works best internally|supplement|taken as a powder|reduce heat|stimulating treatments/i;
+    const sinhalaClaims =
+      /රුධිරය පිරිසිදු|ක්ෂුද්‍රජීවී නාශක|දිලීර නාශක|ඉදිමුම අඩු|තුවාල සුව|වසා පද්ධතිය|කුරුලෑ අඩු|වයස්ගත වීමේ ලකුණු අඩු|ආතතිය අඩු|අභ්‍යන්තරව ගැනීමෙන්|අතිරේකයක් ලෙස|උෂ්ණය අඩු|උත්තේජනය කරන ප්‍රතිකාර/;
+    const herbText = (herb: (typeof HERBS)[keyof typeof HERBS]) =>
+      [...herb.benefits, herb.usage, herb.caution, herb.description].join('\n');
+
+    for (const herb of Object.values(HERBS)) {
+      expect(herbText(herb)).not.toMatch(englishClaims);
+      const sinhala = localizeHerb(herb, 'si');
+      expect(sinhala.benefits).toHaveLength(herb.benefits.length);
+      expect(herbText(sinhala)).not.toMatch(sinhalaClaims);
+    }
+    for (const dosha of Object.values(DOSHAS)) {
+      expect(dosha.lifestyle.join('\n')).not.toMatch(englishClaims);
+      expect(localizeDosha(dosha, 'si').lifestyle.join('\n')).not.toMatch(sinhalaClaims);
+    }
+    for (const id of ['vata', 'pitta', 'kapha', undefined]) {
+      expect(offlineDailyTip(id, 'en')).not.toMatch(englishClaims);
+      expect(offlineDailyTip(id, 'si')).not.toMatch(sinhalaClaims);
+    }
   });
 
   it('combines search and Dosha filter', () => {

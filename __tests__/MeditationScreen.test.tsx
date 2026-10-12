@@ -224,13 +224,16 @@ it('states that the history does not measure stress', async () => {
 
 it('describes meditation sessions without unverified medical claims in either language', () => {
   for (const raw of MEDITATION_SESSIONS) {
-    const english = [raw.subtitle, raw.description, ...raw.benefits].join('\n');
+    const english = [raw.title, raw.subtitle, raw.description, ...raw.steps, ...raw.benefits].join('\n');
     expect(english).not.toMatch(
-      /cortisol|hormon|stress reduction|reduces? (stress|anxiety|inflammation|redness)|circulation|heal|hydrat|inflammation/i,
+      /cortisol|hormon|stress reduction|reduces? (stress|anxiety|inflammation|redness)|circulation|\bheal(s|ing|ed)?\b|hydrat|inflammation|skin becoming/i,
     );
     const sinhala = localizeMeditation(raw, 'si');
     expect(sinhala.benefits).toHaveLength(raw.benefits.length);
-    expect([sinhala.subtitle, sinhala.description, ...sinhala.benefits].join('\n')).not.toMatch(
+    expect(sinhala.steps).toHaveLength(raw.steps.length);
+    expect(
+      [sinhala.title, sinhala.subtitle, sinhala.description, ...sinhala.steps, ...sinhala.benefits].join('\n'),
+    ).not.toMatch(
       /කෝටිසෝල්|හෝමෝන|ආතතිය අඩු|කනස්සල්ල අඩු|ඉදිමුම|රතු පැහැය|සුව වී|සුව කර|සංසරණ|තෙතමනය වැඩි/,
     );
   }

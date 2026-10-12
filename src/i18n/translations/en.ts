@@ -144,7 +144,8 @@ export const en = {
   'offline.tip.general':
     'Start the day with warm water and a simple herbal routine. This tip is local guidance, not a Gemini response.',
   'offline.tip.vata': 'Regular sleep schedule. Sip warm water and choose warm, oily foods.',
-  'offline.tip.pitta': 'Meditation to reduce heat. Favor cool, sweet foods and avoid excess heat.',
+  'offline.tip.pitta':
+    'Try a calming meditation, traditionally used in Ayurveda to cool Pitta. Favor cool, sweet foods and avoid excess heat.',
   'offline.tip.kapha': 'Regular exercise. Keep meals light and warm.',
   'offline.skin.summary':
     'AI guidance is unavailable right now, so your photo was not analysed. The tips below are general Ayurvedic skincare guidance and are the same for everyone.',
