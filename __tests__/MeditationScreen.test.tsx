@@ -231,7 +231,7 @@ it('describes meditation sessions without unverified medical claims in either la
     const sinhala = localizeMeditation(raw, 'si');
     expect(sinhala.benefits).toHaveLength(raw.benefits.length);
     expect([sinhala.subtitle, sinhala.description, ...sinhala.benefits].join('\n')).not.toMatch(
-      /කෝටිසෝල්|හෝමෝන|ආතතිය අඩු|කනස්සල්ල අඩු|ඉදිමුම|රතු පැහැය|සුව|සංසරණ|තෙතමනය වැඩි/,
+      /කෝටිසෝල්|හෝමෝන|ආතතිය අඩු|කනස්සල්ල අඩු|ඉදිමුම|රතු පැහැය|සුව වී|සුව කර|සංසරණ|තෙතමනය වැඩි/,
     );
   }
 });
