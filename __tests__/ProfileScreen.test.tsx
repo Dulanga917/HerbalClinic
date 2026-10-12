@@ -166,6 +166,67 @@ it('renders a long Scan History in a scrollable list that shrinks to fit the mod
   expect(text).toContain('Close');
 });
 
+it('shows scan counts, a Dosha chart and a dated timeline above the Scan History list', async () => {
+  mockedHistory.mockResolvedValueOnce({
+    scans: [
+      { id: 4, dosha: 'Pitta', confidence: 91, imageReference: 'd.jpg', createdAt: '2026-10-04T10:00:00Z' },
+      { id: 3, dosha: null, confidence: null, imageReference: 'c.jpg', createdAt: '2026-10-03T10:00:00Z' },
+      { id: 2, dosha: 'Vata', confidence: 70, imageReference: 'b.jpg', createdAt: '2026-10-02T10:00:00Z' },
+      { id: 1, dosha: 'Pitta', confidence: 85, imageReference: 'a.jpg', createdAt: '2026-10-01T10:00:00Z' },
+    ],
+  });
+  const root = await openHistory();
+  const list = root.root.findByProps({ testID: 'scan-history-list' });
+  const chart = list.findByProps({ testID: 'scan-history-chart' });
+
+  const flatten = (children: unknown): string =>
+    Array.isArray(children) ? children.map(flatten).join('') : children == null ? '' : String(children);
+  const chartText = chart.findAllByType(Text).map(node => flatten(node.props.children));
+
+  expect(chartText).toEqual(expect.arrayContaining(['4', 'All scans', '3', 'Skin Type', '1', 'AI guidance']));
+  expect(chart.findByProps({ testID: 'scan-chart-bar-Pitta' }).props.accessibilityLabel).toBe('Pitta: 2 scans');
+  expect(chart.findByProps({ testID: 'scan-chart-bar-Vata' }).props.accessibilityLabel).toBe('Vata: 1 scans');
+  expect(chart.findAllByProps({ testID: 'scan-chart-bar-Kapha' })).toHaveLength(0);
+
+  const timeline = chart.findByProps({ testID: 'scan-history-timeline' });
+  const timelineText = timeline.findAllByType(Text).map(node => flatten(node.props.children));
+  expect(timelineText).toEqual(['10-01', 'Pitta', '10-02', 'Vata', '10-04', 'Pitta']);
+
+  expect(chartText.join('\n')).toContain('not a sign of medical improvement or worsening');
+  expect(chartText.join('\n')).not.toMatch(/improved|getting better|progress/i);
+  expect(list.props.data).toHaveLength(4);
+});
+
+it('shows the Scan History chart in Sinhala', async () => {
+  mockedHistory.mockResolvedValueOnce({
+    scans: [{ id: 1, dosha: 'Vata', confidence: 82, imageReference: 'a.jpg', createdAt: '2026-10-01T10:00:00Z' }],
+  });
+  let root!: renderer.ReactTestRenderer;
+  await act(async () => {
+    root = renderer.create(
+      <LanguageProvider storage={createMemoryLanguageStorage('si')}>
+        <ProfileScreen navigation={{ navigate: jest.fn() } as never} route={{} as never} />
+      </LanguageProvider>,
+    );
+  });
+  const history = root.root
+    .findAllByType(TouchableOpacity)
+    .find(node => node.props.accessibilityLabel === translate('si', 'profile.menu.history'))!;
+  await act(async () => {
+    history.props.onPress();
+  });
+  const chart = root.root.findByProps({ testID: 'scan-history-chart' });
+  const chartText = chart.findAllByType(Text).map(node => node.props.children);
+  expect(chartText).toContain(translate('si', 'scanChart.doshaTitle'));
+  expect(chartText).toContain(translate('si', 'scanChart.note'));
+  expect(chartText).toContain('වාත (Vata)');
+  expect(chart.findByProps({ testID: 'scan-chart-bar-Vata' }).props.accessibilityLabel).toBe(
+    translate('si', 'scanChart.barA11y', { dosha: 'වාත (Vata)', count: 1 }),
+  );
+  act(() => root.unmount());
+  setCurrentLanguage('en');
+});
+
 it('keeps the empty state when there are no saved scans', async () => {
   mockedHistory.mockResolvedValueOnce({ scans: [] });
   const root = await openHistory();

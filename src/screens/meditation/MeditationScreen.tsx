@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,19 @@ import { MEDITATION_SESSIONS } from '../../constants/ayurveda';
 import ScreenHeader from '../../components/ScreenHeader';
 import { useLanguage } from '../../i18n';
 import { localizeMeditation } from '../../i18n/content';
+import { useAuth } from '../../context/AuthContext';
+import {
+  CompletedMeditation,
+  MEDITATION_HISTORY_LIMIT,
+  MeditationHistoryStorage,
+  addCompletedMeditation,
+  createCompletedMeditation,
+  fileMeditationHistoryStorage,
+  summariseMeditationHistory,
+} from '../../services/meditationHistory';
+import { formatLocalDate, formatLocalTime } from '../../utils/localDate';
+
+const RECENT_HISTORY_COUNT = 10;
 
 // Timer lengths come from the English source ("10 min"); localized text is display-only.
 const durationToSeconds = (duration: string): number => {
@@ -27,11 +40,61 @@ const formatClock = (totalSeconds: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-const MeditationScreen: React.FC = () => {
+type Props = {
+  historyStorage?: MeditationHistoryStorage;
+};
+
+const MeditationScreen: React.FC<Props> = ({ historyStorage = fileMeditationHistoryStorage }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
   const { language, t } = useLanguage();
+  const { user } = useAuth();
+  const historyOwner = user?.id ? `user-${user.id}` : 'guest';
+  const [history, setHistory] = useState<CompletedMeditation[]>([]);
+  const historyRef = useRef<CompletedMeditation[]>([]);
+  const [completionNotice, setCompletionNotice] = useState<'saved' | 'failed' | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    historyRef.current = [];
+    setHistory([]);
+    historyStorage
+      .load(historyOwner)
+      .then(loaded => {
+        if (cancelled) {
+          return;
+        }
+        // A session finished while the file was still loading must not be overwritten.
+        const recorded = historyRef.current;
+        const next = [...recorded, ...loaded.filter(entry => !recorded.some(item => item.id === entry.id))].slice(
+          0,
+          MEDITATION_HISTORY_LIMIT,
+        );
+        historyRef.current = next;
+        setHistory(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOwner, historyStorage]);
+
+  const recordCompletion = useCallback(
+    (sessionId: string, durationSeconds: number) => {
+      const next = addCompletedMeditation(
+        historyRef.current,
+        createCompletedMeditation(sessionId, durationSeconds),
+      );
+      historyRef.current = next;
+      setHistory(next);
+      historyStorage.save(historyOwner, next).then(
+        () => setCompletionNotice('saved'),
+        () => setCompletionNotice('failed'),
+      );
+    },
+    [historyOwner, historyStorage],
+  );
 
   const session = useMemo(
     () => MEDITATION_SESSIONS.find(item => item.id === activeId) || null,
@@ -50,11 +113,15 @@ const MeditationScreen: React.FC = () => {
     return () => clearInterval(timer);
   }, [running]);
 
+  // Only a timer that counts all the way down is recorded; reset or close before 00:00 is not.
   useEffect(() => {
     if (running && remaining === 0) {
       setRunning(false);
+      if (session) {
+        recordCompletion(session.id, durationToSeconds(session.duration));
+      }
     }
-  }, [running, remaining]);
+  }, [running, remaining, session, recordCompletion]);
 
   const fullDuration = session ? durationToSeconds(session.duration) : 0;
   const timerStatus = t(
@@ -81,6 +148,7 @@ const MeditationScreen: React.FC = () => {
     if (remaining === 0 && session) {
       setRemaining(durationToSeconds(session.duration));
       setRunning(true);
+      setCompletionNotice(null);
       return;
     }
     setRunning(value => !value);
@@ -90,6 +158,7 @@ const MeditationScreen: React.FC = () => {
     if (session) {
       setRemaining(durationToSeconds(session.duration));
       setRunning(false);
+      setCompletionNotice(null);
     }
   };
 
@@ -101,12 +170,17 @@ const MeditationScreen: React.FC = () => {
     setActiveId(id);
     setRemaining(durationToSeconds(next.duration));
     setRunning(false);
+    setCompletionNotice(null);
   };
 
   const closeSession = () => {
     setRunning(false);
     setActiveId(null);
+    setCompletionNotice(null);
   };
+
+  const historySummary = summariseMeditationHistory(history);
+  const recentHistory = history.slice(0, RECENT_HISTORY_COUNT);
 
   return (
     <View style={styles.container}>
@@ -155,6 +229,63 @@ const MeditationScreen: React.FC = () => {
           </TouchableOpacity>
         ))}
 
+        <Text style={[styles.sectionTitle, styles.historyTitle]}>{t('meditation.historyTitle')}</Text>
+        <View style={styles.historyCard} testID="meditation-history">
+          {history.length === 0 ? (
+            <Text style={styles.historyEmpty}>{t('meditation.historyEmpty')}</Text>
+          ) : (
+            <>
+              <View style={styles.historyStats}>
+                <View
+                  style={styles.historyStat}
+                  accessible
+                  accessibilityLabel={`${t('meditation.historySessions')}: ${historySummary.sessions}`}>
+                  <Text style={styles.historyStatValue}>{historySummary.sessions}</Text>
+                  <Text style={styles.historyStatLabel}>{t('meditation.historySessions')}</Text>
+                </View>
+                <View
+                  style={styles.historyStat}
+                  accessible
+                  accessibilityLabel={`${t('meditation.historyMinutes')}: ${historySummary.totalMinutes}`}>
+                  <Text style={styles.historyStatValue}>{historySummary.totalMinutes}</Text>
+                  <Text style={styles.historyStatLabel}>{t('meditation.historyMinutes')}</Text>
+                </View>
+              </View>
+              {recentHistory.map(entry => {
+                const raw = MEDITATION_SESSIONS.find(item => item.id === entry.sessionId);
+                const title = raw ? localizeMeditation(raw, language).title : entry.sessionId;
+                const meta = [
+                  formatLocalDate(entry.completedAt),
+                  formatLocalTime(entry.completedAt),
+                  t('meditation.historyDuration', { minutes: Math.round(entry.durationSeconds / 60) }),
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <View
+                    key={entry.id}
+                    style={styles.historyRow}
+                    testID="meditation-history-entry"
+                    accessible
+                    accessibilityLabel={`${title}, ${meta}`}>
+                    <Text style={styles.historyEmoji}>{raw?.emoji ?? '🧘'}</Text>
+                    <View style={styles.historyText}>
+                      <Text style={styles.historyName}>{title}</Text>
+                      <Text style={styles.historyMeta}>{meta}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+              {history.length > recentHistory.length ? (
+                <Text style={styles.historyMore}>
+                  {t('meditation.historyShowingRecent', { shown: recentHistory.length, total: history.length })}
+                </Text>
+              ) : null}
+            </>
+          )}
+          <Text style={styles.historyNote}>{t('meditation.historyNote')}</Text>
+        </View>
+
         <View style={styles.bottomPad} />
       </ScrollView>
 
@@ -186,6 +317,13 @@ const MeditationScreen: React.FC = () => {
                   {formatClock(remaining)}
                 </Text>
                 <Text style={[styles.timerStatus, running && styles.timerStatusActive]}>{timerStatus}</Text>
+                {completionNotice ? (
+                  <Text
+                    style={[styles.completionNotice, completionNotice === 'failed' && styles.completionNoticeFailed]}
+                    accessibilityLiveRegion="polite">
+                    {t(completionNotice === 'saved' ? 'meditation.historySaved' : 'meditation.historySaveFailed')}
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.timerRow}>
                 <TouchableOpacity
@@ -273,6 +411,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   playIcon: { fontSize: 16, color: Colors.textPrimary, marginLeft: 3 },
+  historyTitle: { marginTop: Spacing.lg },
+  historyCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  historyEmpty: { fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20 },
+  historyStats: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.base },
+  historyStat: {
+    flex: 1,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  historyStatValue: { fontSize: Typography.xl, fontWeight: '800', color: Colors.vataLight },
+  historyStatLabel: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: 2, textAlign: 'center' },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.cardBorder,
+  },
+  historyEmoji: { fontSize: 22, marginTop: 2 },
+  historyText: { flex: 1 },
+  historyName: { fontSize: Typography.base, fontWeight: '600', color: Colors.textPrimary },
+  historyMeta: { fontSize: Typography.sm, color: Colors.textSecondary, marginTop: 2 },
+  historyMore: { fontSize: Typography.xs, color: Colors.textSecondary, marginTop: Spacing.sm },
+  historyNote: { fontSize: Typography.xs, lineHeight: 17, color: Colors.textSecondary, marginTop: Spacing.md },
+  completionNotice: { fontSize: Typography.xs, color: Colors.primaryLight, marginTop: Spacing.xs, fontWeight: '600' },
+  completionNoticeFailed: { color: Colors.warning },
   bottomPad: { height: Spacing['3xl'] },
   modalBackdrop: {
     flex: 1,

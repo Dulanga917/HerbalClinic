@@ -21,6 +21,8 @@ import { fetchScanHistory, isSessionInvalid, ScanRecord } from '../../services/a
 import { describeError, resolveMessage } from '../../utils/userMessages';
 import { useTopInset } from '../../components/ScreenHeader';
 import LanguageSelector from '../../components/LanguageSelector';
+import ScanHistoryChart from '../../components/ScanHistoryChart';
+import { formatLocalDate } from '../../utils/localDate';
 import { TranslationKey, useLanguage } from '../../i18n';
 import { doshaLabel as formatDosha } from '../../i18n/content';
 
@@ -229,6 +231,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 data={scans}
                 keyExtractor={scan => String(scan.id)}
                 showsVerticalScrollIndicator
+                ListHeaderComponent={<ScanHistoryChart scans={scans} />}
                 renderItem={({ item: scan }) => (
                   <View style={styles.historyRow}>
                     <Text style={styles.historyEmoji}>{scan.dosha ? '🔬' : '🩺'}</Text>
@@ -247,7 +250,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                           : scan.confidence != null
                             ? t('result.modelConfidence', { value: scan.confidence })
                             : t('profile.historyNoConfidence')}
-                        {scan.createdAt ? ` · ${scan.createdAt.slice(0, 10)}` : ''}
+                        {scan.createdAt ? ` · ${formatLocalDate(scan.createdAt)}` : ''}
                       </Text>
                     </View>
                   </View>

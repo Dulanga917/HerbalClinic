@@ -321,6 +321,16 @@ export const si: Record<TranslationKey, string> = {
   'meditation.closeSessionA11y': 'භාවනාව වසන්න',
   'meditation.steps': 'පියවර',
   'meditation.benefits': 'ප්‍රයෝජන',
+  'meditation.historyTitle': 'අවසන් කළ භාවනා',
+  'meditation.historySessions': 'අවසන් කළ භාවනා ගණන',
+  'meditation.historyMinutes': 'පුහුණු වූ මිනිත්තු',
+  'meditation.historyDuration': 'මිනිත්තු {minutes}',
+  'meditation.historyEmpty': 'තවම අවසන් කළ භාවනා නැත. ටයිමරය 00:00 ට පැමිණි විට භාවනාව මෙහි සුරැකේ.',
+  'meditation.historyShowingRecent': 'භාවනා {total} න් මෑත {shown} ක් පෙන්වයි.',
+  'meditation.historyNote':
+    'මෙය මෙම දුරකථනයේ අවසන් කළ භාවනා ටයිමර පිළිබඳ වාර්තාවක් පමණි. එය ආතතිය මනින්නේ නැති අතර, භාවනාවකින් ආතතිය අඩු වූ බව ද පෙන්වන්නේ නැත.',
+  'meditation.historySaved': 'අවසන් කළ භාවනා වෙත සුරැකිණි',
+  'meditation.historySaveFailed': 'මෙම භාවනාව මෙම දුරකථනයේ සුරැකීමට නොහැකි විය.',
 
   // Profile
   'profile.member': 'HerbalClinic සාමාජික',
@@ -359,6 +369,17 @@ export const si: Record<TranslationKey, string> = {
   'profile.historyAiMeta': 'සාමාන්‍ය මගපෙන්වීම, විශ්වාස අගයක් නැත',
   'profile.historyNoConfidence': 'විශ්වාස අගයක් සුරැකී නැත',
   'profile.closeHistoryA11y': 'ස්කෑන් ඉතිහාසය වසන්න',
+
+  // Scan History chart
+  'scanChart.total': 'සියලු ස්කෑන්',
+  'scanChart.skinType': 'සම් වර්ග',
+  'scanChart.guidance': 'AI මගපෙන්වීම',
+  'scanChart.doshaTitle': 'දෝෂ අනාවැකිය (සම් වර්ග පරීක්ෂණය)',
+  'scanChart.noDoshaScans': 'තවම සම් වර්ග පරීක්ෂණ ප්‍රතිඵල සුරැකී නැත.',
+  'scanChart.barA11y': '{dosha}: ස්කෑන් {count}',
+  'scanChart.timelineTitle': 'මෑත අනාවැකි (පැරණිතම සිට නවතම දක්වා)',
+  'scanChart.note':
+    'මෙම සටහනේ පෙන්වන්නේ මෙම ගිණුමේ සුරැකි අනාවැකි පමණි. අනාවැකි කළ දෝෂය වෙනස් වීම වෛද්‍ය වශයෙන් සුව වීමක් හෝ තත්ත්වය නරක් වීමක් පෙන්වන ලකුණක් නොවන අතර, එය රෝග විනිශ්චයක් ද නොවේ.',
 
   // Hospitals
   'hospitals.subtitle': 'ශ්‍රී ලංකාවේ රජයේ ආයුර්වේද රෝහල් සහ ප්‍රතිකාර මධ්‍යස්ථාන',

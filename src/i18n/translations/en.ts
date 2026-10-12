@@ -314,6 +314,16 @@ export const en = {
   'meditation.closeSessionA11y': 'Close session',
   'meditation.steps': 'Steps',
   'meditation.benefits': 'Benefits',
+  'meditation.historyTitle': 'Completed Sessions',
+  'meditation.historySessions': 'Sessions completed',
+  'meditation.historyMinutes': 'Minutes practised',
+  'meditation.historyDuration': '{minutes} min',
+  'meditation.historyEmpty': 'No completed sessions yet. A session is saved here when its timer reaches 00:00.',
+  'meditation.historyShowingRecent': 'Showing the {shown} most recent of {total} sessions.',
+  'meditation.historyNote':
+    'This is a record of meditation timers completed on this phone. It does not measure stress and does not show that a session reduced stress.',
+  'meditation.historySaved': 'Saved to Completed Sessions',
+  'meditation.historySaveFailed': 'This session could not be saved on this phone.',
 
   // Profile
   'profile.member': 'HerbalClinic member',
@@ -353,6 +363,17 @@ export const en = {
   'profile.historyAiMeta': 'General guidance, no confidence score',
   'profile.historyNoConfidence': 'No confidence stored',
   'profile.closeHistoryA11y': 'Close Scan History',
+
+  // Scan History chart
+  'scanChart.total': 'All scans',
+  'scanChart.skinType': 'Skin Type',
+  'scanChart.guidance': 'AI guidance',
+  'scanChart.doshaTitle': 'Predicted Dosha (Skin Type Assessment)',
+  'scanChart.noDoshaScans': 'No Skin Type Assessment results saved yet.',
+  'scanChart.barA11y': '{dosha}: {count} scans',
+  'scanChart.timelineTitle': 'Recent predictions (oldest to newest)',
+  'scanChart.note':
+    'This chart only shows the predictions saved for this account. A change in predicted Dosha is not a sign of medical improvement or worsening, and it is not a diagnosis.',
 
   // Hospitals
   'hospitals.subtitle': 'Government Ayurvedic hospitals and treatment centres in Sri Lanka',
