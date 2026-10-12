@@ -226,18 +226,39 @@ function createApp({
   });
 
   app.post('/api/v1/skin-issue', requireAuth, limiters.ai, async (req, res) => {
+    const startedAt = Date.now();
+    let imageBytes = null;
+    let mimeType = null;
+    let language = null;
+    let stage = 'gemini';
+    // Metadata only: never the photo, base64 data, token, guidance text, or user details.
+    const logOutcome = details =>
+      console.log(
+        `Skin guidance (${details}, language=${language ?? 'unknown'}, bytes=${imageBytes ?? 'unknown'}, ` +
+          `mimeType=${mimeType ?? 'unknown'}, elapsedMs=${Date.now() - startedAt}, at=${new Date().toISOString()})`,
+      );
     try {
       const input = validateImageUpload(req.body);
       if (!input.ok) {
+        logOutcome('status=400, stage=upload_validation');
         badRequest(res, input.message);
         return;
       }
+      imageBytes = Buffer.byteLength(input.value.imageBase64, 'base64');
+      mimeType = input.value.mimeType;
+      language = input.value.language;
       const checked = await analyseSkinGuidanceInLanguage(gemini, input.value);
       if (!checked) {
+        stage = 'unusable_guidance';
         throw geminiUnavailable(new Error('Gemini returned unusable or wrong-language skin guidance.'));
       }
+      logOutcome('status=200, stage=guidance');
       res.json({ analysis: checked.guidance, imageCheck: checked.imageCheck });
     } catch (error) {
+      const code = (error && error.code) || 'none';
+      const status =
+        code === GEMINI_UNAVAILABLE ? 503 : code === IMAGE_REJECTED ? 422 : error?.status ?? 500;
+      logOutcome(`status=${status}, stage=${stage}, code=${code}, reason=${(error && error.reason) || 'none'}`);
       handleError(res, error);
     }
   });

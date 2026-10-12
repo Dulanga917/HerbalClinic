@@ -694,6 +694,51 @@ test('skin-image-check reports a used-up Gemini quota with a reason and Retry-Af
   }
 });
 
+test('skin-issue logs one metadata-only outcome line for success, unusable guidance, and a used-up quota', async () => {
+  const gemini = makeGeminiStub();
+  const stubbed = gemini.analyseSkinIssue;
+  const outcomes = [
+    () => stubbed({ language: 'si' }),
+    async () => ({ status: 'possible_concern', concern: 'Visible dryness' }),
+    async () => {
+      throw Object.assign(new Error('AI guidance is temporarily unavailable.'), {
+        status: 503,
+        code: 'GEMINI_UNAVAILABLE',
+        reason: 'quota_exceeded',
+        retryAfterSeconds: 27512,
+      });
+    },
+  ];
+  gemini.analyseSkinIssue = async () => outcomes.shift()();
+  const api = await start({ gemini, rateLimits: { ai: { limit: 100 } } });
+  const originalLog = console.log;
+  const logs = [];
+  console.log = (...args) => logs.push(args.join(' '));
+  try {
+    const { token } = await newSession();
+    const imageBase64 = JPEG_BYTES.toString('base64');
+    const body = { imageBase64, language: 'si' };
+    const statuses = [];
+    for (let i = 0; i < 3; i += 1) {
+      statuses.push((await api.request('POST', '/api/v1/skin-issue', { token, body })).status);
+    }
+    assert.deepEqual(statuses, [200, 503, 503]);
+    const lines = logs.filter(entry => entry.startsWith('Skin guidance ('));
+    assert.equal(lines.length, 3);
+    assert.match(lines[0], /^Skin guidance \(status=200, stage=guidance, language=si, /);
+    assert.match(lines[1], /status=503, stage=unusable_guidance, code=GEMINI_UNAVAILABLE, reason=none/);
+    assert.match(lines[2], /status=503, stage=gemini, code=GEMINI_UNAVAILABLE, reason=quota_exceeded/);
+    for (const line of lines) {
+      assert.match(line, new RegExp(`bytes=${JPEG_BYTES.length}, mimeType=image/jpeg, elapsedMs=\\d+, at=\\d{4}-`));
+      assert.ok(!line.includes(imageBase64) && !line.includes(token));
+      assert.doesNotMatch(line, /වියළි|dryness/i);
+    }
+  } finally {
+    console.log = originalLog;
+    await api.close();
+  }
+});
+
 test('Gemini-backed endpoints are rate limited per user', async () => {
   const api = await start({ rateLimits: { ai: { limit: 2 } } });
   try {
