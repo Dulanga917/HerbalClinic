@@ -222,6 +222,20 @@ it('states that the history does not measure stress', async () => {
   act(() => root.unmount());
 });
 
+it('describes meditation sessions without unverified medical claims in either language', () => {
+  for (const raw of MEDITATION_SESSIONS) {
+    const english = [raw.subtitle, raw.description, ...raw.benefits].join('\n');
+    expect(english).not.toMatch(
+      /cortisol|hormon|stress reduction|reduces? (stress|anxiety|inflammation|redness)|circulation|heal|hydrat|inflammation/i,
+    );
+    const sinhala = localizeMeditation(raw, 'si');
+    expect(sinhala.benefits).toHaveLength(raw.benefits.length);
+    expect([sinhala.subtitle, sinhala.description, ...sinhala.benefits].join('\n')).not.toMatch(
+      /කෝටිසෝල්|හෝමෝන|ආතතිය අඩු|කනස්සල්ල අඩු|ඉදිමුම|රතු පැහැය|සුව|සංසරණ|තෙතමනය වැඩි/,
+    );
+  }
+});
+
 it('tells the user when a completed session could not be saved', async () => {
   const storage: MeditationHistoryStorage = {
     load: async () => [],

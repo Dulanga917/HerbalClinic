@@ -371,6 +371,7 @@ export const en = {
   'scanChart.doshaTitle': 'Predicted Dosha (Skin Type Assessment)',
   'scanChart.noDoshaScans': 'No Skin Type Assessment results saved yet.',
   'scanChart.barA11y': '{dosha}: {count} scans',
+  'scanChart.barA11yOne': '{dosha}: 1 scan',
   'scanChart.timelineTitle': 'Recent predictions (oldest to newest)',
   'scanChart.note':
     'This chart only shows the predictions saved for this account. A change in predicted Dosha is not a sign of medical improvement or worsening, and it is not a diagnosis.',

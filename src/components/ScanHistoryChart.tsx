@@ -54,7 +54,11 @@ const ScanHistoryChart: React.FC<{ scans: ScanRecord[] }> = ({ scans }) => {
               style={styles.barRow}
               testID={`scan-chart-bar-${item.dosha}`}
               accessible
-              accessibilityLabel={t('scanChart.barA11y', { dosha: label, count: item.count })}>
+              accessibilityLabel={
+                item.count === 1
+                  ? t('scanChart.barA11yOne', { dosha: label })
+                  : t('scanChart.barA11y', { dosha: label, count: item.count })
+              }>
               <Text style={styles.barLabel} numberOfLines={1}>
                 {label}
               </Text>

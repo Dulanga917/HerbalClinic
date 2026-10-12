@@ -377,6 +377,7 @@ export const si: Record<TranslationKey, string> = {
   'scanChart.doshaTitle': 'දෝෂ අනාවැකිය (සම් වර්ග පරීක්ෂණය)',
   'scanChart.noDoshaScans': 'තවම සම් වර්ග පරීක්ෂණ ප්‍රතිඵල සුරැකී නැත.',
   'scanChart.barA11y': '{dosha}: ස්කෑන් {count}',
+  'scanChart.barA11yOne': '{dosha}: ස්කෑන් 1',
   'scanChart.timelineTitle': 'මෑත අනාවැකි (පැරණිතම සිට නවතම දක්වා)',
   'scanChart.note':
     'මෙම සටහනේ පෙන්වන්නේ මෙම ගිණුමේ සුරැකි අනාවැකි පමණි. අනාවැකි කළ දෝෂය වෙනස් වීම වෛද්‍ය වශයෙන් සුව වීමක් හෝ තත්ත්වය නරක් වීමක් පෙන්වන ලකුණක් නොවන අතර, එය රෝග විනිශ්චයක් ද නොවේ.',

@@ -185,7 +185,7 @@ it('shows scan counts, a Dosha chart and a dated timeline above the Scan History
 
   expect(chartText).toEqual(expect.arrayContaining(['4', 'All scans', '3', 'Skin Type', '1', 'AI guidance']));
   expect(chart.findByProps({ testID: 'scan-chart-bar-Pitta' }).props.accessibilityLabel).toBe('Pitta: 2 scans');
-  expect(chart.findByProps({ testID: 'scan-chart-bar-Vata' }).props.accessibilityLabel).toBe('Vata: 1 scans');
+  expect(chart.findByProps({ testID: 'scan-chart-bar-Vata' }).props.accessibilityLabel).toBe('Vata: 1 scan');
   expect(chart.findAllByProps({ testID: 'scan-chart-bar-Kapha' })).toHaveLength(0);
 
   const timeline = chart.findByProps({ testID: 'scan-history-timeline' });
@@ -221,7 +221,7 @@ it('shows the Scan History chart in Sinhala', async () => {
   expect(chartText).toContain(translate('si', 'scanChart.note'));
   expect(chartText).toContain('වාත (Vata)');
   expect(chart.findByProps({ testID: 'scan-chart-bar-Vata' }).props.accessibilityLabel).toBe(
-    translate('si', 'scanChart.barA11y', { dosha: 'වාත (Vata)', count: 1 }),
+    translate('si', 'scanChart.barA11yOne', { dosha: 'වාත (Vata)' }),
   );
   act(() => root.unmount());
   setCurrentLanguage('en');
