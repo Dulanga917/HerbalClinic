@@ -303,7 +303,6 @@ module.exports = {
   withLanguage,
   skinIssuePrompt,
   parseJsonContent,
-  classifyFailure,
   herbalRecommendationsPrompt,
   dailyTipPrompt,
   analyseSkinIssue,

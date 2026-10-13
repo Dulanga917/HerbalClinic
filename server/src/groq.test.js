@@ -12,7 +12,7 @@ const jsonResponse = (status, body) => ({ ok: status >= 200 && status < 300, sta
 const completion = (content, finishReason = 'stop') =>
   jsonResponse(200, { choices: [{ finish_reason: finishReason, message: { content } }] });
 
-// Swaps in a fake transport and key, shortens the timeout, and collects console.warn lines.
+// Swaps in a fake transport and key (null removes it), shortens the timeout, and collects console.warn lines.
 function withFakeGroq(respond, run, { key = FAKE_KEY, timeoutMs = 50 } = {}) {
   const originalFetch = groq.transport.fetch;
   const originalPolicy = { ...groq.GROQ_POLICY };
@@ -20,7 +20,7 @@ function withFakeGroq(respond, run, { key = FAKE_KEY, timeoutMs = 50 } = {}) {
   const originalWarn = console.warn;
   const calls = [];
   const logs = [];
-  if (key === undefined) {
+  if (key === null) {
     delete process.env.GROQ_API_KEY;
   } else {
     process.env.GROQ_API_KEY = key;
@@ -152,7 +152,7 @@ test('cut-off, empty, or unparseable answers are unusable', async () => {
 });
 
 test('a missing key means not configured and no request is sent', async () => {
-  for (const key of [undefined, '', '   ']) {
+  for (const key of [null, '', '   ']) {
     await withFakeGroq(
       () => completion(JSON.stringify(GUIDANCE)),
       async ({ calls }) => {

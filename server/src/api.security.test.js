@@ -1041,3 +1041,189 @@ test('internal errors are not leaked to clients', async () => {
     await api.close();
   }
 });
+
+// ─── Gemini-to-Groq fallback ──────────────────────────────────────────────────
+
+const GROQ_GUIDANCE = {
+  imageCheck: { isValid: true, imageCategory: 'human_skin', humanSkinVisible: true, faceCount: 0, quality: 'good', reason: 'ok' },
+  status: 'possible_concern',
+  concern: 'Visible dryness',
+  observations: 'The skin on the hand looks a little dry.',
+  factors: ['Dry weather'],
+  herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'Soothing', usage: 'Apply a little gel' }],
+  selfCare: ['Moisturise daily'],
+  severity: 'Severe',
+  confidence: 97,
+};
+
+function captureLogs(run) {
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const logs = [];
+  console.log = (...args) => logs.push(args.join(' '));
+  console.warn = () => {};
+  return Promise.resolve()
+    .then(() => run(logs))
+    .finally(() => {
+      console.log = originalLog;
+      console.warn = originalWarn;
+    });
+}
+
+test('skin-issue keeps the analysis and imageCheck contract and names the provider', async () => {
+  const api = await start();
+  try {
+    const { token } = await newSession();
+    const res = await api.request('POST', '/api/v1/skin-issue', {
+      token,
+      body: { imageBase64: JPEG_BYTES.toString('base64'), mimeType: 'image/jpeg', allowBackupProvider: true },
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(Object.keys(res.json).sort(), ['analysis', 'imageCheck', 'provider']);
+    assert.equal(res.json.provider, 'gemini');
+    assert.equal(res.json.analysis.status, 'possible_concern');
+    assert.equal(api.gemini.calls[0][1].allowBackupProvider, undefined, 'the consent flag is not passed to the AI prompt');
+  } finally {
+    await api.close();
+  }
+});
+
+test('skin-issue rejects a non-boolean allowBackupProvider before calling any AI provider', async () => {
+  const groq = makeGroqStub([GROQ_GUIDANCE]);
+  const api = await start({ groq, rateLimits: { ai: { limit: 100 } } });
+  try {
+    const { token } = await newSession();
+    for (const allowBackupProvider of ['true', 1, {}, ['yes']]) {
+      const res = await api.request('POST', '/api/v1/skin-issue', {
+        token,
+        body: { imageBase64: JPEG_BYTES.toString('base64'), allowBackupProvider },
+      });
+      assert.equal(res.status, 400);
+      assert.deepEqual(res.json, { error: 'allowBackupProvider must be true or false.' });
+    }
+    assert.equal(api.gemini.calls.length, 0);
+    assert.equal(groq.calls.length, 0);
+  } finally {
+    await api.close();
+  }
+});
+
+test('with consent, a Gemini outage is answered by Groq with normalised guidance and provider=groq', async () => {
+  const gemini = makeGeminiStub();
+  gemini.analyseSkinIssue = async (input, options) => {
+    gemini.calls.push(['analyseSkinIssue', input, options]);
+    throw geminiDown();
+  };
+  const groq = makeGroqStub([GROQ_GUIDANCE]);
+  const api = await start({ gemini, groq });
+  await captureLogs(async logs => {
+    try {
+      const { token } = await newSession();
+      const imageBase64 = JPEG_BYTES.toString('base64');
+      const res = await api.request('POST', '/api/v1/skin-issue', {
+        token,
+        body: { imageBase64, mimeType: 'image/jpeg', language: 'en', allowBackupProvider: true },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.json.provider, 'groq');
+      assert.deepEqual(res.json.imageCheck, { isValid: true, reason: 'ok', imageCategory: 'human_skin' });
+      assert.deepEqual(res.json.analysis, {
+        status: 'possible_concern',
+        concern: 'Visible dryness',
+        observations: 'The skin on the hand looks a little dry.',
+        factors: ['Dry weather'],
+        herbs: [{ name: 'Aloe Vera', emoji: '🌵', benefit: 'Soothing', usage: 'Apply a little gel' }],
+        selfCare: ['Moisturise daily'],
+      });
+      assert.deepEqual(gemini.calls[0][2], { maxAttempts: 1, attemptTimeoutMs: 5000 });
+      assert.deepEqual(groq.calls[0][0], { imageBase64, mimeType: 'image/jpeg', language: 'en' });
+      const line = logs.find(entry => entry.startsWith('Skin guidance ('));
+      assert.match(line, /status=200, stage=guidance, provider=groq, backup=used, language=en, /);
+      assert.ok(!line.includes(imageBase64) && !line.includes(token));
+    } finally {
+      await api.close();
+    }
+  });
+});
+
+test('without consent, a Gemini outage keeps the unchanged 503 contract and Groq gets no photo', async () => {
+  const gemini = makeGeminiStub();
+  gemini.analyseSkinIssue = async () => {
+    throw geminiDown();
+  };
+  const groq = makeGroqStub([GROQ_GUIDANCE]);
+  const api = await start({ gemini, groq, rateLimits: { ai: { limit: 100 } } });
+  await captureLogs(async () => {
+    try {
+      const { token } = await newSession();
+      for (const allowBackupProvider of [undefined, false, null]) {
+        const res = await api.request('POST', '/api/v1/skin-issue', {
+          token,
+          body: { imageBase64: JPEG_BYTES.toString('base64'), allowBackupProvider },
+        });
+        assert.equal(res.status, 503);
+        assert.deepEqual(res.json, { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' });
+      }
+      assert.equal(groq.calls.length, 0);
+    } finally {
+      await api.close();
+    }
+  });
+});
+
+test('when both providers fail, the client gets the unchanged 503 contract (offline guidance in the app)', async () => {
+  const gemini = makeGeminiStub();
+  gemini.analyseSkinIssue = async () => {
+    throw geminiDown('quota_exceeded');
+  };
+  const groq = makeGroqStub([geminiDown()]);
+  const api = await start({ gemini, groq });
+  await captureLogs(async logs => {
+    try {
+      const { token } = await newSession();
+      const res = await api.request('POST', '/api/v1/skin-issue', {
+        token,
+        body: { imageBase64: JPEG_BYTES.toString('base64'), allowBackupProvider: true },
+      });
+      assert.equal(res.status, 503);
+      assert.deepEqual(res.json, {
+        error: 'AI guidance is temporarily unavailable.',
+        code: 'GEMINI_UNAVAILABLE',
+        reason: 'quota_exceeded',
+      });
+      assert.equal(groq.calls.length, 1);
+      assert.match(logs.find(entry => entry.startsWith('Skin guidance (')), /status=503, stage=backup, code=GEMINI_UNAVAILABLE, reason=quota_exceeded, backup=failed/);
+    } finally {
+      await api.close();
+    }
+  });
+});
+
+test('a Groq image rejection becomes 503 (offline guidance), never a 422 retake built on its verdict', async () => {
+  const gemini = makeGeminiStub();
+  gemini.analyseSkinIssue = async () => {
+    throw geminiDown();
+  };
+  const groq = makeGroqStub([
+    {
+      ...GROQ_GUIDANCE,
+      imageCheck: { isValid: false, imageCategory: 'screenshot', humanSkinVisible: true, faceCount: 3, quality: 'obstructed', reason: 'unclear' },
+    },
+  ]);
+  const api = await start({ gemini, groq });
+  await captureLogs(async logs => {
+    try {
+      const { token } = await newSession();
+      const res = await api.request('POST', '/api/v1/skin-issue', {
+        token,
+        body: { imageBase64: JPEG_BYTES.toString('base64'), allowBackupProvider: true },
+      });
+      assert.equal(res.status, 503);
+      assert.deepEqual(res.json, { error: 'AI guidance is temporarily unavailable.', code: 'GEMINI_UNAVAILABLE' });
+      assert.doesNotMatch(res.text, /dryness|screenshot/);
+      assert.match(logs.find(entry => entry.startsWith('Skin guidance (')), /stage=backup_rejected_photo, .*backup=failed/);
+    } finally {
+      await api.close();
+    }
+  });
+});
