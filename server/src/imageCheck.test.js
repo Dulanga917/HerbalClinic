@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { GEMINI_UNAVAILABLE } = require('./aiGuidance');
-const { imageCheckPrompt, normaliseImageCheck } = require('./imageCheck');
+const { REJECTION_REASONS, imageCheckFields, imageCheckPrompt, normaliseImageCheck } = require('./imageCheck');
 const gemini = require('./gemini');
 
 const FAKE_KEY = 'test-placeholder-not-a-real-key';
@@ -120,6 +120,41 @@ test('the Skin Type check prompt asks only for the structured verdict, strictly'
     assert.ok(prompt.includes(field), field);
   }
   assert.doesNotMatch(prompt, /"severity"|"confidence"|"dosha"/i);
+});
+
+const offeredReasons = fields => fields.match(/otherwise the main problem, one of (.*)$/m)[1];
+
+test('the skin-guidance check accepts any body part and offers no face-only rejection reasons', () => {
+  const fields = imageCheckFields('skin');
+  assert.match(fields, /clearly shows real human skin/);
+  assert.match(fields, /any part of the body \(for example the face, hands, arms or legs\) is valid; a face is not required/);
+  assert.match(fields, /If you are not sure, it is not valid/);
+  assert.equal(
+    offeredReasons(fields),
+    '"no_human_skin", "poor_lighting", "blurry", "heavily_filtered", "unclear"',
+  );
+  assert.ok(gemini.skinIssuePrompt().includes(fields), 'Gemini and Groq both receive the skin-guidance fields');
+});
+
+test('the Skin Type face check still offers every rejection reason and no body-part wording', () => {
+  const fields = imageCheckFields('face');
+  assert.equal(offeredReasons(fields), REJECTION_REASONS.map(reason => `"${reason}"`).join(', '));
+  assert.doesNotMatch(fields, /any part of the body|a face is not required/);
+  assert.ok(imageCheckPrompt('face').includes(fields));
+});
+
+test('a skin-guidance answer that still says "non_facial_skin" or "invalid" is never turned into a pass', () => {
+  for (const reason of ['non_facial_skin', 'face_not_visible', 'multiple_faces', 'unclear']) {
+    assert.deepEqual(
+      normaliseImageCheck({ ...ARM, isValid: false, reason }, 'skin'),
+      rejected(reason, 'human_skin'),
+      reason,
+    );
+  }
+  assert.deepEqual(
+    normaliseImageCheck({ ...ARM, isValid: true, reason: 'non_facial_skin' }, 'skin'),
+    rejected('non_facial_skin', 'human_skin'),
+  );
 });
 
 function withFakeModel(generateContent, run) {

@@ -17,13 +17,9 @@ const {
 } = require('./db');
 const { describeDatabaseConfig } = require('./database');
 const defaultGemini = require('./gemini');
-const {
-  GEMINI_UNAVAILABLE,
-  GEMINI_UNAVAILABLE_MESSAGE,
-  QUOTA_EXCEEDED,
-  analyseSkinGuidanceInLanguage,
-  geminiUnavailable,
-} = require('./aiGuidance');
+const defaultGroq = require('./groq');
+const { GEMINI_UNAVAILABLE, GEMINI_UNAVAILABLE_MESSAGE, QUOTA_EXCEEDED } = require('./aiGuidance');
+const { analyseSkinGuidance } = require('./skinGuidanceProviders');
 const { IMAGE_REJECTED, IMAGE_REJECTED_MESSAGE } = require('./imageCheck');
 const { loadConfig, loadDatabaseConfig, checkStartupConfig } = require('./config');
 const {
@@ -111,6 +107,7 @@ function badRequest(res, message) {
 function createApp({
   config = loadConfig(),
   gemini = defaultGemini,
+  groq = defaultGroq,
   rateLimits,
   healthCheck = checkDatabaseHealth,
 } = {}) {
@@ -230,7 +227,6 @@ function createApp({
     let imageBytes = null;
     let mimeType = null;
     let language = null;
-    let stage = 'gemini';
     // Metadata only: never the photo, base64 data, token, guidance text, or user details.
     const logOutcome = details =>
       console.log(
@@ -244,21 +240,21 @@ function createApp({
         badRequest(res, input.message);
         return;
       }
-      imageBytes = Buffer.byteLength(input.value.imageBase64, 'base64');
-      mimeType = input.value.mimeType;
-      language = input.value.language;
-      const checked = await analyseSkinGuidanceInLanguage(gemini, input.value);
-      if (!checked) {
-        stage = 'unusable_guidance';
-        throw geminiUnavailable(new Error('Gemini returned unusable or wrong-language skin guidance.'));
-      }
-      logOutcome('status=200, stage=guidance');
-      res.json({ analysis: checked.guidance, imageCheck: checked.imageCheck });
+      const { allowBackupProvider, ...guidanceInput } = input.value;
+      imageBytes = Buffer.byteLength(guidanceInput.imageBase64, 'base64');
+      mimeType = guidanceInput.mimeType;
+      language = guidanceInput.language;
+      const result = await analyseSkinGuidance({ gemini, backup: groq }, guidanceInput, { allowBackupProvider });
+      logOutcome(`status=200, stage=guidance, provider=${result.provider}, backup=${result.backup}`);
+      res.json({ analysis: result.guidance, imageCheck: result.imageCheck, provider: result.provider });
     } catch (error) {
       const code = (error && error.code) || 'none';
       const status =
         code === GEMINI_UNAVAILABLE ? 503 : code === IMAGE_REJECTED ? 422 : error?.status ?? 500;
-      logOutcome(`status=${status}, stage=${stage}, code=${code}, reason=${(error && error.reason) || 'none'}`);
+      logOutcome(
+        `status=${status}, stage=${(error && error.stage) || 'gemini'}, code=${code}, ` +
+          `reason=${(error && error.reason) || 'none'}, backup=${(error && error.backup) || 'none'}`,
+      );
       handleError(res, error);
     }
   });

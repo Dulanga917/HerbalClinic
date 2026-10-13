@@ -103,6 +103,62 @@ it('returns to the top of the photo screen when it regains focus after Scan Agai
   act(() => root.unmount());
 });
 
+const consentBox = (root: renderer.ReactTestRenderer) =>
+  root.root.findAllByType(TouchableOpacity).find(node => node.props.accessibilityRole === 'checkbox');
+
+it('offers an unticked Groq backup consent for AI Skin Guidance and sends the flag only when ticked', async () => {
+  const { root, navigation } = renderScreen('issue');
+  expect(consentBox(root)).toBeUndefined();
+  await act(async () => {
+    await button(root, 'Choose photo from gallery')?.props.onPress();
+  });
+
+  const box = consentBox(root);
+  expect(box?.props.accessibilityLabel).toMatch(/Groq \(a backup AI service\)/);
+  expect(box?.props.accessibilityState).toEqual({ checked: false });
+  expect(texts(root).join(' ')).toMatch(/sent to Groq only if you tick/);
+
+  act(() => consentBox(root)?.props.onPress());
+  expect(consentBox(root)?.props.accessibilityState).toEqual({ checked: true });
+  act(() => button(root, 'Get AI Skin Guidance')?.props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledWith('SkinResult', {
+    imageUri: 'file:///data/test-photo.jpg',
+    analysisType: 'issue',
+    allowBackupProvider: true,
+  });
+  act(() => root.unmount());
+});
+
+it('resets the backup consent when a new photo is chosen', async () => {
+  const { root, navigation } = renderScreen('issue');
+  await act(async () => {
+    await button(root, 'Choose photo from gallery')?.props.onPress();
+  });
+  act(() => consentBox(root)?.props.onPress());
+  expect(consentBox(root)?.props.accessibilityState).toEqual({ checked: true });
+
+  await act(async () => {
+    await button(root, 'Change photo from gallery')?.props.onPress();
+  });
+  expect(consentBox(root)?.props.accessibilityState).toEqual({ checked: false });
+  act(() => button(root, 'Get AI Skin Guidance')?.props.onPress());
+  expect(navigation.navigate).toHaveBeenCalledWith('SkinResult', {
+    imageUri: 'file:///data/test-photo.jpg',
+    analysisType: 'issue',
+  });
+  act(() => root.unmount());
+});
+
+it('never offers the backup consent for the on-device Skin Type Assessment', async () => {
+  const { root } = renderScreen('type');
+  await act(async () => {
+    await button(root, 'Choose photo from gallery')?.props.onPress();
+  });
+  expect(consentBox(root)).toBeUndefined();
+  expect(texts(root).join(' ')).not.toMatch(/Groq/);
+  act(() => root.unmount());
+});
+
 it('ignores a second picker tap while the first picker is still open', async () => {
   let resolvePick!: (value: null) => void;
   (openGallery as jest.Mock).mockImplementationOnce(

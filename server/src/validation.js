@@ -144,7 +144,21 @@ function validateImageUpload(body) {
     return language;
   }
 
-  return { ok: true, value: { imageBase64, mimeType: detected.mime, language: language.value } };
+  // Consent to the backup AI provider is opt-in: only an explicit `true` counts.
+  const { allowBackupProvider } = body;
+  if (allowBackupProvider !== undefined && allowBackupProvider !== null && typeof allowBackupProvider !== 'boolean') {
+    return fail('allowBackupProvider must be true or false.');
+  }
+
+  return {
+    ok: true,
+    value: {
+      imageBase64,
+      mimeType: detected.mime,
+      language: language.value,
+      allowBackupProvider: allowBackupProvider === true,
+    },
+  };
 }
 
 function validateRecommendationInput(body) {

@@ -27,6 +27,7 @@ const REJECTION_REASONS = [
   'heavily_filtered',
   'unclear',
 ];
+const FACE_ONLY_REASONS = ['face_not_visible', 'non_facial_skin', 'multiple_faces'];
 const MODEL_REASONS = ['ok', ...REJECTION_REASONS];
 const MAX_FACE_COUNT = 50;
 
@@ -41,11 +42,16 @@ const QUALITY_REASONS = {
 const quoted = values => values.map(value => `"${value}"`).join(', ');
 
 function imageCheckFields(purpose) {
-  const subject =
-    purpose === 'face'
-      ? 'exactly one real human face, front-facing, with most of the face clearly visible'
-      : 'real human skin';
-  return `It is valid only if it is a real camera photo that clearly shows ${subject}, is in focus, is evenly lit (not too dark or too bright), and is not heavily filtered, edited, a drawing, or a screenshot.
+  const isFace = purpose === 'face';
+  const subject = isFace
+    ? 'exactly one real human face, front-facing, with most of the face clearly visible'
+    : 'real human skin';
+  // Skin guidance accepts any body part, so face-specific reasons must not be offered for it.
+  const reasons = isFace ? REJECTION_REASONS : REJECTION_REASONS.filter(reason => !FACE_ONLY_REASONS.includes(reason));
+  const anyBodyPart = isFace
+    ? ''
+    : '\nSkin from any part of the body (for example the face, hands, arms or legs) is valid; a face is not required.';
+  return `It is valid only if it is a real camera photo that clearly shows ${subject}, is in focus, is evenly lit (not too dark or too bright), and is not heavily filtered, edited, a drawing, or a screenshot.${anyBodyPart}
 Photos of furniture, rooms, landscapes, animals, food, documents, text, screens, or other objects are never valid. If you are not sure, it is not valid.
 Fields:
   "isValid": true or false,
@@ -53,7 +59,7 @@ Fields:
   "humanSkinVisible": true or false,
   "faceCount": the number of human faces clearly visible (0 if none),
   "quality": one of ${quoted(IMAGE_QUALITIES)},
-  "reason": "ok" when isValid is true, otherwise the main problem, one of ${quoted(REJECTION_REASONS)}`;
+  "reason": "ok" when isValid is true, otherwise the main problem, one of ${quoted(reasons)}`;
 }
 
 /** Standalone prompt for Skin Type Assessment: the whole answer is the image check. */

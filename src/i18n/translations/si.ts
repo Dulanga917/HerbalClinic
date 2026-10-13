@@ -116,7 +116,7 @@ export const si: Record<TranslationKey, string> = {
   'feature.skinType.title': 'සම් වර්ග පරීක්ෂණය',
   'feature.skinType.desc': 'දුරකථනය තුළම කෙරෙන දෝෂ අනාවැකිය: වාත, පිත හෝ සෙම',
   'feature.skinIssue.title': 'AI සම් මගපෙන්වීම',
-  'feature.skinIssue.desc': 'Gemini ආධාරයෙන් සම පිළිබඳ මගපෙන්වීම — රෝග විනිශ්චයක් නොවේ',
+  'feature.skinIssue.desc': 'AI ආධාරයෙන් සම පිළිබඳ මගපෙන්වීම — රෝග විනිශ්චයක් නොවේ',
   'feature.herbal.title': 'ඔසු පුස්තකාලය',
   'feature.herbal.desc': 'ආයුර්වේද ඔසු සහ ඔබට ගැළපෙන නිර්දේශ',
   'feature.meditation.title': 'භාවනාව',
@@ -158,7 +158,7 @@ export const si: Record<TranslationKey, string> = {
 
   // Skin analysis home
   'skin.title': 'සම විශ්ලේෂණය',
-  'skin.subtitle': 'දුරකථනය තුළ ක්‍රියා කරන දෝෂ ආකෘතිය සහ Gemini AI සම් මගපෙන්වීම',
+  'skin.subtitle': 'දුරකථනය තුළ ක්‍රියා කරන දෝෂ ආකෘතිය සහ AI සම් මගපෙන්වීම',
   'skin.chooseType': 'විශ්ලේෂණ වර්ගය තෝරන්න',
   'skin.typeDesc': 'පර්යේෂණාත්මක, දුරකථනය තුළම කෙරෙන දෝෂ අනාවැකිය: වාත, පිත හෝ සෙම',
   'skin.issueDesc': 'ඡායාරූපයක් ඇසුරෙන් සාමාන්‍ය ආයුර්වේද ස්වයං-රැකවරණ යෝජනා (රෝග විනිශ්චයක් නොවේ)',
@@ -166,14 +166,17 @@ export const si: Record<TranslationKey, string> = {
   'skin.step1': 'සම් වර්ග පරීක්ෂණය හෝ AI සම් මගපෙන්වීම තෝරන්න',
   'skin.step2': 'පැහැදිලි ඡායාරූපයක් ගන්න හෝ තෝරන්න',
   'skin.step3':
-    'සම් වර්ග පරීක්ෂණය එක් මුහුණක් ඇති බව පරීක්ෂා කර ඡායාරූපය මෙම දුරකථනය තුළම වර්ගීකරණය කරයි; AI සම් මගපෙන්වීම Gemini භාවිතා කරයි',
+    'සම් වර්ග පරීක්ෂණය එක් මුහුණක් ඇති බව පරීක්ෂා කර ඡායාරූපය මෙම දුරකථනය තුළම වර්ගීකරණය කරයි; AI සම් මගපෙන්වීම Gemini භාවිතා කරයි (ඔබ අවසර දුන්නොත් පමණක් Groq විකල්ප සේවාවක් ලෙස)',
 
   // Skin camera
   'camera.issueSubtitle': 'සමේ කොටසක් සඳහා සාමාන්‍ය ආයුර්වේද ස්වයං-රැකවරණ මගපෙන්වීම',
   'camera.privacyType':
     'ඡායාරූපය මෙම දුරකථනයෙන් පිටතට යවන්නේ නැත: දුරකථනය තුළම ඇති මුහුණු හඳුනාගැනීම එක් මුහුණක් ඇති බව පරීක්ෂා කර, පසුව දුරකථනයේ ඇති ආකෘතියෙන් වර්ගීකරණය කරයි.',
   'camera.tipFace': 'කැමරාව දෙස බලා, එක් මුහුණක් පැහැදිලිව පෙන්වන්න',
-  'camera.privacyIssue': 'Gemini මගපෙන්වීම ලබා ගැනීමට ඡායාරූපය HerbalClinic සේවාදායකයට යවනු ලැබේ.',
+  'camera.privacyIssue':
+    'Gemini මගපෙන්වීම ලබා ගැනීමට ඡායාරූපය HerbalClinic සේවාදායකයට යවනු ලැබේ. ඉහත විකල්පය ඔබ සලකුණු කළහොත් පමණක් එය Groq වෙත යවනු ලැබේ.',
+  'camera.backupConsent':
+    'Gemini ලබාගත නොහැකි නම්, මගපෙන්වීම සඳහා මෙම ඡායාරූපය Groq (විකල්ප AI සේවාවක්) වෙත යැවීමට අවසර දෙන්න. Gemini පමණක් භාවිතා කිරීමට මෙය සලකුණු නොකර තබන්න.',
   'camera.tipClearPhoto': 'හොඳ ආලෝකයක් සහිත පැහැදිලි ඡායාරූපයක් භාවිතා කරන්න',
   'camera.tipSteady': 'කැමරාව නොසෙල්වී තබා පැහැදිලිව ෆෝකස් කරන්න',
   'camera.tipNoFilters': 'ෆිල්ටර් සහ අධික සංස්කරණ භාවිතා නොකරන්න',
@@ -230,7 +233,8 @@ export const si: Record<TranslationKey, string> = {
   'result.recommendedMeditation': 'නිර්දේශිත භාවනාව',
   'result.doshaDisclaimer':
     'මෙය තොරතුරු සහ ස්වයං-රැකවරණය සඳහා පමණක් වූ පර්යේෂණාත්මක ආයුර්වේද සුවතා අනාවැකියකි. ආකෘතියේ විශ්වාසය වෛද්‍ය නිරවද්‍යතාවයක් නොවන අතර මෙය වෛද්‍ය රෝග විනිශ්චයක් නොවේ.',
-  'result.offlineBanner': 'නොබැඳි සාමාන්‍ය මගපෙන්වීම — ඔබගේ ඡායාරූපය විශ්ලේෂණය කර නැත.',
+  'result.offlineBanner':
+    'AI ඡායාරූප විශ්ලේෂණය ලබාගත නොහැකි විය. නොබැඳි සාමාන්‍ය මගපෙන්වීම — ඔබගේ ඡායාරූපය විශ්ලේෂණය කර නැත.',
   'result.generalSkincare': 'සාමාන්‍ය සම රැකවරණ මගපෙන්වීම',
   'result.selfCare': 'ස්වයං-රැකවරණ යෝජනා',
   'result.herbsUsed': 'ආයුර්වේද සම රැකවරණයේ භාවිතා වන ඔසු',
@@ -262,6 +266,8 @@ export const si: Record<TranslationKey, string> = {
     'මෙම ඡායාරූපය මෙම දුරකථනයේ කියවිය නොහැකි වූ බැවින් කිසිදු ප්‍රතිඵලයක් සකස් කළේ නැත. කරුණාකර වෙනත් ඡායාරූපයක් තෝරන්න.',
   'result.aiNote':
     'Gemini AI මගින් සකස් කළ පිළිතුරකි. මෙය වැරදි විය හැකි අතර වෛද්‍ය පරීක්ෂාවක් වෙනුවට භාවිතා කළ නොහැක.',
+  'result.aiNoteGroq':
+    'Gemini ලබාගත නොහැකි වූ බැවින් Groq AI (Qwen ආකෘතිය) මගින් සකස් කළ පිළිතුරකි. මෙය වැරදි විය හැකි අතර වෛද්‍ය පරීක්ෂාවක් වෙනුවට භාවිතා කළ නොහැක.',
   'result.factors': 'බලපාන්නට ඉඩ ඇති හේතු',
   'result.languageChanged':
     'මෙම AI මගපෙන්වීම වෙනත් භාෂාවකින් සකස් කර ඇත. එය සිංහලෙන් බැලීමට ඡායාරූපය නැවත විශ්ලේෂණය කරන්න.',
@@ -364,7 +370,7 @@ export const si: Record<TranslationKey, string> = {
   'profile.historyLoading': 'ඉතිහාසය ලබාගනිමින්…',
   'profile.historyEmpty': 'මෙම ගිණුමේ තවම සුරැකි ස්කෑන් නැත.',
   'profile.historyKindType': 'සම් වර්ග පරීක්ෂණය · දුරකථනය තුළ',
-  'profile.historyKindAi': 'Gemini ආධාරයෙන් මගපෙන්වීම',
+  'profile.historyKindAi': 'AI ආධාරයෙන් මගපෙන්වීම',
   'profile.historyAiTitle': 'AI සම් මගපෙන්වීම',
   'profile.historyAiMeta': 'සාමාන්‍ය මගපෙන්වීම, විශ්වාස අගයක් නැත',
   'profile.historyNoConfidence': 'විශ්වාස අගයක් සුරැකී නැත',

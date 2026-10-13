@@ -176,16 +176,18 @@ export const fetchScanHistory = (token: string) =>
 /** Response language requested from the AI endpoints; the server accepts only these values. */
 export type GuidanceLanguage = 'en' | 'si';
 
+/** `allowBackupProvider` is the user's per-photo consent to the backup AI provider; it is only sent when true. */
 export const analyseSkinIssueRemote = (
   token: string,
   imageBase64: string,
   mimeType = 'image/jpeg',
   language: GuidanceLanguage = 'en',
+  allowBackupProvider = false,
 ) =>
-  apiRequest<{ analysis: unknown; imageCheck?: unknown }>('/api/v1/skin-issue', {
+  apiRequest<{ analysis: unknown; imageCheck?: unknown; provider?: unknown }>('/api/v1/skin-issue', {
     method: 'POST',
     token,
-    body: { imageBase64, mimeType, language },
+    body: { imageBase64, mimeType, language, ...(allowBackupProvider ? { allowBackupProvider: true } : {}) },
     timeoutMs: SKIN_ISSUE_TIMEOUT_MS,
   });
 

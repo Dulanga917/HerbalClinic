@@ -145,7 +145,7 @@ const confStyles = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { imageUri, analysisType } = route.params;
+  const { imageUri, analysisType, allowBackupProvider = false } = route.params;
   const { sessionToken, refreshUser } = useAuth();
   const { language, t } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -194,7 +194,7 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
           }
         }
       } else {
-        const res = await geminiService.analyseSkinIssue(imageUri, language);
+        const res = await geminiService.analyseSkinIssue(imageUri, language, { allowBackupProvider });
         setResult(res);
         // Offline guidance did not look at the photo and "unable to assess" assessed nothing,
         // so neither is recorded as a scan. Re-analysing in another language is not a new scan.
@@ -428,7 +428,9 @@ const SkinResultScreen: React.FC<Props> = ({ navigation, route }) => {
               {liveGuidance.status === 'unable_to_assess' ? (
                 <Text style={styles.descText}>{t('result.unableTip')}</Text>
               ) : null}
-              <Text style={styles.aiNote}>{t('result.aiNote')}</Text>
+              <Text style={styles.aiNote}>
+                {t(liveGuidance.provider === 'groq' ? 'result.aiNoteGroq' : 'result.aiNote')}
+              </Text>
             </View>
             {liveGuidance.factors.length > 0 ? (
               <View style={styles.section}>

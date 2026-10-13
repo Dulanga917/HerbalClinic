@@ -43,6 +43,8 @@ type PickerSource = 'camera' | 'gallery';
 const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
   const { analysisType } = route.params;
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // Consent to the backup AI provider is given per photo, so every new photo starts unticked.
+  const [allowBackup, setAllowBackup] = useState(false);
   const [picking, setPicking] = useState<PickerSource | null>(null);
   const pickingRef = useRef(false);
   const navigatingRef = useRef(false);
@@ -70,6 +72,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
       const image: PickedImage | null = source === 'camera' ? await openCamera() : await openGallery();
       if (image) {
         setSelectedImage(image.uri);
+        setAllowBackup(false);
       }
     } finally {
       pickingRef.current = false;
@@ -85,6 +88,7 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
     navigation.navigate('SkinResult', {
       imageUri: selectedImage,
       analysisType,
+      ...(!isSkinType && allowBackup ? { allowBackupProvider: true } : {}),
     });
   };
 
@@ -168,6 +172,20 @@ const SkinCameraScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         <Text style={styles.stepLabel}>{hasImage ? t('camera.readyStep') : t('camera.analyseStep')}</Text>
+        {!isSkinType && hasImage ? (
+          <TouchableOpacity
+            style={styles.consentRow}
+            onPress={() => setAllowBackup(value => !value)}
+            activeOpacity={0.75}
+            accessibilityRole="checkbox"
+            accessibilityLabel={t('camera.backupConsent')}
+            accessibilityState={{ checked: allowBackup }}>
+            <View style={[styles.consentBox, allowBackup && styles.consentBoxChecked]}>
+              {allowBackup ? <Text style={styles.consentTick}>✓</Text> : null}
+            </View>
+            <Text style={styles.consentText}>{t('camera.backupConsent')}</Text>
+          </TouchableOpacity>
+        ) : null}
         <HerbalButton
           title={`✨  ${t(isSkinType ? 'camera.classify' : 'camera.getGuidance')}`}
           accessibilityLabel={t(isSkinType ? 'camera.classify' : 'camera.getGuidance')}
@@ -252,6 +270,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: Spacing.sm,
   },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  consentBox: {
+    width: 24,
+    height: 24,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 2,
+    borderColor: Colors.textSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  consentBoxChecked: { backgroundColor: Colors.primaryLight, borderColor: Colors.primaryLight },
+  consentTick: { color: Colors.background, fontWeight: '800', fontSize: Typography.sm },
+  consentText: { flex: 1, fontSize: Typography.sm, color: Colors.textSecondary, lineHeight: 20 },
   actionHint: {
     fontSize: Typography.sm,
     color: Colors.textSecondary,

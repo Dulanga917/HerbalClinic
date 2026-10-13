@@ -138,6 +138,33 @@ describe('geminiService skin guidance', () => {
     expect(result.kind === 'live' && result.language).toBe('en');
   });
 
+  it('reports which provider produced live guidance, defaulting to Gemini', async () => {
+    const analysis = { status: 'no_clear_concern', observations: 'Even tone.' };
+    for (const [provider, expected] of [
+      ['groq', 'groq'],
+      ['gemini', 'gemini'],
+      [undefined, 'gemini'],
+      ['openai', 'gemini'],
+      [42, 'gemini'],
+    ] as const) {
+      mockFetch({ status: 200, body: { imageCheck: VALID_CHECK, analysis, provider } });
+      const result = await geminiService.analyseSkinIssue('file:///photo.jpg');
+      expect(result.kind === 'live' && result.provider).toBe(expected);
+    }
+  });
+
+  it('sends the backup consent flag only when it is true', async () => {
+    const bodies = async (options?: { allowBackupProvider?: boolean }) => {
+      mockFetch(UNAVAILABLE);
+      await geminiService.analyseSkinIssue('file:///photo.jpg', 'en', options);
+      const [, init] = (global.fetch as unknown as jest.Mock).mock.calls[0] as [string, { body: string }];
+      return JSON.parse(init.body);
+    };
+    expect(await bodies()).not.toHaveProperty('allowBackupProvider');
+    expect(await bodies({ allowBackupProvider: false })).not.toHaveProperty('allowBackupProvider');
+    expect(await bodies({ allowBackupProvider: true })).toMatchObject({ allowBackupProvider: true, language: 'en' });
+  });
+
   it('returns validated live guidance without any confidence or severity field', async () => {
     mockFetch({
       status: 200,

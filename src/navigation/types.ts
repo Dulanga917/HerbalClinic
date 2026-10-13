@@ -25,7 +25,7 @@ export type MainStackParamList = {
 export type SkinStackParamList = {
   SkinHome: undefined;
   SkinCamera: { analysisType: 'type' | 'issue' };
-  SkinResult: { imageUri: string; analysisType: 'type' | 'issue' };
+  SkinResult: { imageUri: string; analysisType: 'type' | 'issue'; allowBackupProvider?: boolean };
 };
 
 export type HerbalStackParamList = {

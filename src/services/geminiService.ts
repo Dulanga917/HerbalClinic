@@ -16,6 +16,7 @@ import {
 import { getSessionToken } from './sessionStorage';
 import {
   fieldsNotInLanguage,
+  parseAiProvider,
   parseSkinGuidance,
   SkinGuidanceResult,
   withVerifiedHerbNames,
@@ -108,13 +109,24 @@ class GeminiService {
     return imageCheck;
   }
 
-  async analyseSkinIssue(imageUri: string, language: Language = 'en'): Promise<SkinGuidanceResult> {
+  async analyseSkinIssue(
+    imageUri: string,
+    language: Language = 'en',
+    { allowBackupProvider = false }: { allowBackupProvider?: boolean } = {},
+  ): Promise<SkinGuidanceResult> {
     let analysis: unknown;
     let rawCheck: unknown;
+    let provider: unknown;
     try {
       const token = await requireToken();
       const imageBase64 = await imageUriToBase64(imageUri);
-      ({ analysis, imageCheck: rawCheck } = await analyseSkinIssueRemote(token, imageBase64, undefined, language));
+      ({ analysis, imageCheck: rawCheck, provider } = await analyseSkinIssueRemote(
+        token,
+        imageBase64,
+        undefined,
+        language,
+        allowBackupProvider,
+      ));
     } catch (error) {
       if (isImageRejection(error)) {
         throw rejectionFromResponse(error.imageCheck);
@@ -137,7 +149,7 @@ class GeminiService {
     if (!guidance || fieldsNotInLanguage(guidance, language).length > 0) {
       return offlineSkinGuidance(language);
     }
-    return { ...withVerifiedHerbNames(guidance, language), language };
+    return { ...withVerifiedHerbNames(guidance, language), language, provider: parseAiProvider(provider) };
   }
 
   async getHerbalRecommendations(

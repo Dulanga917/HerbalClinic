@@ -11,6 +11,7 @@ const dbFile = path.join(os.tmpdir(), `hc-api-security-${process.pid}.sqlite`);
 process.env.SQLITE_PATH = dbFile;
 process.env.NODE_ENV = 'test';
 delete process.env.GEMINI_API_KEY;
+delete process.env.GROQ_API_KEY;
 delete process.env.CORS_ALLOWED_ORIGINS;
 delete process.env.TRUST_PROXY;
 delete process.env.ENFORCE_HTTPS;
@@ -84,16 +85,42 @@ function makeGeminiStub() {
   };
 }
 
+// A stand-in for the Groq backup: plays the given outputs in order (an Error is thrown).
+function makeGroqStub(outputs = [], { configured = true } = {}) {
+  const calls = [];
+  return {
+    calls,
+    isConfigured: () => configured,
+    analyseSkinIssue: async (input, options) => {
+      calls.push([input, options]);
+      const output = outputs[Math.min(calls.length, outputs.length) - 1];
+      if (output instanceof Error) {
+        throw output;
+      }
+      return output;
+    },
+  };
+}
+
+const geminiDown = reason =>
+  Object.assign(new Error('AI guidance is temporarily unavailable.'), {
+    status: 503,
+    code: 'GEMINI_UNAVAILABLE',
+    ...(reason ? { reason } : {}),
+  });
+
 function start(options = {}) {
   const gemini = options.gemini || makeGeminiStub();
+  const groq = options.groq || makeGroqStub([], { configured: false });
   const config = { ...loadConfig({ NODE_ENV: 'test' }), ...(options.config || {}) };
-  const app = createApp({ config, gemini, rateLimits: options.rateLimits });
+  const app = createApp({ config, gemini, groq, rateLimits: options.rateLimits });
   const server = app.listen(0, '127.0.0.1');
   return new Promise(resolve => {
     server.once('listening', () => {
       const port = server.address().port;
       resolve({
         gemini,
+        groq,
         close: () => new Promise(done => server.close(done)),
         request: (method, urlPath, { body, token, headers = {}, raw } = {}) =>
           new Promise((resolveRequest, reject) => {
@@ -725,9 +752,9 @@ test('skin-issue logs one metadata-only outcome line for success, unusable guida
     assert.deepEqual(statuses, [200, 503, 503]);
     const lines = logs.filter(entry => entry.startsWith('Skin guidance ('));
     assert.equal(lines.length, 3);
-    assert.match(lines[0], /^Skin guidance \(status=200, stage=guidance, language=si, /);
-    assert.match(lines[1], /status=503, stage=unusable_guidance, code=GEMINI_UNAVAILABLE, reason=none/);
-    assert.match(lines[2], /status=503, stage=gemini, code=GEMINI_UNAVAILABLE, reason=quota_exceeded/);
+    assert.match(lines[0], /^Skin guidance \(status=200, stage=guidance, provider=gemini, backup=not_allowed, language=si, /);
+    assert.match(lines[1], /status=503, stage=unusable_guidance, code=GEMINI_UNAVAILABLE, reason=none, backup=not_allowed/);
+    assert.match(lines[2], /status=503, stage=gemini, code=GEMINI_UNAVAILABLE, reason=quota_exceeded, backup=not_allowed/);
     for (const line of lines) {
       assert.match(line, new RegExp(`bytes=${JPEG_BYTES.length}, mimeType=image/jpeg, elapsedMs=\\d+, at=\\d{4}-`));
       assert.ok(!line.includes(imageBase64) && !line.includes(token));

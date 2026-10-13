@@ -6,6 +6,11 @@ export const SKIN_GUIDANCE_DISCLAIMER =
 
 export type SkinGuidanceStatus = 'possible_concern' | 'no_clear_concern' | 'unable_to_assess';
 
+/** The AI service that wrote live guidance: Gemini, or Groq as the consented backup. */
+export type AiProvider = 'gemini' | 'groq';
+
+export const parseAiProvider = (value: unknown): AiProvider => (value === 'groq' ? 'groq' : 'gemini');
+
 export interface SkinGuidanceHerb {
   name: string;
   emoji: string;
@@ -23,6 +28,8 @@ export interface LiveSkinGuidance {
   selfCare: string[];
   /** Language the guidance text was generated in; unset only for payloads not yet language-checked. */
   language?: Language;
+  /** Set once the server response is read; servers without a fallback only ever used Gemini. */
+  provider?: AiProvider;
 }
 
 export interface OfflineSkinGuidance {

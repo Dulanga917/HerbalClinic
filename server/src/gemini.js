@@ -59,6 +59,12 @@ function withLanguage(prompt, language) {
   return language === 'si' ? `${prompt}\n${SINHALA_OUTPUT_INSTRUCTION}` : prompt;
 }
 
+/** The full skin-guidance instruction text; shared by every provider so the safety rules stay identical. */
+function skinIssuePrompt({ language = 'en', strictLanguage = false } = {}) {
+  const prompt = withLanguage(SKIN_ISSUE_PROMPT, language);
+  return strictLanguage && language === 'si' ? `${prompt}\n${SINHALA_STRICT_INSTRUCTION}` : prompt;
+}
+
 function getApiKey() {
   const key = String(process.env.GEMINI_API_KEY || '').trim();
   if (!key || key === 'your_gemini_api_key_here') {
@@ -83,8 +89,8 @@ const RETRY_POLICY = {
 
 const TRANSIENT_NETWORK_PATTERN = /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|UND_ERR_/i;
 
-function timeoutError() {
-  const error = new Error(`Gemini did not respond within ${RETRY_POLICY.attemptTimeoutMs} ms.`);
+function timeoutError(timeoutMs) {
+  const error = new Error(`Gemini did not respond within ${timeoutMs} ms.`);
   error.name = 'GeminiTimeoutError';
   return error;
 }
@@ -142,14 +148,14 @@ function logFailure({ attempt, maxAttempts, category, status, elapsedMs, willRet
   );
 }
 
-async function generateWithTimeout(model, request) {
+async function generateWithTimeout(model, request, timeoutMs) {
   const controller = new AbortController();
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => {
       controller.abort();
-      reject(timeoutError());
-    }, RETRY_POLICY.attemptTimeoutMs);
+      reject(timeoutError(timeoutMs));
+    }, timeoutMs);
   });
   try {
     return await Promise.race([model.generateContent(request, { signal: controller.signal }), timeout]);
@@ -162,7 +168,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Any provider-side failure (bad or revoked key, quota, outage, timeout, network, blocked or
 // unparseable output) means the photo was not analysed, so the client should fall back.
-async function callGemini(request, readResponse, { maxAttempts = RETRY_POLICY.maxAttempts } = {}) {
+async function callGemini(
+  request,
+  readResponse,
+  { maxAttempts = RETRY_POLICY.maxAttempts, attemptTimeoutMs = RETRY_POLICY.attemptTimeoutMs } = {},
+) {
   const apiKey = getApiKey();
   const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL_NAME });
 
@@ -170,7 +180,7 @@ async function callGemini(request, readResponse, { maxAttempts = RETRY_POLICY.ma
   for (let attempt = 1; ; attempt += 1) {
     const startedAt = Date.now();
     try {
-      result = await generateWithTimeout(model, request);
+      result = await generateWithTimeout(model, request, attemptTimeoutMs);
       break;
     } catch (error) {
       const { category, retryable } = classifyFailure(error);
@@ -210,10 +220,9 @@ async function analyseSkinIssue(
   { imageBase64, mimeType = 'image/jpeg', language = 'en', strictLanguage = false },
   options = {},
 ) {
-  const prompt = withLanguage(SKIN_ISSUE_PROMPT, language);
   return callGemini(
     [
-      strictLanguage && language === 'si' ? `${prompt}\n${SINHALA_STRICT_INSTRUCTION}` : prompt,
+      skinIssuePrompt({ language, strictLanguage }),
       {
         inlineData: {
           mimeType,
@@ -286,11 +295,15 @@ async function getDailyTip(dosha, language = 'en') {
 }
 
 module.exports = {
+  MODEL_NAME,
   RETRY_POLICY,
   SKIN_ISSUE_PROMPT,
   SINHALA_OUTPUT_INSTRUCTION,
   SINHALA_STRICT_INSTRUCTION,
   withLanguage,
+  skinIssuePrompt,
+  parseJsonContent,
+  classifyFailure,
   herbalRecommendationsPrompt,
   dailyTipPrompt,
   analyseSkinIssue,
